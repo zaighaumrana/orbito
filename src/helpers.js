@@ -28,22 +28,33 @@ export function moduleToggleRow(label, sub, enabled, action) {
 // ── Single session enforcement ────────────────────────────────────
 export async function validateSession() {
   if (!pState.authenticated || !pState.currentUser.sessionToken) return;
+
   try {
     let storedToken = null;
     if (pState.currentUser.isMember) {
-      const { data } = await pb.from("platform_users")
+      const { data, error } = await pb.from("platform_users")
         .select("session_token")
         .eq("id", pState.currentUser.userId)
         .single();
+      if (error) {
+        console.warn("Session check error (platform_users):", error.message);
+        return;
+      }
       storedToken = data?.session_token;
     } else {
-      const { data } = await pb.from("platform_config")
+      const { data, error } = await pb.from("platform_config")
         .select("session_token")
         .eq("id", 1)
         .single();
+      if (error) {
+        console.warn("Session check error (platform_config):", error.message);
+        return;
+      }
       storedToken = data?.session_token;
     }
-    if (storedToken !== pState.currentUser.sessionToken) {
+
+    if (storedToken && storedToken !== pState.currentUser.sessionToken) {
+      console.log("Session invalidated by another login");
       await pb.auth.signOut();
       pState.authenticated = false;
       pState.currentUser   = { role: "master_admin", username: "admin" };
@@ -54,6 +65,6 @@ export async function validateSession() {
       render();
     }
   } catch (e) {
-    console.warn("Session check failed:", e.message);
+    console.warn("Session check failed — session kept:", e.message);
   }
 }

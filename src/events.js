@@ -23,7 +23,6 @@ export function initEvents() {
 
     /* Page navigation */
     if (el.dataset.pPage) {
-      await validateSession();
       if (!pState.authenticated) return;
       pState.page = el.dataset.pPage;
       pState.filter = "";
