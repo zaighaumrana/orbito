@@ -23,9 +23,39 @@ document.addEventListener("submit", handleFormSubmit);
 /* ── Wire up all click/input/keyboard events ── */
 initEvents();
 
+/* ── Browser back/forward navigation ── */
+window.addEventListener("popstate", (event) => {
+  if (!pState.authenticated) return;
+  const pathMap = {
+    "/":         "overview",
+    "/clients":  "clients",
+    "/billing":  "billing",
+    "/support":  "support",
+    "/settings": "settings",
+  };
+  const page = event.state?.page ||
+    pathMap[window.location.pathname] ||
+    "overview";
+  pState.page   = page;
+  pState.filter = "";
+  if (page !== "client-detail") pState.selectedClient = null;
+  import("./render.js").then(({ render }) => render());
+});
+
 /* ── Boot — restore session if page is refreshed ── */
 (async () => {
   const { data: { session } } = await pb.auth.getSession();
+
+  if (session) {
+    /* Restore page from URL on refresh */
+    const pathMap = {
+      "/":         "overview",
+      "/clients":  "clients",
+      "/billing":  "billing",
+      "/support":  "support",
+      "/settings": "settings",
+    };
+    const restoredPage = pathMap[window.location.pathname] || "overview";
 
   if (session) {
     /* Determine if this is master admin or team member */
@@ -65,7 +95,7 @@ initEvents();
     }
 
     pState.authenticated = true;
-    pState.page          = "overview";
+    pState.page = restoredPage;
     await loadPlatform();
 
     /* Validate session immediately on restore */

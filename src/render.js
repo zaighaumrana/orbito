@@ -103,6 +103,21 @@ export function render() {
   const app = document.getElementById("platform-app");
   if (!app) return;
   document.documentElement.dataset.theme = pState.theme;
+  /* Sync URL with current page state */
+  if (pState.authenticated) {
+    const urlMap = {
+      "overview":      "/",
+      "clients":       "/clients",
+      "client-detail": "/clients",
+      "billing":       "/billing",
+      "support":       "/support",
+      "settings":      "/settings",
+    };
+    const target = urlMap[pState.page] || "/";
+    if (window.location.pathname !== target) {
+      history.pushState({ page: pState.page }, "", target);
+    }
+  }
 
   if (!pState.authenticated) {
     app.innerHTML = loginPage();
