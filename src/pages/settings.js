@@ -117,7 +117,7 @@ export function pageSettings() {
                 ${u.role === "billing_person" ? "Billing Person" : "Portfolio Manager"}
               </span>
             </td>
-            <td><span class="badge good">${u.status || "Active"}</span></td>
+            <td><span class="badge ${u.status === "Pending" ? "warn" : "good"}">${u.status || "Active"}</span></td>
             <td style="font-size:12px">${new Date(u.created_at).toLocaleDateString()}</td>
             <td style="display:flex;gap:6px">
               <button class="secondary-button" style="font-size:12px;padding:4px 10px"

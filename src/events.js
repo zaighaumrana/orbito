@@ -111,6 +111,15 @@ export function initEvents() {
         statusEl.classList.remove("hidden"); return;
       }
 
+      /* Mark platform user as Active if they were Pending */
+      const { data: { user } } = await pb.auth.getUser();
+      if (user?.email) {
+        await pb.from("platform_users")
+          .update({ status: "Active" })
+          .eq("email", user.email)
+          .eq("status", "Pending");
+      }
+
       statusEl.textContent = "Password updated! Redirecting to login…";
       statusEl.style.cssText += "color:#7aada0;background:rgba(122,173,160,0.1)";
       statusEl.classList.remove("hidden");

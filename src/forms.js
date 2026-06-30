@@ -133,18 +133,16 @@ export async function handleFormSubmit(event) {
     await loadPlatform(); render(); return;
   }
 
-  /* ── Add Platform User ── */
+  /* ── Add Platform User (invite flow) ── */
   if (type === "add-platform-user") {
     if (pState.currentUser.role !== "master_admin") {
       alert("Only Master Admin can add users."); return;
     }
-    const pwErr = validatePassword(data.password);
-    if (pwErr) { alert(pwErr); return; }
-
     const { error: fnErr } = await pb.functions.invoke("create-platform-user", {
-      body: { email: data.email, password: data.password, name: data.name, role: data.role },
+      body: { email: data.email, name: data.name, role: data.role },
     });
-    if (fnErr) { alert("Error creating user: " + fnErr.message); return; }
+    if (fnErr) { alert("Error sending invite: " + fnErr.message); return; }
+    alert("Invite sent. They'll receive an email to set up their account.");
     pState.modal = null;
     await loadPlatform(); render(); return;
   }

@@ -19,15 +19,13 @@ export function userModals(type, md) {
                 </select></label>
               <label class="field" style="grid-column:1/-1"><span>Email</span>
                 <input name="email" type="email" required placeholder="user@example.com"></label>
-              <label class="field" style="grid-column:1/-1">
-                <span>Password</span>
-                <input name="password" type="password" required minlength="8"
-                  placeholder="Min 8 chars, letter + number + symbol">
-              </label>
             </div>
+            <p class="muted" style="font-size:12px;margin-top:10px">
+              An invite email will be sent. They'll set their own password to activate the account.
+            </p>
             <div class="modal-actions" style="margin-top:14px">
               <button type="button" class="secondary-button" data-p-close>Cancel</button>
-              <button type="submit" class="primary-button">Create User</button>
+              <button type="submit" class="primary-button">Send Invite</button>
             </div>
           </form>
         </div>
