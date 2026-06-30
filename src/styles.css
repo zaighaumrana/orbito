@@ -291,10 +291,16 @@ th { color: var(--muted); font-size: 12px; font-weight: 700; text-transform: upp
 .hidden { display: none !important; }
 
 /* ── Print ── */
+body.printing-invoice > *:not(#print-zone) {
+  display: none !important;
+}
+body.printing-invoice #print-zone {
+  display: block !important;
+}
 @media print {
-  body > * { display: none !important; }
-  #print-zone { display: block !important; }
-  #print-zone * { display: revert !important; }
+  body:not(.printing-invoice) {
+    display: none !important;
+  }
 }
 #print-zone { display: none; }
 
