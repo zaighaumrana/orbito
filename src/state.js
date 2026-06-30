@@ -15,6 +15,7 @@ export const pState = {
   currentUser:    { role: "master_admin", username: "admin" },
   turnstileToken: null,
   loginLoading:   false,
+  resetLoading:   false,
 };
 
 export let PCFG = {

@@ -50,6 +50,79 @@ export function initEvents() {
       document.getElementById("p-sidebar")?.classList.toggle("open"); return;
     }
 
+    /* ── Show forgot password page ── */
+    if (action === "show-forgot-password") {
+      pState.page = "forgot-password";
+      render(); return;
+    }
+
+    /* ── Back to login ── */
+    if (action === "back-to-login") {
+      pState.page = "login";
+      render(); return;
+    }
+
+    /* ── Send reset link ── */
+    if (action === "send-reset-link") {
+      const email = document.getElementById("forgot-email")?.value?.trim();
+      const statusEl = document.getElementById("forgot-status");
+      if (!email) {
+        statusEl.textContent = "Please enter your email.";
+        statusEl.style.cssText += "color:#c24132;background:rgba(194,65,50,0.1)";
+        statusEl.classList.remove("hidden"); return;
+      }
+      pState.resetLoading = true; render();
+      pState.page = "forgot-password"; // keep on this page after render
+      const { error } = await pb.auth.resetPasswordForEmail(email, {
+        redirectTo: "https://orbito.ahwad.com/?reset=true",
+      });
+      pState.resetLoading = false;
+      render();
+      const newStatusEl = document.getElementById("forgot-status");
+      if (newStatusEl) {
+        newStatusEl.textContent = "If an account exists for that email, a reset link has been sent.";
+        newStatusEl.style.cssText += "color:#7aada0;background:rgba(122,173,160,0.1)";
+        newStatusEl.classList.remove("hidden");
+      }
+      return;
+    }
+
+    /* ── Confirm new password from reset link ── */
+    if (action === "confirm-reset-password") {
+      const newpass = document.getElementById("reset-newpass")?.value;
+      const confirm = document.getElementById("reset-confirm")?.value;
+      const statusEl = document.getElementById("reset-status");
+
+      if (newpass !== confirm) {
+        statusEl.textContent = "Passwords don't match.";
+        statusEl.style.cssText += "color:#c24132;background:rgba(194,65,50,0.1)";
+        statusEl.classList.remove("hidden"); return;
+      }
+      if (newpass.length < 8 || !/[A-Z]/.test(newpass) || !/[0-9]/.test(newpass) || !/[^A-Za-z0-9]/.test(newpass)) {
+        statusEl.textContent = "Password needs 8+ chars, an uppercase letter, a number, and a symbol.";
+        statusEl.style.cssText += "color:#c24132;background:rgba(194,65,50,0.1)";
+        statusEl.classList.remove("hidden"); return;
+      }
+
+      const { error } = await pb.auth.updateUser({ password: newpass });
+      if (error) {
+        statusEl.textContent = "Error: " + error.message;
+        statusEl.style.cssText += "color:#c24132;background:rgba(194,65,50,0.1)";
+        statusEl.classList.remove("hidden"); return;
+      }
+
+      statusEl.textContent = "Password updated! Redirecting to login…";
+      statusEl.style.cssText += "color:#7aada0;background:rgba(122,173,160,0.1)";
+      statusEl.classList.remove("hidden");
+
+      await pb.auth.signOut();
+      setTimeout(() => {
+        pState.page = "login";
+        render();
+      }, 1500);
+      return;
+    }
+
     /* ── LOGIN ── */
     if (action === "do-login") {
       const username = document.getElementById("platform-username")?.value?.trim();

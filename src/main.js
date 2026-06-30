@@ -42,6 +42,14 @@ window.addEventListener("popstate", (event) => {
   import("./render.js").then(({ render }) => render());
 });
 
+/* ── Detect password reset link landing ── */
+if (window.location.hash.includes("type=recovery")) {
+  pState.page = "reset-password";
+}
+
+/* ── Boot — restore session if page is refreshed ── */
+(async () => {
+
 /* ── Boot — restore session if page is refreshed ── */
 (async () => {
   const { data: { session } } = await pb.auth.getSession();
