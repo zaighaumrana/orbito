@@ -49,13 +49,9 @@ if (window.location.hash.includes("type=recovery")) {
 
 /* ── Boot — restore session if page is refreshed ── */
 (async () => {
-
-/* ── Boot — restore session if page is refreshed ── */
-(async () => {
   const { data: { session } } = await pb.auth.getSession();
 
   if (session) {
-    /* Restore page from URL on refresh */
     const pathMap = {
       "/":         "overview",
       "/clients":  "clients",
@@ -65,8 +61,6 @@ if (window.location.hash.includes("type=recovery")) {
     };
     const restoredPage = pathMap[window.location.pathname] || "overview";
 
-  if (session) {
-    /* Determine if this is master admin or team member */
     const email = session.user?.email;
 
     if (email === import.meta.env.VITE_PLATFORM_AUTH_EMAIL) {
