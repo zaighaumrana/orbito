@@ -198,8 +198,18 @@ export function initEvents() {
 
     /* ── Generate invoice ── */
     if (action === "generate-invoice") {
-      await generateInvoice(Number(el.dataset.pId));
-      await loadPlatform(); render(); return;
+      const clientId = Number(el.dataset.pId);
+      const client    = pState.data.clients.find(c => c.id === clientId);
+      await generateInvoice(clientId);
+      await loadPlatform();
+      const newInvoice = pState.data.invoices
+        .filter(i => i.client_id === clientId)
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+      render();
+      if (client && newInvoice) {
+        printClientInvoices(client, [newInvoice]);
+      }
+      return;
     }
 
     /* ── Mark paid → open payment modal ── */
