@@ -42,19 +42,36 @@ window.addEventListener("popstate", (event) => {
   import("./render.js").then(({ render }) => render());
 });
 
-/* ── Detect password reset / invite link landing ── */
-// CHANGE 1: capture as a variable so the boot IIFE can check it
-const isRecoveryFlow = window.location.hash.includes("type=recovery");
+/* ── Detect recovery / invite flow ──────────────────────────────────
+   Supabase JS v2 uses PKCE — tokens arrive as ?code= query param,
+   not as #type=recovery hash fragment (that was Auth v1 implicit flow).
+   We detect the recovery landing by checking:
+   1. The ?reset=true query param we set as our redirectTo
+   2. OR a ?code= param (Supabase PKCE exchange code)
+   3. OR legacy #type=recovery hash (fallback, some configs still use it)
+─────────────────────────────────────────────────────────────────── */
+const params       = new URLSearchParams(window.location.search);
+const isRecoveryFlow =
+  params.has("reset") ||                                    // our custom marker
+  params.has("code") ||                                     // PKCE code exchange
+  window.location.hash.includes("type=recovery");           // legacy fallback
+
 if (isRecoveryFlow) {
   pState.page = "reset-password";
 }
 
-/* ── Boot — restore session if page is refreshed ── */
+/* ── Boot ────────────────────────────────────────────────────────── */
 (async () => {
-  // CHANGE 1: on recovery/invite links, skip all role lookups and render
-  // the reset-password form immediately. The Supabase recovery session is
-  // already established by the link — calling signOut() would destroy it.
+
   if (isRecoveryFlow) {
+    /*
+     * Recovery / invite landing — Supabase JS v2 automatically exchanges
+     * the ?code= param for a session via onAuthStateChange. We just need
+     * to render the reset-password form and let the user submit.
+     * DO NOT query platform_users here — the session context during PKCE
+     * exchange is a temporary recovery session, not a full platform session,
+     * and the query would fail RLS or return wrong results.
+     */
     render();
     return;
   }
@@ -113,8 +130,7 @@ if (isRecoveryFlow) {
     await loadPlatform();
     await validateSession();
 
-    // CHANGE 2: render after session restore — previously missing,
-    // causing white screen on every page refresh.
+    /* Render after session restore — previously missing, caused white screen */
     render();
   } else {
     render();
