@@ -42,13 +42,23 @@ window.addEventListener("popstate", (event) => {
   import("./render.js").then(({ render }) => render());
 });
 
-/* ── Detect password reset link landing ── */
-if (window.location.hash.includes("type=recovery")) {
+/* ── Detect password reset / invite link landing ── */
+// CHANGE 1: capture as a variable so the boot IIFE can check it
+const isRecoveryFlow = window.location.hash.includes("type=recovery");
+if (isRecoveryFlow) {
   pState.page = "reset-password";
 }
 
 /* ── Boot — restore session if page is refreshed ── */
 (async () => {
+  // CHANGE 1: on recovery/invite links, skip all role lookups and render
+  // the reset-password form immediately. The Supabase recovery session is
+  // already established by the link — calling signOut() would destroy it.
+  if (isRecoveryFlow) {
+    render();
+    return;
+  }
+
   const { data: { session } } = await pb.auth.getSession();
 
   if (session) {
@@ -83,6 +93,8 @@ if (window.location.hash.includes("type=recovery")) {
       if (!userRow) {
         /* Unknown user — force logout */
         await pb.auth.signOut();
+        pState.authenticated = false;
+        pState.page = "login";
         render();
         return;
       }
@@ -99,9 +111,11 @@ if (window.location.hash.includes("type=recovery")) {
     pState.authenticated = true;
     pState.page = restoredPage;
     await loadPlatform();
-
-    /* Validate session immediately on restore */
     await validateSession();
+
+    // CHANGE 2: render after session restore — previously missing,
+    // causing white screen on every page refresh.
+    render();
   } else {
     render();
   }
