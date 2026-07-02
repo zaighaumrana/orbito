@@ -1,6 +1,6 @@
 import { pb, loadConfig, loadPlatform } from "./supabase.js";
 import { pState }                        from "./state.js";
-import { render, initTurnstile }         from "./render.js";
+import { render }                        from "./render.js";
 import { initEvents }                    from "./events.js";
 import { handleFormSubmit }              from "./forms.js";
 import { validateSession }               from "./helpers.js";
@@ -24,7 +24,7 @@ document.addEventListener("submit", handleFormSubmit);
 initEvents();
 
 /* ── Browser back/forward navigation ── */
-window.addEventListener("popstate", (event) => {
+window.addEventListener("popstate", () => {
   if (!pState.authenticated) return;
   const pathMap = {
     "/":         "overview",
@@ -33,52 +33,54 @@ window.addEventListener("popstate", (event) => {
     "/support":  "support",
     "/settings": "settings",
   };
-  const page = event.state?.page ||
-    pathMap[window.location.pathname] ||
-    "overview";
+  const page = pathMap[window.location.pathname] || "overview";
   pState.page   = page;
   pState.filter = "";
   if (page !== "client-detail") pState.selectedClient = null;
-  import("./render.js").then(({ render }) => render());
+  render();
 });
 
-/* ── Detect recovery / invite flow ──────────────────────────────────
-   Supabase JS v2 uses PKCE — tokens arrive as ?code= query param,
-   not as #type=recovery hash fragment (that was Auth v1 implicit flow).
-   We detect the recovery landing by checking:
-   1. The ?reset=true query param we set as our redirectTo
-   2. OR a ?code= param (Supabase PKCE exchange code)
-   3. OR legacy #type=recovery hash (fallback, some configs still use it)
-─────────────────────────────────────────────────────────────────── */
-const params       = new URLSearchParams(window.location.search);
-const isRecoveryFlow =
-  params.has("reset") ||                                    // our custom marker
-  params.has("code") ||                                     // PKCE code exchange
-  window.location.hash.includes("type=recovery");           // legacy fallback
+/* ── Also check query param as fallback detection ── */
+// Supabase v2 clears the hash before JS runs, so we cannot rely on
+// window.location.hash.includes("type=recovery"). Instead we use
+// onAuthStateChange below. However we also check ?reset=true as a
+// secondary signal to put the app in a waiting state.
+const hasResetParam = new URLSearchParams(window.location.search).has("reset");
 
-if (isRecoveryFlow) {
-  pState.page = "reset-password";
-}
-
-/* ── Boot ────────────────────────────────────────────────────────── */
-(async () => {
-
-  if (isRecoveryFlow) {
-    /*
-     * Recovery / invite landing — Supabase JS v2 automatically exchanges
-     * the ?code= param for a session via onAuthStateChange. We just need
-     * to render the reset-password form and let the user submit.
-     * DO NOT query platform_users here — the session context during PKCE
-     * exchange is a temporary recovery session, not a full platform session,
-     * and the query would fail RLS or return wrong results.
-     */
+/* ── Auth state change — primary recovery detection ── */
+// In Supabase JS v2, PASSWORD_RECOVERY fires when the user lands on
+// the redirectTo URL after clicking a reset/invite email link.
+// The library processes the hash token automatically on createClient(),
+// clears the hash, and emits this event. This is the only reliable
+// way to detect the recovery flow in v2.
+pb.auth.onAuthStateChange((event, session) => {
+  if (event === "PASSWORD_RECOVERY") {
+    // Show the set-password form — do not proceed with normal boot
+    pState.page = "reset-password";
+    pState.authenticated = false;
     render();
+  }
+});
+
+/* ── Boot — restore session if page is refreshed ── */
+(async () => {
+  // If ?reset=true is in the URL, Supabase is still processing the
+  // hash token via onAuthStateChange above. Give it priority —
+  // if PASSWORD_RECOVERY fires it will render the reset form.
+  // We still call getSession() but only proceed with normal boot
+  // if the event was NOT a recovery flow.
+  const { data: { session } } = await pb.auth.getSession();
+
+  // If we're on a reset URL and there's a session, it might be the
+  // recovery session. Let onAuthStateChange handle it — don't boot
+  // into the normal authenticated app.
+  if (hasResetParam && session) {
+    // onAuthStateChange will have fired PASSWORD_RECOVERY already
+    // and rendered the reset form. Nothing to do here.
     return;
   }
 
-  const { data: { session } } = await pb.auth.getSession();
-
-  if (session) {
+  if (session && !hasResetParam) {
     const pathMap = {
       "/":         "overview",
       "/clients":  "clients",
@@ -87,7 +89,6 @@ if (isRecoveryFlow) {
       "/settings": "settings",
     };
     const restoredPage = pathMap[window.location.pathname] || "overview";
-
     const email = session.user?.email;
 
     if (email === import.meta.env.VITE_PLATFORM_AUTH_EMAIL) {
@@ -130,9 +131,11 @@ if (isRecoveryFlow) {
     await loadPlatform();
     await validateSession();
 
-    /* Render after session restore — previously missing, caused white screen */
+    // Render after all data loaded — this was the white screen bug
     render();
-  } else {
+  } else if (!hasResetParam) {
+    // No session, not a reset flow — show login
     render();
   }
+  // If hasResetParam but no session yet: onAuthStateChange will handle it
 })();
