@@ -33,6 +33,26 @@ export async function handleFormSubmit(event) {
       shop_url:           data.shop_url || "",
     });
     if (error) { alert("Error: " + error.message); return; }
+
+    // Bootstrap the client's Supabase Auth user automatically
+    if (data.shop_auth_email && data.shop_auth_password) {
+      try {
+        const { createClient } = await import("@supabase/supabase-js");
+        const clientSb = createClient(data.supabase_url, data.supabase_anon);
+        const { error: bootstrapErr } = await clientSb.functions.invoke("bootstrap-shop-auth", {
+          body: {
+            email:    data.shop_auth_email,
+            password: data.shop_auth_password,
+          },
+        });
+        if (bootstrapErr) {
+          alert("Client saved but auth setup had an issue: " + bootstrapErr.message + "\nYou may need to create the auth user manually in their Supabase dashboard.");
+        }
+      } catch (e) {
+        console.warn("Auth bootstrap failed:", e.message);
+      }
+    }
+
     pState.modal = null;
     await loadPlatform(); render(); return;
   }

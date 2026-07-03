@@ -63,6 +63,12 @@ export function clientModals(type, md) {
                   <input name="supabase_url" placeholder="https://xxx.supabase.co" required></label>
                 <label class="field" style="grid-column:1/-1"><span>Supabase Anon Key</span>
                   <input name="supabase_anon" placeholder="eyJ…" required></label>
+                  <label class="field"><span>Shop Auth Email</span>
+                <input name="shop_auth_email" type="email"
+                  placeholder="admin@shopname.internal" required></label>
+              <label class="field"><span>Shop Auth Password</span>
+                <input name="shop_auth_password" type="password"
+                  placeholder="Strong password for POS login" required></label>
               </div>
             </div>
 
