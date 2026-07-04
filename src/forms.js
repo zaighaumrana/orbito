@@ -47,6 +47,27 @@ export async function handleFormSubmit(event) {
         });
         if (bootstrapErr) {
           alert("Client saved but auth setup had an issue: " + bootstrapErr.message + "\nYou may need to create the auth user manually in their Supabase dashboard.");
+        } else {
+          alert(
+            `✓ Client created and auth user bootstrapped.\n\n` +
+            `Share these credentials with the shop owner:\n` +
+            `Email: ${data.shop_auth_email}\n` +
+            `Temp Password: ${data.shop_auth_password}\n\n` +
+            `The owner will be forced to change their password on first login.`
+          );
+          // Write billing rates to client's own shop_config
+          // so the POS can read them without accessing the platform DB
+          try {
+            await clientSb.from("shop_config")
+              .update({
+                event_rate:     Number(data.event_rate || 0),
+                inventory_rate: Number(data.inventory_rate || 0),
+              })
+              .eq("id", 1);
+          } catch (rateErr) {
+            console.warn("Could not write rates to client shop_config:", rateErr.message);
+            alert("Warning: billing rates could not be written to client shop_config. Update them manually in the client's Supabase.");
+          }
         }
       } catch (e) {
         console.warn("Auth bootstrap failed:", e.message);

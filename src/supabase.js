@@ -64,7 +64,12 @@ export async function loadClientData(client) {
 export async function updateClientConfig(client, updates) {
   const { createClient: cc } = await import("@supabase/supabase-js");
   const csb = pState.clientData._sb || cc(client.supabase_url, client.supabase_anon);
-  const { error } = await csb.from("shop_config").update(updates).eq("id", 1);
+
+  // Client now locks shop_config to service_role only.
+  // Route all writes through the client's update-shop-config Edge Function.
+  const { error } = await csb.functions.invoke("update-shop-config", {
+    body: updates,
+  });
   if (error) { alert("Error updating client config: " + error.message); return false; }
   return true;
 }
