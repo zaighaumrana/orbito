@@ -1,5 +1,6 @@
+import { rpc, recordPayment, retryOperation } from "./operations.js";
 import { pState, PCFG } from "./state.js";
-import { pb, PLATFORM_AUTH_EMAIL, loadPlatform } from "./supabase.js";
+import { pb, PLATFORM_AUTH_EMAIL, loadPlatform, loadClientData } from "./supabase.js";
 import { render } from "./render.js";
 
 function validatePassword(pw) {
@@ -16,6 +17,15 @@ export async function handleFormSubmit(event) {
   const data = Object.fromEntries(new FormData(form).entries());
   const type = form.dataset.pForm;
 
+  if (type === 'paper-delivery') {
+    const clientId = pState.selectedClient.id;
+    const request = (pState.clientData.operations?.requests || []).find(r => r.request_id === data.request_id);
+    const delivery = { reference: data.reference, roll_count: Number(data.roll_count), usable_length_mm: Number(data.usable_length_mm), paper_width_mm: Number(data.paper_width_mm), delivered_at: new Date(data.delivered_at).toISOString() };
+    const payload = { p_client: clientId, p_request: request?.request_id || null, p_version: request?.sync_version || null, p_status: 'fulfilled', delivery };
+    await retryOperation(`supply:${clientId}`, payload, id => rpc('platform_paper_action', { p_client: payload.p_client, p_request: payload.p_request, p_version: payload.p_version, p_status: payload.p_status, p_delivery: { ...delivery, delivery_id: id } }));
+    await loadClientData(pState.selectedClient); render(); return;
+  }
+
   /* ── Add Client ── */
   if (type === "add-client") {
     const { error } = await pb.from("clients").insert({
@@ -23,7 +33,8 @@ export async function handleFormSubmit(event) {
       industry:           data.industry || "Mobile Repair Shop",
       plan:               data.plan     || "Basic",
       status:             "Active",
-      currency_symbol:    data.currency_symbol || "Rs.",
+      currency:           data.currency,
+      currency_symbol:    data.currency,
       event_rate:         Number(data.event_rate || 0),
       inventory_rate:     Number(data.inventory_rate || 0),
       bill_billable:      true,
@@ -34,45 +45,7 @@ export async function handleFormSubmit(event) {
     });
     if (error) { alert("Error: " + error.message); return; }
 
-    // Bootstrap the client's Supabase Auth user automatically
-    if (data.shop_auth_email && data.shop_auth_password) {
-      try {
-        const { createClient } = await import("@supabase/supabase-js");
-        const clientSb = createClient(data.supabase_url, data.supabase_anon);
-        const { error: bootstrapErr } = await clientSb.functions.invoke("bootstrap-shop-auth", {
-          body: {
-            email:    data.shop_auth_email,
-            password: data.shop_auth_password,
-          },
-        });
-        if (bootstrapErr) {
-          alert("Client saved but auth setup had an issue: " + bootstrapErr.message + "\nYou may need to create the auth user manually in their Supabase dashboard.");
-        } else {
-          alert(
-            `✓ Client created and auth user bootstrapped.\n\n` +
-            `Share these credentials with the shop owner:\n` +
-            `Email: ${data.shop_auth_email}\n` +
-            `Temp Password: ${data.shop_auth_password}\n\n` +
-            `The owner will be forced to change their password on first login.`
-          );
-          // Write billing rates to client's own shop_config
-          // so the POS can read them without accessing the platform DB
-          try {
-            await clientSb.from("shop_config")
-              .update({
-                event_rate:     Number(data.event_rate || 0),
-                inventory_rate: Number(data.inventory_rate || 0),
-              })
-              .eq("id", 1);
-          } catch (rateErr) {
-            console.warn("Could not write rates to client shop_config:", rateErr.message);
-            alert("Warning: billing rates could not be written to client shop_config. Update them manually in the client's Supabase.");
-          }
-        }
-      } catch (e) {
-        console.warn("Auth bootstrap failed:", e.message);
-      }
-    }
+    alert('Client saved. Provision its trusted source and server credentials before enabling billing or configuration sync.');
 
     pState.modal = null;
     await loadPlatform(); render(); return;
@@ -80,12 +53,13 @@ export async function handleFormSubmit(event) {
 
   /* ── Edit Client ── */
   if (type === "edit-client") {
+    if (data.currency !== pState.selectedClient.currency) await rpc("platform_set_currency", { p_client: pState.selectedClient.id, p_currency: data.currency });
     const { error } = await pb.from("clients").update({
       name:            data.name,
       industry:        data.industry,
       plan:            data.plan,
       shop_url:        data.shop_url,
-      currency_symbol: data.currency_symbol,
+
     }).eq("id", pState.selectedClient.id);
     if (error) { alert("Error: " + error.message); return; }
     pState.selectedClient = { ...pState.selectedClient, ...data };
@@ -101,75 +75,14 @@ export async function handleFormSubmit(event) {
     const invBillable = data.inventory_billable === "true";
     const client      = pState.data.clients.find(c => c.id === clientId);
 
-    const { error } = await pb.from("clients").update({
-      event_rate:         newEvent,
-      inventory_rate:     newInv,
-      inventory_billable: invBillable,
-    }).eq("id", clientId);
-    if (error) { alert("Error: " + error.message); return; }
-
-    if (client && Number(client.event_rate) !== newEvent) {
-      await pb.from("pricing_rate_log").insert({
-        client_id: clientId, module_type: "BILL",
-        old_rate: Number(client.event_rate || 0), new_rate: newEvent,
-      });
-    }
-    if (client && Number(client.inventory_rate) !== newInv) {
-      await pb.from("pricing_rate_log").insert({
-        client_id: clientId, module_type: "INVENTORY",
-        old_rate: Number(client.inventory_rate || 0), new_rate: newInv,
-      });
-    }
+    await rpc('platform_set_rates', { p_client: clientId, p_bill: newEvent, p_inventory: newInv, p_inventory_billable: invBillable });
     pState.modal = null;
     await loadPlatform(); render(); return;
   }
 
   /* ── Record Payment ── */
   if (type === "record-payment") {
-    const invoiceId = Number(data.invoice_id);
-    const clientId  = Number(data.client_id);
-    const amount    = Number(data.amount);
-    const invoice   = pState.data.invoices.find(i => i.id === invoiceId);
-    if (!invoice) return;
-
-    const { error: payErr } = await pb.from("payments").insert({
-      invoice_id:     invoiceId,
-      client_id:      clientId,
-      amount,
-      payment_method: data.payment_method,
-      payment_date:   data.payment_date,
-      notes:          data.notes || "",
-      recorded_by:    pState.currentUser.username || "admin",
-    });
-    if (payErr) { alert("Error: " + payErr.message); return; }
-
-    await loadPlatform();
-    const allPaid   = (pState.data.payments || []).filter(p => p.invoice_id === invoiceId)
-                        .reduce((s, p) => s + Number(p.amount || 0), 0);
-    const totalDue  = Number(invoice.total_due || 0);
-    const remaining = totalDue - allPaid;
-
-    if (remaining <= 0) {
-      await pb.from("billing_cycles")
-        .update({ payment_status: "Paid", remaining_balance: 0 })
-        .eq("id", invoiceId);
-    } else {
-      await pb.from("billing_cycles")
-        .update({ payment_status: "Partial", remaining_balance: remaining })
-        .eq("id", invoiceId);
-      const existingCredit = (pState.data.credits || [])
-        .find(c => c.source_invoice_id === invoiceId && !c.is_cleared);
-      if (existingCredit) {
-        await pb.from("client_credit")
-          .update({ amount_outstanding: remaining })
-          .eq("id", existingCredit.id);
-      } else {
-        await pb.from("client_credit").insert({
-          client_id: clientId, source_invoice_id: invoiceId,
-          amount_outstanding: remaining, is_cleared: false,
-        });
-      }
-    }
+    await recordPayment(data);
     pState.modal = null;
     await loadPlatform(); render(); return;
   }
@@ -249,8 +162,6 @@ export async function handleFormSubmit(event) {
     if (pwErr) { alert(pwErr); return; }
     const { error } = await pb.auth.updateUser({ password: data.newpass });
     if (error) { alert("Error: " + error.message); return; }
-    await pb.from("platform_config")
-      .update({ admin_password: data.newpass }).eq("id", 1);
     alert("Password updated. Please log in again.");
     await pb.auth.signOut();
     pState.authenticated = false;

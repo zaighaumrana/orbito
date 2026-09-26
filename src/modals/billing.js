@@ -1,3 +1,4 @@
+import { esc } from "../operations.js";
 import { pState } from "../state.js";
 import { getInvoicePayments, getInvoicePaidTotal } from "../billing.js";
 
@@ -8,33 +9,33 @@ export function billingModals(type, md) {
     const clientId = md?.clientId;
     const client   = pState.data.clients.find(x => x.id === clientId);
     const logs     = (pState.data.usage || [])
-      .filter(u => u.client_id === clientId)
+      .filter(u => u.client_id === clientId && ["BILL","INVENTORY"].includes(u.module_type))
       .sort((a, b) => new Date(b.recorded_at) - new Date(a.recorded_at));
     return `
       <div class="modal-backdrop">
         <div class="modal" style="max-width:680px">
           <div style="display:flex;justify-content:space-between;align-items:center">
-            <h2>Usage Logs — ${client?.name || "Client"}</h2>
+            <h2>Usage Logs — ${esc(client?.name || "Client")}</h2>
             <button class="icon-button" data-p-close>✕</button>
           </div>
           <div class="table-wrap" style="max-height:420px;overflow-y:auto">
             <table>
               <thead><tr>
-                <th>Type</th><th>Tokens</th><th>Rate</th><th>Amount</th><th>Invoiced</th><th>Date</th>
+                <th>Type</th><th>Tokens</th><th>Rate</th><th>Amount</th><th>Invoiced / ownership</th><th>Date</th>
               </tr></thead>
               <tbody>
                 ${logs.length ? logs.map(u => `<tr>
-                  <td><span class="badge">${u.module_type}</span></td>
+                  <td><span class="badge">${esc(u.module_type)}</span></td>
                   <td>${u.token_count}</td>
-                  <td>Rs. ${u.rate_at_log}</td>
-                  <td>Rs. ${(Number(u.token_count||1)*Number(u.rate_at_log||0)).toLocaleString()}</td>
+                  <td>${esc(client?.currency || "Unconfigured")} ${Number(u.rate_at_log)}</td>
+                  <td>${esc(client?.currency || "Unconfigured")} ${(Number(u.token_count||1)*Number(u.rate_at_log||0)).toLocaleString()}</td>
                   <td>${u.is_invoiced
                     ? `<span class="badge good">Yes</span>`
-                    : `<span class="badge warn">No</span>`}</td>
+                    : `<span class="badge warn">${u.billing_ownership === "excluded" ? "Excluded at cutover" : "No"}</span>`}</td>
                   <td style="font-size:12px">${new Date(u.recorded_at).toLocaleString()}</td>
                 </tr>`).join("")
                 : `<tr><td colspan="6" style="text-align:center;color:var(--muted)">
-                    No logs this month
+                    No usage records
                   </td></tr>`}
               </tbody>
             </table>
@@ -56,7 +57,7 @@ export function billingModals(type, md) {
     const totalPaid = getInvoicePaidTotal(invoiceId);
     const totalDue  = Number(invoice?.total_due || 0);
     const remaining = totalDue - totalPaid;
-    const sym       = client?.currency_symbol || "Rs.";
+    const sym       = esc(client?.currency_symbol || "Rs.");
     return `
       <div class="modal-backdrop">
         <div class="modal" style="max-width:520px">
@@ -67,7 +68,7 @@ export function billingModals(type, md) {
           <div style="background:var(--surface-2);padding:12px;border-radius:8px;margin-bottom:14px;
                       font-size:14px;display:grid;gap:6px">
             <div class="list-row" style="border:none;padding:0">
-              <span class="muted">Client</span><strong>${client?.name || "—"}</strong>
+              <span class="muted">Client</span><strong>${esc(client?.name || "—")}</strong>
             </div>
             <div class="list-row" style="border:none;padding:0">
               <span class="muted">Invoice Total</span>
@@ -89,7 +90,7 @@ export function billingModals(type, md) {
             <p style="font-size:13px;color:var(--muted);margin-bottom:8px">Payment History</p>
             ${payments.map(p => `
               <div class="list-row" style="font-size:13px;margin-bottom:4px">
-                <span>${p.payment_method}</span>
+                <span>${esc(p.payment_method)}</span>
                 <span class="muted">${new Date(p.payment_date).toLocaleDateString()}</span>
                 <strong>${sym} ${Number(p.amount).toLocaleString()}</strong>
               </div>`).join("")}
@@ -99,7 +100,7 @@ export function billingModals(type, md) {
             <input type="hidden" name="client_id"  value="${clientId}">
             <div class="form-grid">
               <label class="field"><span>Amount Received (${sym})</span>
-                <input name="amount" type="number" min="1" max="${remaining}"
+                <input name="amount" type="number" min="0.0001" step="any" max="${remaining}"
                   value="${remaining}" required>
               </label>
               <label class="field"><span>Payment Date</span>
@@ -134,7 +135,7 @@ export function billingModals(type, md) {
     const client    = pState.data.clients.find(c => c.id === invoice?.client_id);
     const payments  = getInvoicePayments(md?.invoiceId);
     const totalPaid = getInvoicePaidTotal(md?.invoiceId);
-    const sym       = client?.currency_symbol || "Rs.";
+    const sym       = esc(client?.currency_symbol || "Rs.");
     if (!invoice) return `
       <div class="modal-backdrop">
         <div class="modal"><button data-p-close>Close</button></div>
@@ -155,7 +156,7 @@ export function billingModals(type, md) {
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;font-size:14px">
             <div>
               <p class="muted" style="font-size:12px">CLIENT</p>
-              <strong>${client?.name || "—"}</strong><br>
+              <strong>${esc(client?.name || "—")}</strong><br>
               <span class="muted">${client?.plan || ""} Plan</span>
             </div>
             <div style="text-align:right">
@@ -213,7 +214,7 @@ export function billingModals(type, md) {
             <p style="font-size:13px;color:var(--muted);margin-bottom:8px">Payment History</p>
             ${payments.map(p => `
               <div class="list-row" style="font-size:13px;margin-bottom:4px">
-                <span>${p.payment_method}</span>
+                <span>${esc(p.payment_method)}</span>
                 <span class="muted">${new Date(p.payment_date).toLocaleDateString()} · ${p.recorded_by}</span>
                 <strong style="color:var(--success)">${sym} ${Number(p.amount).toLocaleString()}</strong>
               </div>`).join("")}

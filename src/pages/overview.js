@@ -1,3 +1,4 @@
+import { esc } from "../operations.js";
 import { pState } from "../state.js";
 import { computeClientBilling, getLifecycleFlag } from "../billing.js";
 import { tit } from "../helpers.js";
@@ -12,23 +13,22 @@ export function pageOverview() {
   const showFinancials = role === "master_admin" || role === "billing_person";
   const showAddClient  = role === "master_admin" || role === "portfolio_manager";
 
-  const mrr = pState.data.invoices
-    .filter(i => i.status === "Unpaid")
-    .reduce((s, i) => s + Number(i.total_due || 0), 0);
-
-  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-  const todayRevenue = pState.data.usage
-    .filter(u => new Date(u.recorded_at) >= todayStart)
-    .reduce((s, u) => s + Number(u.token_count || 1) * Number(u.rate_at_log || 0), 0);
-
+  const outstandingByCurrency = new Map();
+  for (const invoice of pState.data.invoices) {
+    const client = clients.find(c => c.id === invoice.client_id);
+    const currency = client?.currency || 'Unconfigured';
+    const paid = pState.data.payments.filter(p => p.invoice_id === invoice.id).reduce((n,p) => n + Number(p.amount),0);
+    outstandingByCurrency.set(currency,(outstandingByCurrency.get(currency)||0)+Math.max(Number(invoice.total_due)-paid,0));
+  }
+  const outstandingText = [...outstandingByCurrency].map(([code,amount]) => `${esc(code)} ${amount.toLocaleString()}`).join(' · ') || 'No invoices';
   const kpis = [
     ["Total Clients",    clients.length,   ""],
     ["Active",           active,           "good"],
     ["Suspended",        suspended,        suspended ? "bad" : ""],
     ["Open Tickets",     openTickets,      openTickets ? "warn" : ""],
     ...(showFinancials ? [
-      ["Revenue Due",      `Rs. ${mrr.toLocaleString()}`,          "good"],
-      ["Today's Activity", `Rs. ${todayRevenue.toLocaleString()}`, ""],
+      ["Revenue Due",      outstandingText,          "good"],
+      ["Uninvoiced BILL events", clients.reduce((n,c) => n + computeClientBilling(c.id).billCount,0), ""],
     ] : []),
   ];
 
@@ -53,7 +53,7 @@ export function pageOverview() {
           <thead><tr>
             <th>Business</th><th>Plan</th><th>Status</th>
             <th>Shop URL</th>
-            ${showFinancials ? "<th>This Month</th>" : ""}
+            ${showFinancials ? "<th>Uninvoiced estimate</th>" : ""}
             <th>Actions</th>
           </tr></thead>
           <tbody>
@@ -62,18 +62,18 @@ export function pageOverview() {
               const lifecycle = getLifecycleFlag(c);
               return `<tr>
                 <td>
-                  <strong>${c.name}</strong><br>
-                  <small class="muted">${c.industry || "—"}</small>
+                  <strong>${esc(c.name)}</strong><br>
+                  <small class="muted">${esc(c.industry || "—")}</small>
                 </td>
-                <td>${c.plan}</td>
+                <td>${esc(c.plan)}</td>
                 <td>
-                  <span class="badge ${c.status === "Active" ? "good" : "bad"}">${c.status}</span>
+                  <span class="badge ${c.status === "Active" ? "good" : "bad"}">${esc(c.status)}</span>
                   ${lifecycle ? `<span class="badge ${lifecycle.cls}" style="margin-left:4px">${lifecycle.label}</span>` : ""}
                 </td>
-                <td>${c.shop_url
-                  ? `<a href="${c.shop_url}" target="_blank" style="color:var(--primary);font-size:13px">Open ↗</a>`
+                <td>${/^https?:\/\//i.test(c.shop_url || "")
+                  ? `<a href="${esc(c.shop_url)}" target="_blank" rel="noopener noreferrer" style="color:var(--primary);font-size:13px">Open ↗</a>`
                   : "—"}</td>
-                ${showFinancials ? `<td><strong>Rs. ${b.grandTotal.toLocaleString()}</strong></td>` : ""}
+                ${showFinancials ? `<td><strong>${esc(c.currency || "Unconfigured")} ${b.grandTotal.toLocaleString()}</strong></td>` : ""}
                 <td>
                   <button class="secondary-button" data-p-action="open-client" data-p-id="${c.id}">
                     Manage

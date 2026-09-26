@@ -25,46 +25,12 @@ export function moduleToggleRow(label, sub, enabled, action) {
     </div>`;
 }
 
-// ── Single session enforcement ────────────────────────────────────
+// Supabase Auth owns sessions. Backend role checks remain authoritative.
 export async function validateSession() {
-  if (!pState.authenticated || !pState.currentUser.sessionToken) return;
-
-  try {
-    let storedToken = null;
-    if (pState.currentUser.isMember) {
-      const { data, error } = await pb.from("platform_users")
-        .select("session_token")
-        .eq("id", pState.currentUser.userId)
-        .single();
-      if (error) {
-        console.warn("Session check error (platform_users):", error.message);
-        return;
-      }
-      storedToken = data?.session_token;
-    } else {
-      const { data, error } = await pb.from("platform_config")
-        .select("session_token")
-        .eq("id", 1)
-        .single();
-      if (error) {
-        console.warn("Session check error (platform_config):", error.message);
-        return;
-      }
-      storedToken = data?.session_token;
-    }
-
-    if (storedToken && storedToken !== pState.currentUser.sessionToken) {
-      console.log("Session invalidated by another login");
-      await pb.auth.signOut();
-      pState.authenticated = false;
-      pState.currentUser   = { role: "master_admin", username: "admin" };
-      pState.page          = "login";
-      pState.modal         = null;
-      alert("Your session was ended because you logged in on another device.");
-      const { render } = await import("./render.js");
-      render();
-    }
-  } catch (e) {
-    console.warn("Session check failed — session kept:", e.message);
+  if (!pState.authenticated) return;
+  const { data, error } = await pb.auth.getUser();
+  if (error || !data.user) {
+    await pb.auth.signOut(); pState.authenticated = false; pState.page = 'login';
+    const { render } = await import('./render.js'); render();
   }
 }

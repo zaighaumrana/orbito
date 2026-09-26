@@ -1,3 +1,4 @@
+import { esc } from "../operations.js";
 import { pState } from "../state.js";
 
 export function clientModals(type, md) {
@@ -24,8 +25,8 @@ export function clientModals(type, md) {
                   <option value="Pro Plus">Pro Plus — Pro + Employee Management</option>
                 </select>
               </label>
-              <label class="field"><span>Currency Symbol</span>
-                <input name="currency_symbol" value="Rs." placeholder="Rs. / $ / €"></label>
+              <label class="field"><span>Billing Currency (ISO code)</span>
+                <input name="currency" required pattern="[A-Z]{3}" maxlength="3" placeholder="USD / PKR / EUR" list="currency-codes"><datalist id="currency-codes"><option>PKR</option><option>USD</option><option>EUR</option><option>GBP</option><option>AED</option><option>SAR</option><option>CAD</option><option>AUD</option></datalist></label>
               <label class="field" style="grid-column:1/-1"><span>Shop URL</span>
                 <input name="shop_url" placeholder="https://…"></label>
             </div>
@@ -45,11 +46,11 @@ export function clientModals(type, md) {
                   <span>Inventory Addon</span>
                   <select name="inventory_addon" id="onboard-inv-select">
                     <option value="false">Not included</option>
-                    <option value="true">Included — charge per restock</option>
+                    <option value="true">Included — charge per inventory item created</option>
                   </select>
                 </label>
                 <label class="field hidden" id="onboard-inv-rate-field" style="grid-column:1/-1">
-                  <span>Inventory Rate (per restock instance)</span>
+                  <span>Inventory Rate (per inventory item created instance)</span>
                   <input name="inventory_rate" type="number" min="0" step="any"
                     placeholder="e.g. 1 or 0.50" value="0">
                 </label>
@@ -63,12 +64,7 @@ export function clientModals(type, md) {
                   <input name="supabase_url" placeholder="https://xxx.supabase.co" required></label>
                 <label class="field" style="grid-column:1/-1"><span>Supabase Anon Key</span>
                   <input name="supabase_anon" placeholder="eyJ…" required></label>
-                  <label class="field"><span>Shop Auth Email</span>
-                <input name="shop_auth_email" type="email"
-                  placeholder="admin@shopname.internal" required></label>
-              <label class="field"><span>Shop Auth Password</span>
-                <input name="shop_auth_password" type="password"
-                  placeholder="Strong password for POS login" required></label>
+                <p class="muted">Shop authentication and server credentials are provisioned separately.</p>
               </div>
             </div>
 
@@ -86,25 +82,25 @@ export function clientModals(type, md) {
       <div class="modal-backdrop">
         <div class="modal" style="max-width:520px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-            <h2>Edit — ${c.name}</h2>
+            <h2>Edit — ${esc(c.name)}</h2>
             <button class="icon-button" data-p-close>✕</button>
           </div>
           <form data-p-form="edit-client">
             <div class="form-grid">
               <label class="field"><span>Business Name</span>
-                <input name="name" value="${c.name || ""}"></label>
+                <input name="name" value="${esc(c.name || "")}"></label>
               <label class="field"><span>Industry</span>
-                <input name="industry" value="${c.industry || ""}"></label>
+                <input name="industry" value="${esc(c.industry || "")}"></label>
               <label class="field"><span>Plan</span>
                 <select name="plan">
                   ${["Basic","Pro","Pro Plus"].map(p =>
                     `<option ${c.plan === p ? "selected" : ""}>${p}</option>`).join("")}
                 </select>
               </label>
-              <label class="field"><span>Currency Symbol</span>
-                <input name="currency_symbol" value="${c.currency_symbol || "Rs."}"></label>
+              <label class="field"><span>Billing Currency (ISO code)</span>
+                <input name="currency" required pattern="[A-Z]{3}" maxlength="3" value="${esc(c.currency || "")}" placeholder="USD / PKR / EUR"></label>
               <label class="field" style="grid-column:1/-1"><span>Shop URL</span>
-                <input name="shop_url" value="${c.shop_url || ""}"></label>
+                <input name="shop_url" value="${esc(c.shop_url || "")}"></label>
             </div>
             <div class="modal-actions" style="margin-top:14px">
               <button type="button" class="secondary-button" data-p-close>Cancel</button>

@@ -1,0 +1,48 @@
+git diff --stat (tracked files only)
+
+ src/billing.js        |  98 ++----------------
+ src/events.js         | 148 +++++++++------------------
+ src/forms.js          | 125 ++++-------------------
+ src/helpers.js        |  46 ++-------
+ src/main.js           |  17 +++-
+ src/modals/billing.js |  31 +++---
+ src/modals/client.js  |  28 +++---
+ src/pages/billing.js  |  32 +++---
+ src/pages/clients.js  | 271 +++++++++++++++-----------------------------------
+ src/pages/overview.js |  38 +++----
+ src/supabase.js       |  99 +++++++-----------
+ supabase/config.toml  |   6 ++
+ 12 files changed, 280 insertions(+), 659 deletions(-)
+
+New implementation files (untracked; not included above)
+docs/PLATFORM_MODERNIZATION_IMPLEMENTATION.md (124 lines)
+preview.html (3 lines)
+src/local-preview.js (40 lines)
+src/operations.js (33 lines)
+supabase/functions/platform-bridge/index.ts (31 lines)
+supabase/functions/platform-config/index.ts (61 lines)
+supabase/maintenance/reset_legacy_test_accounting.sql (31 lines)
+supabase/migrations/20260925191052_platform_control_plane.sql (524 lines)
+tests/concurrency.mjs (40 lines)
+tests/control-plane.sql (105 lines)
+tests/currencies-boundaries.sql (38 lines)
+tests/local-bootstrap.sql (9 lines)
+tests/operations.test.mjs (22 lines)
+tests/test-accounting-reset.sql (18 lines)
+tests/verify-shop-projection.mjs (33 lines)
+
+The three pre-existing untracked handoff documents were retained and given a superseded-reference banner.
+No files staged or committed. Branch: development.
+
+Documentation follow-up (2026-09-27)
+- Added README.md: repository overview, local setup, sample preview, validation,
+  deployment prerequisites and links to the live smoke checklist.
+- Added docs/ORBITO_CHANGE_MANIFEST.txt: repository-local copy of this manifest.
+- Updated docs/PLATFORM_MODERNIZATION_IMPLEMENTATION.md: explicit report/checklist
+  title and resolved the initial historical-accounting finding against the owner's
+  later authorization to reset disposable test clients.
+- The tracked diff above is the implementation snapshot before this documentation
+  follow-up; documentation files are still untracked and excluded from that stat.
+- New implementation/delivery files now total 17 (the original 15 plus README
+  and this manifest), alongside the three pre-existing handoff documents.
+- No application code or database state changed in this documentation follow-up.

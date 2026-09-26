@@ -1,0 +1,61 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.108.2'
+const fields = ['repair_module_enabled','inventory_module_enabled','technician_module_enabled','live_tracking_enabled','ems_enabled','suspended']
+const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info', 'Access-Control-Allow-Methods': 'POST, OPTIONS' }
+const reply = (status: number, body: unknown) => Response.json(body, { status, headers: cors })
+Deno.serve(async req => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
+  if (req.method !== 'POST') return reply(405, { error: 'POST required' })
+  const authorization = req.headers.get('authorization') ?? ''
+  const url = Deno.env.get('SUPABASE_URL')!
+  const caller = createClient(url, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: authorization } }, auth: { persistSession: false } })
+  const { data: auth, error: authError } = await caller.auth.getUser()
+  if (authError || !auth.user) return reply(401, { error: 'Sign in required' })
+  let body: any
+  try {
+    const text = await req.text()
+    if (text.length > 8192) return reply(413, { error: 'Request too large' })
+    body = JSON.parse(text)
+  } catch { return reply(400, { error: 'Invalid request' }) }
+  // Destination and privileged key come only from deployment secrets, never clients table/browser.
+  // PLATFORM_SHOP_CREDENTIALS = { "<client_id>": { "project_ref": "...", "service_role_key": "..." } }
+  let target: any
+  try { target = JSON.parse(Deno.env.get('PLATFORM_SHOP_CREDENTIALS') ?? '{}')[String(body.client_id)] } catch {}
+  if (!target || !/^[a-z]{20}$/.test(target.project_ref) || !target.service_role_key) return reply(503, { error: 'Shop server credentials not provisioned', definite_failure: true })
+  if (body.action === 'read') {
+    const { error: readAuthError } = await caller.rpc('platform_client_operations', { p_client: body.client_id })
+    if (readAuthError) return reply(403, { error: 'Operator not authorized', definite_failure: true })
+    try {
+      const response = await fetch(`https://${target.project_ref}.supabase.co/rest/v1/shop_config?id=eq.1&select=${fields.join(',')}`, {
+        method: 'GET', redirect: 'error', signal: AbortSignal.timeout(12000),
+        headers: { apikey: target.service_role_key, Authorization: `Bearer ${target.service_role_key}` },
+      })
+      if (!response.ok) throw new Error('Read failed')
+      const rows = await response.json()
+      if (rows.length !== 1 || !fields.every(k => typeof rows[0][k] === 'boolean')) throw new Error('Config incomplete')
+      return reply(200, { config: Object.fromEntries(fields.map(k => [k,rows[0][k]])) })
+    } catch { return reply(503, { error: 'Shop configuration could not be read' }) }
+  }
+  const { data: job, error } = await caller.rpc('platform_begin_config', {
+    p_client: body.client_id, p_request: body.request_id, p_changes: body.changes,
+  })
+  if (error) return reply(403, { error: error.message, definite_failure: true })
+  if (!job.dispatch) return reply(job.state === 'applied' ? 200 : 409, { state: job.state, definite_failure: job.state === 'failed', error: job.state === 'applied' ? undefined : 'Existing operation needs completion or reconciliation' })
+  const admin = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } })
+  let state = 'uncertain', result: any = null
+  try {
+    const response = await fetch(`https://${target.project_ref}.supabase.co/rest/v1/shop_config?id=eq.1&select=${fields.join(',')}`, {
+      method: 'PATCH', redirect: 'error', signal: AbortSignal.timeout(12000),
+      headers: { apikey: target.service_role_key, Authorization: `Bearer ${target.service_role_key}`, 'Content-Type': 'application/json', Prefer: 'return=representation' },
+      body: JSON.stringify(job.changes),
+    })
+    if (response.ok) {
+      const rows = await response.json()
+      if (rows.length === 1 && fields.every(k => typeof rows[0][k] === 'boolean') && Object.entries(job.changes).every(([k,v]) => rows[0][k] === v)) {
+        result = Object.fromEntries(fields.map(k => [k, rows[0][k]])); state = 'applied'
+      }
+    } else if (response.status >= 400 && response.status < 500) state = 'failed'
+  } catch { /* timeout may have committed: keep lock pending reconciliation */ }
+  const { error: finishError } = await admin.rpc('platform_finish_config', { p_request: job.request_id, p_state: state, p_result: result })
+  if (finishError || state !== 'applied') return reply(503, { error: state === 'failed' && !finishError ? 'Shop rejected the configuration; correct provisioning and retry' : 'Configuration outcome requires reconciliation; inspect Client Detail', definite_failure: state === 'failed' && !finishError })
+  return reply(200, { state, config: result })
+})

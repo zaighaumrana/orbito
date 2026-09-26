@@ -5,12 +5,13 @@ import { pb, PLATFORM_AUTH_EMAIL,
 import { render }                          from "./render.js";
 import { generateInvoice, printClientInvoices } from "./billing.js";
 import { validateSession }                 from "./helpers.js";
-import { createClient }                    from "@supabase/supabase-js";
+import { rpc } from "./operations.js";
 
 export function initEvents() {
 
   /* ── Click delegation ── */
-  document.addEventListener("click", async event => {
+  document.addEventListener("click", event => {
+    (async () => {
     const el = event.target.closest(
       "button,a,[data-p-page],[data-p-action],[data-p-modal],[data-p-close]"
     );
@@ -114,10 +115,7 @@ export function initEvents() {
       /* Mark platform user as Active if they were Pending */
       const { data: { user } } = await pb.auth.getUser();
       if (user?.email) {
-        await pb.from("platform_users")
-          .update({ status: "Active" })
-          .eq("email", user.email)
-          .eq("status", "Pending");
+        await pb.rpc('platform_accept_invite');
       }
 
       statusEl.textContent = "Password updated! Redirecting to login…";
@@ -162,19 +160,16 @@ export function initEvents() {
           _loginFail(errorEl); return;
         }
         const { data: userRow } = await pb.from("platform_users")
-          .select("id, name, email, role")
+          .select("id, name, email, role, status")
           .eq("email", username)
           .single();
-        if (!userRow) {
+        if (!userRow || userRow.status !== "Active") {
           await pb.auth.signOut();
           errorEl.textContent = "Access not authorised for this account.";
           _loginFail(errorEl, true); return;
         }
-        /* Write session token */
+        /* Local UI identity; Supabase manages the session. */
         const sessionToken = crypto.randomUUID();
-        await pb.from("platform_users")
-          .update({ session_token: sessionToken, session_started_at: new Date().toISOString() })
-          .eq("id", userRow.id);
 
         pState.currentUser = {
           role: userRow.role, username: userRow.name,
@@ -205,9 +200,6 @@ export function initEvents() {
           _loginFail(errorEl); return;
         }
         const sessionToken = crypto.randomUUID();
-        await pb.from("platform_config")
-          .update({ session_token: sessionToken, session_started_at: new Date().toISOString() })
-          .eq("id", 1);
 
         pState.currentUser = {
           role: "master_admin",
@@ -244,21 +236,29 @@ export function initEvents() {
       render(); return;
     }
 
-    /* ── Suspend / Activate ── */
-    if (action === "suspend-client" || action === "activate-client") {
-      const newStatus = action === "suspend-client" ? "Suspended" : "Active";
-      const targetId  = Number(el.dataset.pId);
-      const { error } = await pb.from("clients").update({ status: newStatus }).eq("id", targetId);
-      if (error) { alert(error.message); return; }
-      const client = pState.data.clients.find(c => c.id === targetId) || pState.selectedClient;
-      if (client?.supabase_url && client?.supabase_anon) {
-        try {
-          const csb = createClient(client.supabase_url, client.supabase_anon);
-          await csb.from("shop_config").update({ suspended: newStatus === "Suspended" }).eq("id", 1);
-        } catch (e) { console.warn("Could not propagate suspension:", e.message); }
+    /* Trusted subscription state update */
+    if (action === 'suspend-client' || action === 'activate-client') {
+      const client = pState.data.clients.find(c => c.id === Number(el.dataset.pId));
+      if (await updateClientConfig(client, { suspended: action === 'suspend-client' })) {
+        await loadPlatform();
+        if (pState.selectedClient?.id === client.id) await loadClientData(pState.data.clients.find(c => c.id === client.id));
+        render();
       }
-      if (pState.selectedClient?.id === targetId) pState.selectedClient.status = newStatus;
-      await loadPlatform(); render(); return;
+      return;
+    }
+
+    if (action === 'read-shop-config') {
+      const { data, error } = await pb.functions.invoke('platform-config', { body: { client_id: pState.selectedClient.id, action: 'read' } });
+      if (error || !data?.config) throw new Error(data?.error || error?.message || 'Shop configuration unavailable');
+      pState.clientData.config = { ...pState.selectedClient, ...data.config };
+      pState.clientData.verifiedAt = new Date().toISOString(); render(); return;
+    }
+    if (action === 'refresh-operations') {
+      await loadPlatform(); await loadClientData(pState.selectedClient); render(); return;
+    }
+    if (action === 'paper-status') {
+      await rpc('platform_paper_action', { p_client: pState.selectedClient.id, p_request: el.dataset.id, p_version: Number(el.dataset.version), p_status: el.dataset.status, p_delivery: null });
+      await loadClientData(pState.selectedClient); render(); return;
     }
 
     /* ── Module toggles ── */
@@ -268,13 +268,18 @@ export function initEvents() {
       "toggle-technician": "technician_module_enabled",
       "toggle-tracking":   "live_tracking_enabled",
       "toggle-ems":        "ems_enabled",
+      "toggle-paper":      "paper_resupply_enabled",
     };
     if (toggleMap[action]) {
       const field = toggleMap[action];
       const cfg   = pState.clientData.config || {};
       const next  = !cfg[field];
-      const ok    = await updateClientConfig(pState.selectedClient, { [field]: next });
-      if (ok) { pState.clientData.config[field] = next; render(); }
+      if (field === 'paper_resupply_enabled') {
+        await rpc('platform_set_paper', { p_client: pState.selectedClient.id, p_enabled: next });
+      } else if (!await updateClientConfig(pState.selectedClient, { [field]: next })) return;
+      await loadPlatform();
+      await loadClientData(pState.data.clients.find(c => c.id === pState.selectedClient.id));
+      render();
       return;
     }
 
@@ -282,15 +287,9 @@ export function initEvents() {
     if (action === "generate-invoice") {
       const clientId = Number(el.dataset.pId);
       const client    = pState.data.clients.find(c => c.id === clientId);
-      await generateInvoice(clientId);
-      await loadPlatform();
-      const newInvoice = pState.data.invoices
-        .filter(i => i.client_id === clientId)
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
-      render();
-      if (client && newInvoice) {
-        printClientInvoices(client, [newInvoice]);
-      }
+      const newInvoice = await generateInvoice(clientId);
+      await loadPlatform(); render();
+      if (client && newInvoice) printClientInvoices(client, [newInvoice]);
       return;
     }
 
@@ -303,33 +302,9 @@ export function initEvents() {
       render(); return;
     }
 
-    /* ── Clear credit balance ── */
-    if (action === "clear-credit") {
-      const creditId  = Number(el.dataset.pId);
-      const invoiceId = Number(el.dataset.pInvoiceId);
-      const clientId  = Number(el.dataset.pClientId);
-      const amount    = Number(el.dataset.pAmount);
-      await pb.from("payments").insert({
-        invoice_id: invoiceId, client_id: clientId, amount,
-        payment_method: "Credit Clearance",
-        payment_date:   new Date().toISOString().split("T")[0],
-        notes:          "Outstanding balance cleared",
-        recorded_by:    pState.currentUser.username || "admin",
-      });
-      await pb.from("client_credit")
-        .update({ is_cleared: true, cleared_at: new Date().toISOString() })
-        .eq("id", creditId);
-      await loadPlatform();
-      const invoice = pState.data.invoices.find(i => i.id === invoiceId);
-      if (invoice) {
-        const paid = (pState.data.payments || [])
-          .filter(p => p.invoice_id === invoiceId)
-          .reduce((s, p) => s + Number(p.amount || 0), 0);
-        if (paid >= Number(invoice.total_due || 0)) {
-          await pb.from("billing_cycles").update({ payment_status: "Paid" }).eq("id", invoiceId);
-          await loadPlatform();
-        }
-      }
+    /* Legacy credit needs reconciliation; payment always targets the original invoice. */
+    if (action === 'clear-credit') {
+      pState.modal = { type: 'record-payment', data: { invoiceId: Number(el.dataset.pInvoiceId), clientId: Number(el.dataset.pClientId) } };
       render(); return;
     }
 
@@ -361,39 +336,8 @@ export function initEvents() {
       render(); return;
     }
 
-    /* ── Delete client ── */
-    if (action === "delete-client") {
-      const clientId = Number(el.dataset.pId);
-      const client   = pState.data.clients.find(c => c.id === clientId);
-      if (!client) return;
-      const role   = pState.currentUser.role;
-      const isHard = role === "master_admin";
-      if (!isHard && role !== "portfolio_manager") {
-        alert("You don't have permission to delete clients."); return;
-      }
-      const msg = isHard
-        ? `PERMANENTLY DELETE "${client.name}"? All invoices will be printed first. This cannot be undone.`
-        : `Archive "${client.name}"? Records are kept but client is hidden.`;
-      if (!confirm(msg)) return;
-
-      const clientInvoices = pState.data.invoices.filter(i => i.client_id === clientId);
-      if (clientInvoices.length > 0) {
-        printClientInvoices(client, clientInvoices);
-        await new Promise(r => setTimeout(r, 800));
-      }
-      if (isHard) {
-        await pb.from("usage_logs").delete().eq("client_id", clientId);
-        await pb.from("payments").delete().eq("client_id", clientId);
-        await pb.from("client_credit").delete().eq("client_id", clientId);
-        await pb.from("billing_cycles").delete().eq("client_id", clientId);
-        await pb.from("support_tickets").delete().eq("client_id", clientId);
-        await pb.from("clients").delete().eq("id", clientId);
-      } else {
-        await pb.from("clients").update({ status: "Archived" }).eq("id", clientId);
-      }
-      pState.selectedClient = null;
-      pState.page = "clients";
-      await loadPlatform(); render(); return;
+    if (action === 'delete-client') {
+      alert('Financial and usage history is retained. Use Suspend to stop client access.'); return;
     }
 
     /* ── Edit platform user ── */
@@ -424,7 +368,8 @@ export function initEvents() {
         });
         if (fnErr) { alert("Error removing auth account: " + fnErr.message); return; }
       }
-      await pb.from("platform_users").delete().eq("id", userId);
+      const { error: removeError } = await pb.from("platform_users").update({ status: "Inactive" }).eq("id", userId);
+      if (removeError) throw removeError;
       await loadPlatform(); render(); return;
     }
 
@@ -436,6 +381,7 @@ export function initEvents() {
       if (error) { alert(error.message); return; }
       await loadPlatform(); render(); return;
     }
+    })().catch(error => alert(error.message));
   });
 
   /* ── Input (filter + dynamic form) ── */

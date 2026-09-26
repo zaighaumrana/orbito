@@ -1,3 +1,4 @@
+import { esc } from "../operations.js";
 import { pState } from "../state.js";
 import { computeClientBilling, getInvoicePayments, getInvoicePaidTotal } from "../billing.js";
 import { tit } from "../helpers.js";
@@ -13,7 +14,7 @@ export function pageBilling() {
     const lastInvoice = invoices
       .filter(i => i.client_id === c.id)
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
-    return { c, b, lastInvoice, hasInventory: !!c.inventory_billable };
+    return { c, b, lastInvoice, hasInventory: !!c.inventory_billable || b.inventoryCount > 0 };
   });
 
   const anyInventory = rows.some(r => r.hasInventory);
@@ -22,12 +23,13 @@ export function pageBilling() {
   const unpaid     = rows.filter(r => r.lastInvoice?.payment_status === "Unpaid").length;
 
   return `
-    ${tit("Billing", `${monthLabel} — Usage-Based Invoicing`, "")}
+    ${tit("Billing", `${monthLabel} — Usage-Based Invoicing · policy activation required`, "")}
 
+    <p class="muted">Amounts below are rate-snapshot estimates. Clients without an agreed policy/currency, or with flagged carry history, cannot generate invoices. Mixed currencies are not consolidated.</p>
     <div class="grid kpi-grid" style="margin-bottom:4px">
       ${[
-        ["Total Revenue Due", `Rs. ${totalDue.toLocaleString()}`,  "good"],
-        ["Today's Activity",  `Rs. ${totalToday.toLocaleString()}`, ""],
+        ["Uninvoiced BILL events", rows.reduce((n,r) => n + r.b.billCount, 0), ""],
+        ["Clients with estimates", rows.filter(r => r.b.grandTotal > 0).length, ""],
         ["Unpaid Invoices",   unpaid,                               unpaid ? "bad" : "good"],
         ["Active Clients",    rows.length,                          ""],
       ].map(([l,v,m]) => `
@@ -41,7 +43,7 @@ export function pageBilling() {
     <div class="card" style="padding:0;overflow:hidden">
       <div style="padding:16px 16px 0;display:flex;justify-content:space-between;align-items:center">
         <h2>Client Billing Matrix</h2>
-        <span class="muted" style="font-size:13px">Unbilled usage this month</span>
+        <span class="muted" style="font-size:13px">All uninvoiced usage · rate snapshots</span>
       </div>
       <div class="table-wrap">
         <table>
@@ -53,23 +55,23 @@ export function pageBilling() {
           <tbody>
             ${rows.map(({ c, b, lastInvoice, hasInventory }) => {
               const payStatus = lastInvoice?.payment_status || "No Invoice";
-              const sym       = c.currency_symbol || "Rs.";
+              const sym       = esc(c.currency_symbol || "Rs.");
               return `<tr>
                 <td>
-                  <strong>${c.name}</strong>
-                  <div class="muted" style="font-size:11px">${c.industry || ""}</div>
+                  <strong>${esc(c.name)}</strong>
+                  <div class="muted" style="font-size:11px">${esc(c.industry || "")}</div>
                 </td>
-                <td><span class="badge">${c.plan || "—"}</span></td>
+                <td><span class="badge">${esc(c.plan || "—")}</span></td>
                 <td>
                   <strong>${b.billCount}</strong>
                   <div class="muted" style="font-size:11px">
-                    ${sym} ${Number(c.event_rate||0)} / bill = ${sym} ${b.billTotal.toLocaleString()}
+                    ${sym} current ${Number(c.event_rate||0)} / bill · accrued ${sym} ${b.billTotal.toLocaleString()}
                   </div>
                 </td>
                 ${anyInventory ? `<td>${hasInventory
                   ? `<strong>${b.inventoryCount}</strong>
                      <div class="muted" style="font-size:11px">
-                       ${sym} ${Number(c.inventory_rate||0)} / item = ${sym} ${b.inventoryTotal.toLocaleString()}
+                       ${sym} current ${Number(c.inventory_rate||0)} / item · accrued ${sym} ${b.inventoryTotal.toLocaleString()}
                      </div>`
                   : `<span class="muted">—</span>`}</td>` : ""}
                 <td><strong>${sym} ${b.todayTotal.toLocaleString()}</strong></td>
@@ -77,11 +79,11 @@ export function pageBilling() {
                 <td>
                   <span class="badge ${
                     payStatus==="Paid"?"good":payStatus==="Partial"?"warn":payStatus==="Unpaid"?"bad":""}">
-                    ${payStatus}
+                    ${esc(payStatus)}
                   </span>
                 </td>
                 <td style="display:flex;gap:6px;flex-wrap:wrap">
-                  ${b.grandTotal > 0 && payStatus !== "Paid" ? `
+                  ${(b.billCount + b.inventoryCount) > 0 && c.billing_policy === "usage-v1" && c.currency && !c.accounting_review_required ? `
                     <button class="primary-button" style="font-size:12px;padding:5px 10px"
                       data-p-action="generate-invoice" data-p-id="${c.id}">
                       Gen Invoice
@@ -120,11 +122,11 @@ export function pageBilling() {
         <tbody>
           ${invoices.slice(0, 30).map(inv => {
             const cl  = clients.find(c => c.id === inv.client_id);
-            const sym = cl?.currency_symbol || "Rs.";
+            const sym = esc(cl?.currency || "Unconfigured");
             const totalPaid = getInvoicePaidTotal(inv.id);
             return `<tr>
               <td><strong>INV-${inv.id}</strong></td>
-              <td>${cl?.name || "—"}</td>
+              <td>${esc(cl?.name || "—")}</td>
               <td style="font-size:12px">${inv.period_start} → ${inv.period_end}</td>
               <td>${inv.bill_count||0} × ${sym}${Number(inv.event_rate||0)}</td>
               <td>${inv.inventory_count||0} × ${sym}${Number(inv.inventory_rate||0)}</td>

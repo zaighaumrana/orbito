@@ -1,39 +1,10 @@
+import { retryOperation, rpc, esc } from "./operations.js";
 import { pState } from "./state.js";
 import { pb } from "./supabase.js";
 
 // ── Rate-locked billing computation ──────────────────────────────
 export function computeClientBilling(clientId) {
-  const logs   = pState.data.usage.filter(u => u.client_id === clientId && !u.is_invoiced);
-  const client = pState.data.clients.find(c => c.id === clientId) || {};
-
-  let billCount = 0, billTotal = 0;
-  let inventoryCount = 0, inventoryTotal = 0;
-  let todayTotal = 0;
-
-  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-
-  logs.forEach(u => {
-    const count   = Number(u.token_count || 1);
-    const rate    = Number(u.rate_at_log || 0);
-    const amount  = count * rate;
-    const isToday = new Date(u.recorded_at) >= todayStart;
-
-    if (u.module_type === "BILL") {
-      billCount += count;
-      if (client.bill_billable !== false) {
-        billTotal += amount;
-        if (isToday) todayTotal += amount;
-      }
-    } else if (u.module_type === "INVENTORY") {
-      inventoryCount += count;
-      if (client.inventory_billable) {
-        inventoryTotal += amount;
-        if (isToday) todayTotal += amount;
-      }
-    }
-  });
-
-  return { billCount, billTotal, inventoryCount, inventoryTotal, todayTotal, grandTotal: billTotal + inventoryTotal };
+  return (pState.data.usageSummary || []).find(u => u.client_id === clientId) || { billCount: 0, billTotal: 0, inventoryCount: 0, inventoryTotal: 0, todayTotal: 0, grandTotal: 0 };
 }
 
 // ── Payment helpers ───────────────────────────────────────────────
@@ -53,54 +24,7 @@ export function getClientActiveCredit(clientId) {
 
 // ── Invoice generation ────────────────────────────────────────────
 export async function generateInvoice(clientId) {
-  const client = pState.data.clients.find(c => c.id === clientId);
-  if (!client) return;
-
-  const now            = new Date();
-  const periodStart    = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
-  const periodEnd      = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
-  const dueDate        = new Date(now.getFullYear(), now.getMonth() + 1, 3).toISOString().split("T")[0];
-  const b              = computeClientBilling(clientId);
-  const activeCredit   = getClientActiveCredit(clientId);
-  const currentCharges = b.grandTotal;
-  const totalDue       = currentCharges + activeCredit;
-
-  const { data: inv, error } = await pb.from("billing_cycles").insert({
-    client_id:               clientId,
-    period_start:            periodStart,
-    period_end:              periodEnd,
-    bill_count:              b.billCount,
-    event_rate:              Number(client.event_rate || 0),
-    inventory_count:         b.inventoryCount,
-    inventory_rate:          Number(client.inventory_rate || 0),
-    bill_charges:            b.billTotal,
-    inventory_charges:       b.inventoryTotal,
-    current_charges:         currentCharges,
-    carried_forward_balance: activeCredit,
-    total_due:               totalDue,
-    remaining_balance:       totalDue,
-    invoice_date:            now.toISOString(),
-    due_date:                dueDate,
-    status:                  "Unpaid",
-    payment_status:          "Unpaid",
-  }).select().single();
-  if (error) { alert(error.message); return null; }
-
-  const prevCredits = (pState.data.credits || []).filter(c => c.client_id === clientId && !c.is_cleared);
-  for (const cr of prevCredits) {
-    await pb.from("client_credit").update({ is_cleared: true, cleared_at: now.toISOString() }).eq("id", cr.id);
-  }
-
-  await pb.from("usage_logs")
-    .update({ is_invoiced: true, billing_cycle_id: inv.id })
-    .eq("client_id", clientId)
-    .eq("is_invoiced", false);
-
-  await pb.from("clients")
-    .update({ grace_period_ends_at: new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString() })
-    .eq("id", clientId);
-
-  return inv;
+  return retryOperation(`invoice:${clientId}`, { clientId }, request => rpc('platform_generate_invoice', { p_client: clientId, p_request: request }));
 }
 
 // ── Lifecycle flag ────────────────────────────────────────────────
@@ -120,7 +44,7 @@ export function getLifecycleFlag(client) {
 
 // ── Build invoice HTML (shared between preview modal and print) ───
 function buildInvoiceHTML(client, invoice, payments, totalPaid, usageLogs, includeDetailedLogs) {
-  const sym = client.currency_symbol || "Rs.";
+  const sym = esc(client.currency_symbol || "Rs.");
 
   const detailRows = includeDetailedLogs && usageLogs.length
     ? usageLogs.map(u => {
@@ -138,7 +62,7 @@ function buildInvoiceHTML(client, invoice, payments, totalPaid, usageLogs, inclu
               <span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;
                 background:${u.module_type === "BILL" ? "#e8f4fd" : "#f0fdf4"};
                 color:${u.module_type === "BILL" ? "#1a6fa8" : "#166534"}">
-                ${u.module_type}
+                ${esc(u.module_type)}
               </span>
             </td>
             <td style="padding:6px 8px;border-bottom:1px solid #f0f0f0;font-size:12px">${desc}</td>
@@ -247,7 +171,7 @@ function buildInvoiceHTML(client, invoice, payments, totalPaid, usageLogs, inclu
       ${payments.map(p => `
         <div style="display:flex;justify-content:space-between;align-items:center;
                     padding:6px 0;border-bottom:1px solid #f5f5f5;font-size:12px">
-          <span style="color:#555">${p.payment_method}</span>
+          <span style="color:#555">${esc(p.payment_method)}</span>
           <span style="color:#888">${new Date(p.payment_date).toLocaleDateString()}</span>
           <span style="font-weight:600;color:#166534">${sym} ${Number(p.amount).toLocaleString()}</span>
         </div>`).join("")}
@@ -275,7 +199,7 @@ function buildInvoiceHTML(client, invoice, payments, totalPaid, usageLogs, inclu
             <span style="display:inline-block;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;
               background:${invoice.payment_status === "Paid" ? "#dcfce7" : invoice.payment_status === "Partial" ? "#fef3c7" : "#fee2e2"};
               color:${invoice.payment_status === "Paid" ? "#166534" : invoice.payment_status === "Partial" ? "#92400e" : "#991b1b"}">
-              ${invoice.payment_status || "Unpaid"}
+              ${esc(invoice.payment_status || "Unpaid")}
             </span>
           </div>
         </div>
@@ -286,9 +210,9 @@ function buildInvoiceHTML(client, invoice, payments, totalPaid, usageLogs, inclu
                   padding:16px;background:#f9f9f9;border-radius:8px;border:1px solid #e8e8e8">
         <div>
           <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Bill To</div>
-          <div style="font-size:15px;font-weight:700">${client.name}</div>
-          <div style="font-size:12px;color:#666;margin-top:2px">${client.plan} Plan</div>
-          ${client.shop_url ? `<div style="font-size:12px;color:#126c5b;margin-top:2px">${client.shop_url}</div>` : ""}
+          <div style="font-size:15px;font-weight:700">${esc(client.name)}</div>
+          <div style="font-size:12px;color:#666;margin-top:2px">${esc(client.plan)} Plan</div>
+          ${client.shop_url ? `<div style="font-size:12px;color:#126c5b;margin-top:2px">${esc(client.shop_url)}</div>` : ""}
         </div>
         <div style="text-align:right">
           <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Billing Period</div>
@@ -391,7 +315,7 @@ export function showInvoiceConfirmModal(invoice) {
   const totalPaid = getInvoicePaidTotal(invoice.id);
 
   const previewHTML = buildInvoiceHTML(client, invoice, payments, totalPaid, [], false);
-  const sym = client.currency_symbol || "Rs.";
+  const sym = esc(client.currency_symbol || "Rs.");
 
   // Inject a temporary confirm overlay
   const overlay = document.createElement("div");

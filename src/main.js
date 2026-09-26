@@ -18,7 +18,14 @@ window.onTurnstileLoad = () => {
 };
 
 /* ── Form submissions ── */
-document.addEventListener("submit", handleFormSubmit);
+document.addEventListener("submit", async event => {
+  event.preventDefault();
+  const form = event.target;
+  if (form.dataset.busy) return;
+  form.dataset.busy = 'true';
+  try { await handleFormSubmit(event); } catch (error) { alert(error.message); }
+  finally { delete form.dataset.busy; }
+});
 
 /* ── Wire up all click/input/keyboard events ── */
 initEvents();
@@ -104,11 +111,11 @@ pb.auth.onAuthStateChange((event, session) => {
       /* Team member — look up their role */
       await loadConfig();
       const { data: userRow } = await pb.from("platform_users")
-        .select("id, name, email, role, session_token")
+        .select("id, name, email, role, status")
         .eq("email", email)
         .single();
 
-      if (!userRow) {
+      if (!userRow || userRow.status !== "Active") {
         /* Unknown user — force logout */
         await pb.auth.signOut();
         pState.authenticated = false;
@@ -120,7 +127,7 @@ pb.auth.onAuthStateChange((event, session) => {
         role:         userRow.role,
         username:     userRow.name,
         email:        userRow.email,
-        sessionToken: userRow.session_token,
+
         userId:       userRow.id,
         isMember:     true,
       };
@@ -138,4 +145,4 @@ pb.auth.onAuthStateChange((event, session) => {
     render();
   }
   // If hasResetParam but no session yet: onAuthStateChange will handle it
-})();
+})().catch(error => { pState.authenticated = false; pState.page = "login"; render(); alert(error.message); });
