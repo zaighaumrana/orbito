@@ -419,3 +419,6 @@ verify_jwt = false
 
 [functions.platform-config]
 verify_jwt = true
+
+[functions.platform-provision]
+verify_jwt = true

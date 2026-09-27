@@ -1,3 +1,4 @@
+import { resetTurnstile, mountTurnstile, captchaBusy } from './turnstile.js';
 import { pState }                          from "./state.js";
 import { pb, PLATFORM_AUTH_EMAIL,
          loadPlatform, loadClientData,
@@ -15,7 +16,7 @@ export function initEvents() {
     const el = event.target.closest(
       "button,a,[data-p-page],[data-p-action],[data-p-modal],[data-p-close]"
     );
-    if (!el) return;
+    if (!el || el.disabled) return;
 
     /* Close modal */
     if (el.dataset.pClose !== undefined) {
@@ -38,6 +39,7 @@ export function initEvents() {
 
     const action = el.dataset.pAction;
     if (!action) return;
+    if (action === 'retry-verification') { void mountTurnstile(); return; }
 
     /* Theme toggle */
     if (action === "theme") {
@@ -72,16 +74,18 @@ export function initEvents() {
         statusEl.style.cssText += "color:#c24132;background:rgba(194,65,50,0.1)";
         statusEl.classList.remove("hidden"); return;
       }
-      pState.resetLoading = true; render();
+      if (pState.resetLoading || !navigator.onLine || !pState.turnstileToken) return;
+      const captchaToken = pState.turnstileToken;
+      pState.resetLoading = true; captchaBusy();
       pState.page = "forgot-password"; // keep on this page after render
       const { error } = await pb.auth.resetPasswordForEmail(email, {
-        redirectTo: "https://orbito.ahwad.com/?reset=true",
+        redirectTo: `${window.location.origin}/?reset=true`, captchaToken,
       });
       pState.resetLoading = false;
       render();
       const newStatusEl = document.getElementById("forgot-status");
       if (newStatusEl) {
-        newStatusEl.textContent = "If an account exists for that email, a reset link has been sent.";
+        newStatusEl.textContent = error ? "Reset request failed. Verify again and retry." : "If an account exists for that email, a reset link has been sent.";
         newStatusEl.style.cssText += "color:#7aada0;background:rgba(122,173,160,0.1)";
         newStatusEl.classList.remove("hidden");
       }
@@ -132,8 +136,9 @@ export function initEvents() {
 
     /* ── LOGIN ── */
     if (action === "do-login") {
+      if (pState.loginLoading || !navigator.onLine) return;
       const username = document.getElementById("platform-username")?.value?.trim();
-      const password = document.getElementById("platform-pin")?.value?.trim();
+      const password = document.getElementById("platform-pin")?.value;
       const errorEl  = document.getElementById("platform-pin-error");
       errorEl?.classList.add("hidden");
 
@@ -146,7 +151,8 @@ export function initEvents() {
         errorEl?.classList.remove("hidden"); return;
       }
 
-      pState.loginLoading = true; render();
+      const captchaToken = pState.turnstileToken;
+      pState.loginLoading = true; captchaBusy();
 
       const isEmail = username.includes("@");
       await pb.auth.signOut();
@@ -154,7 +160,7 @@ export function initEvents() {
       if (isEmail) {
         /* Team member login */
         const { data: authData, error: authError } = await pb.auth.signInWithPassword({
-          email: username, password,
+          email: username, password, options: { captchaToken },
         });
         if (authError || !authData.session) {
           _loginFail(errorEl); return;
@@ -178,15 +184,16 @@ export function initEvents() {
         };
         const { loadConfig } = await import("./supabase.js");
         await loadConfig();
+        await loadPlatform();
         pState.authenticated = true;
         pState.loginLoading  = false;
         pState.page = "overview";
-        await loadPlatform(); render();
+        render();
 
       } else {
         /* Master admin login */
         const { data: authData, error: authError } = await pb.auth.signInWithPassword({
-          email: PLATFORM_AUTH_EMAIL, password,
+          email: PLATFORM_AUTH_EMAIL, password, options: { captchaToken },
         });
         if (authError || !authData.session) {
           _loginFail(errorEl); return;
@@ -206,10 +213,11 @@ export function initEvents() {
           username: PCFG.admin_username || "admin",
           sessionToken, isMember: false,
         };
+        await loadPlatform();
         pState.authenticated = true;
         pState.loginLoading  = false;
         pState.page = "overview";
-        await loadPlatform(); render();
+        render();
       }
       return;
     }
@@ -381,7 +389,11 @@ export function initEvents() {
       if (error) { alert(error.message); return; }
       await loadPlatform(); render(); return;
     }
-    })().catch(error => alert(error.message));
+    })().catch(error => {
+      if (pState.loginLoading) { pState.authenticated = false; pState.page = 'login'; pState.loginLoading = false; render(); }
+      if (pState.resetLoading) { pState.resetLoading = false; resetTurnstile(); }
+      alert(error.message);
+    });
   });
 
   /* ── Input (filter + dynamic form) ── */
@@ -406,8 +418,8 @@ export function initEvents() {
   });
 
   /* ── Online / offline ── */
-  window.addEventListener("online",  () => { pState.online = true;  render(); });
-  window.addEventListener("offline", () => { pState.online = false; render(); });
+  window.addEventListener("online",  () => { pState.online = true;  if (pState.authenticated) render(); });
+  window.addEventListener("offline", () => { pState.online = false; if (pState.authenticated) render(); });
 
   /* ── Session check every 60s ── */
   setInterval(validateSession, 60 * 1000);
@@ -417,8 +429,9 @@ export function initEvents() {
 function _loginFail(errorEl, keepMsg = false) {
   pState.loginLoading   = false;
   pState.turnstileToken = null;
-  if (window.turnstile) window.turnstile.reset();
-  render();
+  const message = keepMsg ? errorEl?.textContent : "Invalid username or password.";
+  resetTurnstile();
+  if (errorEl) errorEl.textContent = message;
   if (!keepMsg) {
     const el = document.getElementById("platform-pin-error");
     if (el) el.textContent = "Invalid username or password.";

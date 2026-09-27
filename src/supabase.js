@@ -32,7 +32,11 @@ export async function loadPlatform() {
 export async function loadClientData(client) {
   pState.selectedClient = client;
   const { data, error } = await pb.rpc('platform_client_operations', { p_client: client.id });
-  pState.clientData = { config: client, operations: data, _error: error?.message };
+  const provision = await pb.rpc('platform_provision_status', { p_client: client.id });
+  const connection = provision.data?.connection;
+  const latestRead = connection?.verified_at && (!client.config_synced_at || new Date(connection.verified_at) > new Date(client.config_synced_at));
+  pState.clientData = { config: latestRead ? { ...client, ...connection.health?.shop_config } : client, operations: data, _error: error?.message,
+    provisioning: provision.data, provisioningError: provision.error?.message, verifiedAt: latestRead ? connection.verified_at : client.config_synced_at };
 }
 export async function updateClientConfig(client, updates) {
   await retryOperation(`config:${client.id}`, updates, async requestId => {

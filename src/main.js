@@ -5,18 +5,6 @@ import { initEvents }                    from "./events.js";
 import { handleFormSubmit }              from "./forms.js";
 import { validateSession }               from "./helpers.js";
 
-/* ── Turnstile global callback ── */
-window.onTurnstileLoad = () => {
-  const widget = document.querySelector(".cf-turnstile");
-  if (widget && window.turnstile) {
-    window.turnstile.render(widget, {
-      sitekey:  import.meta.env.VITE_TURNSTILE_KEY,
-      callback: (token) => { pState.turnstileToken = token; },
-      theme:    "dark",
-    });
-  }
-};
-
 /* ── Form submissions ── */
 document.addEventListener("submit", async event => {
   event.preventDefault();
@@ -68,6 +56,9 @@ pb.auth.onAuthStateChange((event, session) => {
     render();
   }
 });
+
+/* Render before any session/network work so offline startup retains the login UI. */
+render();
 
 /* ── Boot — restore session if page is refreshed ── */
 (async () => {

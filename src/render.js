@@ -1,3 +1,4 @@
+import { cleanupTurnstile, mountTurnstile } from './turnstile.js';
 import { pState, PCFG, getNav } from "./state.js";
 import { pModal }        from "./modals/index.js";
 import { pageOverview }  from "./pages/overview.js";
@@ -6,7 +7,7 @@ import { pageBilling }   from "./pages/billing.js";
 import { pageSupport }   from "./pages/support.js";
 import { pageSettings }  from "./pages/settings.js";
 
-const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_KEY;
+const verification = () => `<div id="verification-widget"></div><p id="verification-status" class="muted" role="status" aria-live="polite"></p><button type="button" class="secondary-button" data-p-action="retry-verification">Retry verification</button>`;
 
 // ── Role-gated page router ────────────────────────────────────────
 function platformPage() {
@@ -60,19 +61,13 @@ function loginPage() {
             placeholder="Enter password"
             style="background:#0d1714;border-color:#1e3830;color:#f3f7fa;font-size:15px">
         </label>
-        <div style="display:flex;justify-content:center">
-          <div class="cf-turnstile"
-            data-sitekey="${TURNSTILE_SITE_KEY}"
-            data-callback="onTurnstileSuccess"
-            data-theme="dark">
-          </div>
-        </div>
+        ${verification()}
         <div id="platform-pin-error" class="hidden"
           style="color:#c24132;text-align:center;font-size:13px;
                  background:rgba(194,65,50,0.1);padding:10px;border-radius:8px">
           Invalid username or password.
         </div>
-        <button class="primary-button" data-p-action="do-login"
+        <button class="primary-button" data-p-action="do-login" data-captcha-submit disabled
           style="min-height:48px;font-size:16px;
                  ${pState.loginLoading ? "opacity:0.6;pointer-events:none" : ""}">
           ${pState.loginLoading ? "Signing in…" : "Login"}
@@ -110,10 +105,11 @@ function forgotPasswordPage() {
             style="background:#0d1714;border-color:#1e3830;color:#f3f7fa;font-size:15px">
         </label>
 
+        ${verification()}
         <div id="forgot-status" class="hidden"
           style="text-align:center;font-size:13px;padding:10px;border-radius:8px"></div>
 
-        <button class="primary-button" data-p-action="send-reset-link"
+        <button class="primary-button" data-p-action="send-reset-link" data-captcha-submit disabled
           style="min-height:48px;font-size:16px;
                  ${pState.resetLoading ? "opacity:0.6;pointer-events:none" : ""}">
           ${pState.resetLoading ? "Sending…" : "Send Reset Link"}
@@ -164,24 +160,11 @@ function resetPasswordPage() {
     </div>`;
 }
 
-export function initTurnstile() {
-  window.onTurnstileSuccess = (token) => { pState.turnstileToken = token; };
-  if (window.turnstile) {
-    const widget = document.querySelector(".cf-turnstile");
-    if (widget) {
-      window.turnstile.render(widget, {
-        sitekey:  TURNSTILE_SITE_KEY,
-        callback: (token) => { pState.turnstileToken = token; },
-        theme:    "dark",
-      });
-    }
-  }
-}
-
 // ── Main render ───────────────────────────────────────────────────
 export function render() {
   const app = document.getElementById("platform-app");
   if (!app) return;
+  cleanupTurnstile();
   document.documentElement.dataset.theme = pState.theme;
   /* Sync URL with current page state */
   if (pState.authenticated) {
@@ -202,6 +185,7 @@ export function render() {
   if (!pState.authenticated) {
     if (pState.page === "forgot-password") {
       app.innerHTML = forgotPasswordPage();
+      void mountTurnstile();
       return;
     }
     if (pState.page === "reset-password") {
@@ -209,7 +193,7 @@ export function render() {
       return;
     }
     app.innerHTML = loginPage();
-    initTurnstile();
+    void mountTurnstile();
     return;
   }
 

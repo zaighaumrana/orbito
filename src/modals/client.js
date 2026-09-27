@@ -60,11 +60,9 @@ export function clientModals(type, md) {
             <div style="margin:16px 0 8px;padding:12px;background:var(--surface-2);border-radius:8px">
               <strong style="font-size:14px">Client Supabase Connection</strong>
               <div class="form-grid" style="margin-top:10px">
-                <label class="field" style="grid-column:1/-1"><span>Supabase URL</span>
-                  <input name="supabase_url" placeholder="https://xxx.supabase.co" required></label>
-                <label class="field" style="grid-column:1/-1"><span>Supabase Anon Key</span>
-                  <input name="supabase_anon" placeholder="eyJ…" required></label>
-                <p class="muted">Shop authentication and server credentials are provisioned separately.</p>
+                <label class="field" style="grid-column:1/-1"><span>Shop Supabase Project Ref</span>
+                  <input name="project_ref" pattern="[a-z]{20}" maxlength="20" placeholder="20-letter Shop project ref" required></label>
+                <p class="muted">Next: provision the Shop securely from Client Detail. No public or privileged API key is saved in this client form.</p>
               </div>
             </div>
 

@@ -1,3 +1,4 @@
+import { shopCredential } from '../_shared/shop-credentials.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.108.2'
 const fields = ['repair_module_enabled','inventory_module_enabled','technician_module_enabled','live_tracking_enabled','ems_enabled','suspended']
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info', 'Access-Control-Allow-Methods': 'POST, OPTIONS' }
@@ -16,11 +17,12 @@ Deno.serve(async req => {
     if (text.length > 8192) return reply(413, { error: 'Request too large' })
     body = JSON.parse(text)
   } catch { return reply(400, { error: 'Invalid request' }) }
-  // Destination and privileged key come only from deployment secrets, never clients table/browser.
-  // PLATFORM_SHOP_CREDENTIALS = { "<client_id>": { "project_ref": "...", "service_role_key": "..." } }
+  const { error: accessError } = await caller.rpc('platform_client_operations', { p_client: body.client_id })
+  if (accessError) return reply(403, { error: 'Operator not authorized', definite_failure: true })
+  const admin = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } })
   let target: any
-  try { target = JSON.parse(Deno.env.get('PLATFORM_SHOP_CREDENTIALS') ?? '{}')[String(body.client_id)] } catch {}
-  if (!target || !/^[a-z]{20}$/.test(target.project_ref) || !target.service_role_key) return reply(503, { error: 'Shop server credentials not provisioned', definite_failure: true })
+  try { target = await shopCredential(admin, body.client_id) }
+  catch (error) { return reply(503, { error: (error as Error).message, definite_failure: true }) }
   if (body.action === 'read') {
     const { error: readAuthError } = await caller.rpc('platform_client_operations', { p_client: body.client_id })
     if (readAuthError) return reply(403, { error: 'Operator not authorized', definite_failure: true })
@@ -40,7 +42,6 @@ Deno.serve(async req => {
   })
   if (error) return reply(403, { error: error.message, definite_failure: true })
   if (!job.dispatch) return reply(job.state === 'applied' ? 200 : 409, { state: job.state, definite_failure: job.state === 'failed', error: job.state === 'applied' ? undefined : 'Existing operation needs completion or reconciliation' })
-  const admin = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } })
   let state = 'uncertain', result: any = null
   try {
     const response = await fetch(`https://${target.project_ref}.supabase.co/rest/v1/shop_config?id=eq.1&select=${fields.join(',')}`, {

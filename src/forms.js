@@ -1,3 +1,4 @@
+import { submitProvisioning } from './provisioning.js';
 import { rpc, recordPayment, retryOperation } from "./operations.js";
 import { pState, PCFG } from "./state.js";
 import { pb, PLATFORM_AUTH_EMAIL, loadPlatform, loadClientData } from "./supabase.js";
@@ -14,8 +15,9 @@ function validatePassword(pw) {
 export async function handleFormSubmit(event) {
   event.preventDefault();
   const form = event.target;
-  const data = Object.fromEntries(new FormData(form).entries());
   const type = form.dataset.pForm;
+  if (type === 'client-provisioning') { await submitProvisioning(form, event.submitter?.value); return; }
+  const data = Object.fromEntries(new FormData(form).entries());
 
   if (type === 'paper-delivery') {
     const clientId = pState.selectedClient.id;
@@ -28,7 +30,7 @@ export async function handleFormSubmit(event) {
 
   /* ── Add Client ── */
   if (type === "add-client") {
-    const { error } = await pb.from("clients").insert({
+    const { data: savedClient, error } = await pb.from("clients").insert({
       name:               data.name,
       industry:           data.industry || "Mobile Repair Shop",
       plan:               data.plan     || "Basic",
@@ -39,16 +41,18 @@ export async function handleFormSubmit(event) {
       inventory_rate:     Number(data.inventory_rate || 0),
       bill_billable:      true,
       inventory_billable: data.inventory_addon === "true",
-      supabase_url:       data.supabase_url,
-      supabase_anon:      data.supabase_anon,
+      supabase_url:       `https://${data.project_ref}.supabase.co`,
+      supabase_anon:      "",
       shop_url:           data.shop_url || "",
-    });
+    }).select().single();
     if (error) { alert("Error: " + error.message); return; }
 
-    alert('Client saved. Provision its trusted source and server credentials before enabling billing or configuration sync.');
+    pState.selectedClient = savedClient;
+    pState.page = 'client-detail';
 
     pState.modal = null;
-    await loadPlatform(); render(); return;
+    await loadPlatform();
+    await loadClientData(pState.selectedClient); render(); return;
   }
 
   /* ── Edit Client ── */

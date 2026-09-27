@@ -1,3 +1,4 @@
+import { provisioningPanel } from '../provisioning.js';
 import { esc } from "../operations.js";
 import { pState } from "../state.js";
 import { computeClientBilling, getLifecycleFlag, getInvoicePayments, getInvoicePaidTotal } from "../billing.js";
@@ -63,14 +64,14 @@ export function pageClientDetail() {
   const billing = computeClientBilling(c.id), thermal = o.thermal || {}, source = o.source;
   const metres = value => (Number(value || 0) / 1000).toLocaleString(undefined, { maximumFractionDigits: 3 });
   const flag = (label, field, action) => moduleToggleRow(label,
-    field === 'paper_resupply_enabled' ? 'Owner request capability only; thermal collection always continues' : c.config_synced_at ? 'Last verified Shop configuration' : 'Not yet verified with Shop', cd.config?.[field] === true, action);
+    field === 'paper_resupply_enabled' ? 'Owner request capability only; thermal collection always continues' : (cd.verifiedAt || c.config_synced_at) ? 'Last verified Shop configuration' : 'Not yet verified with Shop', cd.config?.[field] === true, action);
   const canConfig = ['master_admin','portfolio_manager'].includes(pState.currentUser.role);
   const canBill = ['master_admin','billing_person'].includes(pState.currentUser.role);
   const ready = c.billing_policy === 'usage-v1' && c.currency && !c.accounting_review_required;
   const projection = o.projection?.payload;
   const safeAmount = value => value == null ? 'Unavailable' : esc(`${c.currency || c.currency_symbol} ${Number(value).toLocaleString()}`);
   const safeLink = /^https?:\/\//i.test(c.shop_url || '') ? `<a class="secondary-button" href="${esc(c.shop_url)}" target="_blank" rel="noopener noreferrer">Open Shop ↗</a>` : '';
-  return head + `
+  return head + provisioningPanel(c, cd) + `
   <div class="grid two-col">
     <div class="card"><h2>Modules / Entitlements</h2>
       ${canConfig ? [flag('Repairs','repair_module_enabled','toggle-repair'),flag('Inventory','inventory_module_enabled','toggle-inventory'),

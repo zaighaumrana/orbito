@@ -46,3 +46,57 @@ Documentation follow-up (2026-09-27)
 - New implementation/delivery files now total 17 (the original 15 plus README
   and this manifest), alongside the three pre-existing handoff documents.
 - No application code or database state changed in this documentation follow-up.
+
+Provisioning / Turnstile follow-up (2026-09-27)
+The earlier implementation was committed before this follow-up; this section is
+relative to the clean development branch observed when this task began.
+
+New files:
+- src/provisioning.js
+- src/turnstile.js
+- supabase/functions/_shared/shop-credentials.ts
+- supabase/functions/platform-provision/index.ts
+- supabase/migrations/20260926234425_client_provisioning.sql
+- supabase/maintenance/install_platform_bridge_schedule.sql
+- docs/CLIENT_PROVISIONING.md
+
+Updated files:
+- README.md
+- docs/PLATFORM_MODERNIZATION_IMPLEMENTATION.md
+- docs/ORBITO_CHANGE_MANIFEST.txt (this follow-up)
+- index.html
+- src/events.js
+- src/forms.js
+- src/main.js
+- src/modals/client.js
+- src/pages/clients.js
+- src/render.js
+- src/supabase.js
+- supabase/config.toml
+- supabase/functions/platform-config/index.ts
+
+Summary: master-admin provisioning/verification/activation/rotation UI;
+per-client Vault storage; Management API secret/config automation; single shared
+scheduled dispatcher; legacy credential JSON fallback; exact resumable cutover;
+server-authoritative Supabase Auth CAPTCHA integration and widget lifecycle.
+Frozen Shop, existing migrations, platform-bridge and accounting rules unchanged.
+
+Validation: one production build PASS, 65 modules; git diff --check PASS.
+No automated tests, browser automation, local SQL execution or hosted tests.
+No deployment, remote migration, remote secrets, commit or push performed.
+The production build does not validate Edge Function or database runtime.
+
+Tracked diff snapshot below excludes this manifest and all new/untracked files:
+ README.md                                     | 15 ++++++++--
+ docs/PLATFORM_MODERNIZATION_IMPLEMENTATION.md | 16 ++++++++++
+ index.html                                    |  1 -
+ src/events.js                                 | 43 +++++++++++++++++----------
+ src/forms.js                                  | 18 ++++++-----
+ src/main.js                                   | 15 ++--------
+ src/modals/client.js                          |  8 ++---
+ src/pages/clients.js                          |  5 ++--
+ src/render.js                                 | 34 ++++++---------------
+ src/supabase.js                               |  6 +++-
+ supabase/config.toml                          |  3 ++
+ supabase/functions/platform-config/index.ts   | 11 +++----
+ 12 files changed, 100 insertions(+), 75 deletions(-)

@@ -6,11 +6,13 @@ The frontend uses JavaScript and Vite. Supabase provides authentication, Postgre
 
 ## Current status
 
-Local modernization implementation and targeted checks are complete. Hosted deployment and live smoke testing are still pending. The connected Shop repository was used as a read-only compatibility reference.
+The owner reports the original control-plane migration and platform-bridge/platform-config are deployed. The new client provisioning and Turnstile follow-up is implemented locally and awaits manual deployment and acceptance. Its new SQL and Edge code have not been runtime-tested. The connected Shop repository remains a read-only compatibility reference.
 
 Billing is usage-only at each client's configured BILL and INVENTORY rates. Each client chooses its own currency; balances in different currencies are displayed separately. THERMAL tracks estimated printing and has no financial charge.
 
 ## Documentation
+
+- [Client provisioning and Turnstile setup](docs/CLIENT_PROVISIONING.md) — current onboarding workflow, one-time infrastructure, credential rotation and recovery.
 
 - [Implementation report and deployment checklist](docs/PLATFORM_MODERNIZATION_IMPLEMENTATION.md) — architecture, billing rules, migration, provisioning, cutover, validation and live acceptance.
 - [Full change manifest](docs/ORBITO_CHANGE_MANIFEST.txt) — tracked change summary and new files, including the documentation update.
@@ -33,6 +35,7 @@ Create a local .env.local file with the existing deployment's public frontend co
 VITE_PLATFORM_URL=https://YOUR_PLATFORM_PROJECT.supabase.co
 VITE_PLATFORM_ANON=YOUR_PLATFORM_PUBLIC_ANON_KEY
 VITE_PLATFORM_AUTH_EMAIL=YOUR_CONFIGURED_PLATFORM_AUTH_EMAIL
+VITE_TURNSTILE_KEY=YOUR_PUBLIC_TURNSTILE_SITE_KEY
 ~~~
 
 The VITE variables are included in browser code. Use only public configuration here; Shop service-role credentials and bridge secrets belong in server-side secrets. The local environment file is ignored by Git.
@@ -92,9 +95,17 @@ Database checks require a disposable local PostgreSQL fixture. Follow the setup 
 
 Recorded checks passed for baseline plus migration, source binding and replay conflicts, accounting permissions, exact invoice membership, concurrent ingestion, payments, currency boundaries, paper lifecycle and the frozen Shop billing projection. Both Edge Functions passed syntax transformation. Full Deno type checking and hosted Edge/JWT integration remain unverified.
 
+## Client onboarding
+
+After the one-time setup, use Clients → Add Client → Client Detail → Provision Client → Modules → Verify Setup → Activate Bridge. Master administrators provision connections and manage credentials; existing module and billing roles remain unchanged. Activation requires an explicit paused-write/reconciliation confirmation and captures the actual Shop cutover sequence. Per-client credentials are encrypted in Vault; the legacy server-secret JSON remains a compatibility fallback.
+
+The new platform-provision function automates Management API secret/config setup. One Platform-side dispatcher schedule polls activated managed clients. See the provisioning guide for PLATFORM_MANAGEMENT_TOKEN, Vault/scheduler setup, function deployment and Turnstile's **server-side Supabase Auth CAPTCHA configuration**. The public Turnstile site key is required on localhost as well as deployed domains; offline/network failures leave login disabled with a recovery message.
+
 ## Deployment and live smoke testing
 
-Follow the full deployment checklist before testing against live services. The required sequence includes:
+For this follow-up, first follow [Client provisioning](docs/CLIENT_PROVISIONING.md#once-per-platform). Apply the **new 20260926234425_client_provisioning.sql migration**, deploy platform-provision, redeploy platform-config, configure the one-time infrastructure and rebuild/deploy the frontend. Earlier modernization checks below are historical; no new automated or hosted tests were run for the provisioning/Turnstile change.
+
+For an environment that has not yet received the original modernization, the earlier deployment sequence remains:
 
 1. Review and apply only the additive migration, 20260925191052_platform_control_plane.sql, and deploy the two Platform Edge Functions with their checked-in JWT settings.
 2. Configure operator identities, server secrets, per-client source bindings and currencies.

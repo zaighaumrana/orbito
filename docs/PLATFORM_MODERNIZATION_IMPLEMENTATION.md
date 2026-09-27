@@ -1,5 +1,7 @@
 # Platform modernization implementation report and deployment checklist
 
+> Current follow-up: the owner reports the original control-plane migration and platform-bridge/platform-config are already deployed. Historical “not performed” statements below describe the original implementation session. The new provisioning/Turnstile follow-up is local only; use [CLIENT_PROVISIONING.md](CLIENT_PROVISIONING.md) for current onboarding and deployment instructions. Manual per-client provisioning and PLATFORM_SHOP_CREDENTIALS JSON edits below are now emergency/legacy fallback guidance.
+
 - Preserve clients, usage_logs, billing_cycles, payments, client_credit and pricing_rate_log.
 - Match frozen Shop v1: source_id/client_binding, immutable event_id/source_sequence/kind/operation/operation_id/body/occurred_at, per-event ACKs; billing and resupply revisions returned on polling.
 - Authenticate per-source secret hashes server-side; configured source maps to exactly one client. No browser identity authority.
@@ -125,3 +127,17 @@ A development-only **read-only sample preview** is available at `/preview.html` 
 
 Final continuation result: production build PASS (63 modules), both Edge files and the sample preview pass syntax checks; `git diff --check` PASS. Preview responds HTTP 200 at http://127.0.0.1:4181/preview.html and has been queued in the app browser. No full Deno type-check or hosted integration test is claimed.
 
+
+## Client provisioning and Turnstile follow-up (2026-09-27)
+
+Normal onboarding now uses Client Detail: project/binding and one-time credential submission, Provision, module controls, Verify, then separately confirmed Activate. New private Vault credential/job records and service-only RPCs reuse existing bridge_sources, source_credentials, billing publication, role checks, config jobs and operator_audit. No accounting semantics or existing migration changed. Activation records a durable exact cutover plan before switching the frozen Shop's existing configuration, leaves held_legacy history untouched and resumes partial completion with the same request identity. No Shop files changed.
+
+New Edge Function: platform-provision (authenticated master-admin operations, plus service-role-only scheduled dispatch). Updated platform-config uses the shared Vault-first credential resolver with legacy PLATFORM_SHOP_CREDENTIALS fallback. Management API automation sets Shop Edge secrets and executes only fixed parameterized bridge_config statements. A single Platform scheduler automatically polls enabled Vault-managed clients; its installation is staged as a maintenance script. Existing client schedulers remain until adoption.
+
+New migration: supabase/migrations/20260926234425_client_provisioning.sql. New scheduler installer: supabase/maintenance/install_platform_bridge_schedule.sql. Both require manual review/application. The reset for disposable test accounts is never called by onboarding. Master-only provisioning is enforced in PostgreSQL; ordinary operator RPC responses have no credentials. Existing module/config dispatch is serialized against pending provisioning and audited.
+
+Turnstile is rendered explicitly with a widget ID and generation guard. Login/password reset send captchaToken to Supabase Auth, require fresh verification after failure, and clean up before navigation. Offline/script/service errors retain the screen and disable submission, with retry and online recovery. There is no localhost bypass. Server enforcement requires the administrator to enable Supabase Auth CAPTCHA with the Turnstile secret; only VITE_TURNSTILE_KEY is public.
+
+One-time manual deployment: apply the new migration, deploy platform-provision and updated platform-config, set PLATFORM_MANAGEMENT_TOKEN, configure the shared polling schedule and its two Vault values, enable Auth Turnstile enforcement, configure permitted hostnames/redirects and deploy the frontend. Per-client provisioning, verification, module controls, confirmed activation and credential rotation then use the UI. The complete operator guide and recovery rules are in CLIENT_PROVISIONING.md.
+
+Validation for this follow-up: no automated tests, browser automation, local SQL execution, hosted tests, remote changes, commits or pushes. The single permitted production build passed (Vite 5.4.21, 65 modules; existing nonfatal CJS/chunk warnings). git diff --check passed. This frontend build does not compile or runtime-validate the Edge Functions or SQL. Historical test results above apply only to the earlier modernization.
