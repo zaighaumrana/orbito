@@ -421,4 +421,5 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.platform-provision]
-verify_jwt = true
+# Handler authenticates scheduler secret or Auth user + master-admin RPC.
+verify_jwt = false
