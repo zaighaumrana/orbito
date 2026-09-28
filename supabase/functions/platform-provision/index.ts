@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.108.2'
-import { shopCredential } from '../_shared/shop-credentials.ts'
+import { pollShopBridge } from '../_shared/bridge-call.ts'
+import { shopCredential, bridgeCallCredential } from '../_shared/shop-credentials.ts'
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Cache-Control': 'no-store' }
 const reply = (status: number, body: unknown) => Response.json(body, { status, headers: cors })
 const fields = ['repair_module_enabled','inventory_module_enabled','technician_module_enabled','live_tracking_enabled','ems_enabled','suspended']
@@ -30,7 +31,7 @@ async function query(ref: string, sql: string, parameters: unknown[] = []) {
   return rows[0]
 }
 async function readConfig(target: any) {
-  // The frozen Shop bridge authenticates its legacy service-role JWT, not new sb_secret keys.
+  // Shop management/config access still uses the existing legacy service-role credential.
   try {
     const part = target.service_role_key.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')
     const claims = JSON.parse(atob(part.padEnd(Math.ceil(part.length/4)*4,'=')))
@@ -54,14 +55,15 @@ Deno.serve(async req => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return reply(405, { error: 'POST required' })
   const url = Deno.env.get('SUPABASE_URL')!
-  // Scheduled dispatch uses the Platform service role, never an operator-supplied destination.
+  // Scheduler authentication is independent of Supabase JWT/key rotation.
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  const supplied = req.headers.get('authorization')?.replace(/^Bearer /i,'') ?? ''
-  const [expectedHash,suppliedHash] = await Promise.all([hash(serviceKey),hash(supplied)])
+  const schedulerSecret = Deno.env.get('PLATFORM_SCHEDULER_SECRET') ?? ''
+  const supplied = req.headers.get('authorization')?.match(/^Bearer ([^\s]+)$/i)?.[1] ?? ''
+  const [expectedHash,suppliedHash] = await Promise.all([hash(schedulerSecret),hash(supplied)])
   let difference = 0; for (let i=0;i<expectedHash.length;i++) difference |= expectedHash.charCodeAt(i)^suppliedHash.charCodeAt(i)
-  if (!difference) {
+  if (schedulerSecret && supplied && !difference) {
     let task: any; try { task = await req.json() } catch { return reply(400,{ error:'Invalid scheduled request' }) }
-    if (task.action !== 'dispatch') return reply(400,{ error:'Only dispatch is available to the scheduler' })
+    if (!task || Array.isArray(task) || typeof task !== 'object' || Object.keys(task).length !== 1 || task.action !== 'dispatch') return reply(400,{ error:'Only dispatch is available to the scheduler' })
     const admin = createClient(url,serviceKey,{ auth:{ persistSession:false } })
     const { data: targets,error } = await admin.rpc('platform_provision_poll_targets')
     if (error) return reply(503,{ error:'Dispatch queue unavailable' })
@@ -69,13 +71,7 @@ Deno.serve(async req => {
     // Four bounded batches keep work within the Edge execution window.
     for (let offset=0;offset<targets.length;offset+=5) {
       await Promise.all(targets.slice(offset,offset+5).map(async (clientId: number) => {
-        try {
-          const target = await shopCredential(admin,clientId)
-          const result = await jsonRequest(`https://${target.project_ref}.supabase.co/functions/v1/platform-bridge`,{
-            method:'POST',headers:{ Authorization:`Bearer ${target.service_role_key}`,'Content-Type':'application/json' },body:'{}',
-          },'Shop bridge poll')
-          outcomes.push({ client_id:clientId,ok:result?.enabled === true })
-        } catch { outcomes.push({ client_id:clientId,ok:false }) }
+        outcomes.push(await pollShopBridge(admin,clientId))
       }))
     }
     return reply(200,{ outcomes })
@@ -92,7 +88,7 @@ Deno.serve(async req => {
     const bytes = new Uint8Array(size); let offset = 0; for (const chunk of chunks) { bytes.set(chunk,offset); offset += chunk.length }
     body = JSON.parse(new TextDecoder().decode(bytes))
     if (!Number.isSafeInteger(body.client_id) || body.client_id < 1 || !/^[0-9a-f-]{36}$/i.test(body.request_id)) throw new Error()
-    if (!['provision','verify','activate','rotate','replace'].includes(body.action)) throw new Error()
+    if (!['provision','verify','activate','rotate','replace','provision-call','rotate-call'].includes(body.action)) throw new Error()
   } catch { return reply(400, { error: 'Invalid provisioning request' }) }
   const params: any = body.params ?? {}
   // All destination changes are explicitly authorized by the master role in this RPC.
@@ -108,8 +104,26 @@ Deno.serve(async req => {
     if (error) return fail(`Platform ${name} step could not complete. Resume or reconcile request ${body.request_id}.`)
     return result
   }
+  async function provisionCall() {
+    const {data: call,error: prepareError} = await admin.rpc('platform_prepare_bridge_call',{
+      p_request:body.request_id,p_candidate:randomSecret(),
+    })
+    if (prepareError || !call?.bridge_call_secret || !/^[a-z]{20}$/.test(call.project_ref)) fail('Bridge call credential could not be prepared; resume the same operation.')
+    // Persist the uncertainty boundary before the external write. Retrying reuses
+    // the same pending Vault value; scheduler skips clients with pending jobs.
+    await step('checkpoint')
+    await management(call.project_ref,'secrets',[{name:'PLATFORM_BRIDGE_CALL_SECRET',value:call.bridge_call_secret}])
+    const {error: commitError} = await admin.rpc('platform_commit_bridge_call',{p_request:body.request_id})
+    if (commitError) fail('Bridge call credential outcome needs completion; resume the same operation.')
+  }
   try {
     let context = await step('context')
+    if (['provision-call','rotate-call'].includes(body.action)) {
+      stage = 'bridge_call_credential'
+      await provisionCall()
+      await step('complete')
+      return reply(200,{state:'complete',request_id:body.request_id})
+    }
     if (['provision','replace'].includes(body.action) && context.job.step === 'reserved') {
       stage = 'saving_credential'
       const ref = params.project_ref
@@ -147,6 +161,7 @@ Deno.serve(async req => {
         { name:'PLATFORM_BRIDGE_ENDPOINT',value:`${url}/functions/v1/platform-bridge` },
         { name:'PLATFORM_BRIDGE_SOURCE_SECRET',value:secret },
       ])
+      await provisionCall()
     } else if (body.action === 'activate') {
       stage = 'planning_cutover'; assertBound()
       if (!context.source || !context.currency || context.review_required) fail('Provision the source, choose currency and reconcile accounting before activation.')
@@ -191,9 +206,11 @@ Deno.serve(async req => {
     let probeBody: any; try { probeBody = await probe.json() } catch {}
     if (probe.status !== 401 || probeBody?.error !== 'Not authorized') fail('Platform bridge endpoint is not ready; check its deployment and JWT settings.')
     context = await step('context')
+    const callReady = Boolean(await bridgeCallCredential(admin,body.client_id))
+    if (body.action === 'verify' && !callReady) fail('Bridge call credential missing; provision it without recreating this client.')
     if (body.action === 'verify' && !context.projection_exists) fail('Billing projection is not ready. Confirm currency and provision the source.')
     await step('verified',{
-      shop_config:verifiedConfig,connection:'Connected',config_access:'Working (read + database grants)',bridge:context.source ? cfg.delivery_enabled && context.source.enabled ? 'Active' : 'Ready' : 'Not provisioned',
+      bridge_call_configured:callReady,shop_config:verifiedConfig,connection:'Connected',config_access:'Working (read + database grants)',bridge:context.source ? cfg.delivery_enabled && context.source.enabled ? 'Active' : 'Ready' : 'Not provisioned',
       billing_projection:context.projection_exists && cfg.billing_compatible ? 'Ready (contract only)' : 'Not verified',
       usage_mode:cfg.usage_mode,delivery_enabled:cfg.delivery_enabled,source_id:cfg.source_id,client_binding:cfg.client_binding,last_sequence:cfg.last_sequence,
     })
