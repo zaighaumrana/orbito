@@ -1,6 +1,6 @@
-import { shopCredential } from '../_shared/shop-credentials.ts'
+import { bridgeCallCredential } from '../_shared/shop-credentials.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.108.2'
-const fields = ['repair_module_enabled','inventory_module_enabled','technician_module_enabled','live_tracking_enabled','ems_enabled','suspended']
+const fields = ['repair_module_enabled','inventory_module_enabled','technician_module_enabled','live_tracking_enabled','ems_enabled','ems_track_breaks','suspended']
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info', 'Access-Control-Allow-Methods': 'POST, OPTIONS' }
 const reply = (status: number, body: unknown) => Response.json(body, { status, headers: cors })
 Deno.serve(async req => {
@@ -21,18 +21,19 @@ Deno.serve(async req => {
   if (accessError) return reply(403, { error: 'Operator not authorized', definite_failure: true })
   const admin = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } })
   let target: any
-  try { target = await shopCredential(admin, body.client_id) }
+  try { target = await bridgeCallCredential(admin, body.client_id); if (!target) throw new Error('Bridge call credential missing') }
   catch (error) { return reply(503, { error: (error as Error).message, definite_failure: true }) }
   if (body.action === 'read') {
     const { error: readAuthError } = await caller.rpc('platform_client_operations', { p_client: body.client_id })
     if (readAuthError) return reply(403, { error: 'Operator not authorized', definite_failure: true })
     try {
-      const response = await fetch(`https://${target.project_ref}.supabase.co/rest/v1/shop_config?id=eq.1&select=${fields.join(',')}`, {
-        method: 'GET', redirect: 'error', signal: AbortSignal.timeout(12000),
-        headers: { apikey: target.service_role_key, Authorization: `Bearer ${target.service_role_key}` },
+      const response = await fetch(`https://${target.project_ref}.supabase.co/functions/v1/platform-bridge`, {
+        method: 'POST', redirect: 'error', signal: AbortSignal.timeout(12000),
+        headers: { Authorization: `Bearer ${target.bridge_call_secret}`, 'Content-Type':'application/json' },
+        body:JSON.stringify({ operation:'config-read' }),
       })
       if (!response.ok) throw new Error('Read failed')
-      const rows = await response.json()
+      const rows = [(await response.json()).config]
       if (rows.length !== 1 || !fields.every(k => typeof rows[0][k] === 'boolean')) throw new Error('Config incomplete')
       return reply(200, { config: Object.fromEntries(fields.map(k => [k,rows[0][k]])) })
     } catch { return reply(503, { error: 'Shop configuration could not be read' }) }
@@ -44,13 +45,13 @@ Deno.serve(async req => {
   if (!job.dispatch) return reply(job.state === 'applied' ? 200 : 409, { state: job.state, definite_failure: job.state === 'failed', error: job.state === 'applied' ? undefined : 'Existing operation needs completion or reconciliation' })
   let state = 'uncertain', result: any = null
   try {
-    const response = await fetch(`https://${target.project_ref}.supabase.co/rest/v1/shop_config?id=eq.1&select=${fields.join(',')}`, {
-      method: 'PATCH', redirect: 'error', signal: AbortSignal.timeout(12000),
-      headers: { apikey: target.service_role_key, Authorization: `Bearer ${target.service_role_key}`, 'Content-Type': 'application/json', Prefer: 'return=representation' },
-      body: JSON.stringify(job.changes),
+    const response = await fetch(`https://${target.project_ref}.supabase.co/functions/v1/platform-bridge`, {
+      method: 'POST', redirect: 'error', signal: AbortSignal.timeout(12000),
+      headers: { Authorization: `Bearer ${target.bridge_call_secret}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ operation:'config-write',request_id:job.request_id,changes:job.changes }),
     })
     if (response.ok) {
-      const rows = await response.json()
+      const rows = [(await response.json()).config]
       if (rows.length === 1 && fields.every(k => typeof rows[0][k] === 'boolean') && Object.entries(job.changes).every(([k,v]) => rows[0][k] === v)) {
         result = Object.fromEntries(fields.map(k => [k, rows[0][k]])); state = 'applied'
       }

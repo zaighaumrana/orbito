@@ -1,7 +1,8 @@
 import { submitProvisioning } from './provisioning.js';
+import { validateOwner } from './onboarding.js';
 import { rpc, recordPayment, retryOperation } from "./operations.js";
 import { pState, PCFG } from "./state.js";
-import { pb, PLATFORM_AUTH_EMAIL, loadPlatform, loadClientData } from "./supabase.js";
+import { pb, PLATFORM_AUTH_EMAIL, loadPlatform, loadClientData, updateClientConfig } from "./supabase.js";
 import { render } from "./render.js";
 
 function validatePassword(pw) {
@@ -30,7 +31,15 @@ export async function handleFormSubmit(event) {
 
   /* ── Add Client ── */
   if (type === "add-client") {
+    let owner;
+    try { owner = validateOwner(data.owner_name, data.owner_email); } catch (error) { alert(error.message); return; }
+    if (data.ems_track_breaks === 'true' && data.plan !== 'Pro Plus') { alert('Break Tracking requires Pro Plus / EMS.'); return; }
     const { data: savedClient, error } = await pb.from("clients").insert({
+      ...owner,
+      onboarding_version: 2,
+      pairing_mode: data.pairing_mode,
+      ems_track_breaks: data.ems_track_breaks === 'true',
+      paper_resupply_enabled: data.paper_resupply_enabled === 'true',
       name:               data.name,
       industry:           data.industry || "Mobile Repair Shop",
       plan:               data.plan     || "Basic",
@@ -63,10 +72,15 @@ export async function handleFormSubmit(event) {
       industry:        data.industry,
       plan:            data.plan,
       shop_url:        data.shop_url,
+      ...(pState.selectedClient.onboarding_version === 2 ? { pairing_mode:data.pairing_mode } : {}),
 
     }).eq("id", pState.selectedClient.id);
     if (error) { alert("Error: " + error.message); return; }
     pState.selectedClient = { ...pState.selectedClient, ...data };
+    if (pState.selectedClient.onboarding_version === 2 && pState.clientData.provisioning?.connection?.verified_at) {
+      const modules = await rpc('platform_plan_entitlements',{p_plan:data.plan,p_inventory:pState.selectedClient.inventory_billable,p_breaks:pState.selectedClient.ems_track_breaks});
+      await updateClientConfig(pState.selectedClient, modules);
+    }
     pState.modal = null;
     await loadPlatform(); render(); return;
   }
@@ -80,6 +94,10 @@ export async function handleFormSubmit(event) {
     const client      = pState.data.clients.find(c => c.id === clientId);
 
     await rpc('platform_set_rates', { p_client: clientId, p_bill: newEvent, p_inventory: newInv, p_inventory_billable: invBillable });
+    if (client.onboarding_version === 2 && pState.clientData.provisioning?.connection?.verified_at) {
+      const modules = await rpc('platform_plan_entitlements',{p_plan:client.plan,p_inventory:invBillable,p_breaks:client.ems_track_breaks});
+      await updateClientConfig(client,modules);
+    }
     pState.modal = null;
     await loadPlatform(); render(); return;
   }

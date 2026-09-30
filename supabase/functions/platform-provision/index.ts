@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.108.2'
 import { pollShopBridge } from '../_shared/bridge-call.ts'
-import { shopCredential, bridgeCallCredential } from '../_shared/shop-credentials.ts'
+import { bridgeCallCredential } from '../_shared/shop-credentials.ts'
+import { runOnboarding, OnboardingError } from '../_shared/onboarding.ts'
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Cache-Control': 'no-store' }
 const reply = (status: number, body: unknown) => Response.json(body, { status, headers: cors })
 const fields = ['repair_module_enabled','inventory_module_enabled','technician_module_enabled','live_tracking_enabled','ems_enabled','suspended']
@@ -31,17 +32,12 @@ async function query(ref: string, sql: string, parameters: unknown[] = []) {
   return rows[0]
 }
 async function readConfig(target: any) {
-  // Shop management/config access still uses the existing legacy service-role credential.
-  try {
-    const part = target.service_role_key.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')
-    const claims = JSON.parse(atob(part.padEnd(Math.ceil(part.length/4)*4,'=')))
-    if (claims.role !== 'service_role' || claims.ref !== target.project_ref) throw new Error()
-  } catch { return fail('Use the target Shop legacy service-role JWT; its role and project must match.') }
-  const rows = await jsonRequest(`https://${target.project_ref}.supabase.co/rest/v1/shop_config?id=eq.1&select=${fields.join(',')}`, {
-    headers: { apikey: target.service_role_key, Authorization: `Bearer ${target.service_role_key}` },
-  }, 'Shop credential / config access')
-  if (!Array.isArray(rows) || rows.length !== 1 || !fields.every(k => typeof rows[0][k] === 'boolean')) return fail('Shop configuration is incompatible with the finished client contract.')
-  return rows[0]
+  const result = await jsonRequest('https://'+target.project_ref+'.supabase.co/functions/v1/platform-bridge', {
+    method:'POST', headers:{ Authorization:'Bearer '+target.bridge_call_secret,'Content-Type':'application/json' },
+    body:JSON.stringify({operation:'config-read'}),
+  }, 'Shop configuration');
+  if (!result?.config || !fields.every(k=>typeof result.config[k]==='boolean')) fail('Shop bridge configuration contract is unavailable.');
+  return result.config;
 }
 function validateConfig(cfg: any) {
   if (!cfg || !/^[0-9a-f-]{36}$/i.test(cfg.source_id) || !/^\d+$/.test(cfg.last_sequence)
@@ -65,6 +61,18 @@ Deno.serve(async req => {
     let task: any; try { task = await req.json() } catch { return reply(400,{ error:'Invalid scheduled request' }) }
     if (!task || Array.isArray(task) || typeof task !== 'object' || Object.keys(task).length !== 1 || task.action !== 'dispatch') return reply(400,{ error:'Only dispatch is available to the scheduler' })
     const admin = createClient(url,serviceKey,{ auth:{ persistSession:false } })
+    const retryQueue = await admin.rpc('platform_onboarding_retry_targets')
+    if (retryQueue.error) return reply(503,{ error:'Onboarding retry queue unavailable' })
+    for (const job of retryQueue.data || []) {
+      try {
+        await runOnboarding(admin,job,url)
+        const completed = await admin.rpc('platform_provision_step',{p_request:job.request_id,p_step:'complete',p_data:{}})
+        if (completed.error) throw new Error('Bootstrap completion was not recorded')
+      } catch {
+        const failed = await admin.rpc('platform_provision_step',{p_request:job.request_id,p_step:'failure',p_data:{error:'Automatic onboarding retry pending. Check pairing, migrations and reserved owner identity.',stage:'onboarding'}})
+        if (failed.error) return reply(503,{ error:'Onboarding retry outcome unavailable; lease recovery is pending' })
+      }
+    }
     const { data: targets,error } = await admin.rpc('platform_provision_poll_targets')
     if (error) return reply(503,{ error:'Dispatch queue unavailable' })
     const outcomes: any[] = []
@@ -88,7 +96,9 @@ Deno.serve(async req => {
     const bytes = new Uint8Array(size); let offset = 0; for (const chunk of chunks) { bytes.set(chunk,offset); offset += chunk.length }
     body = JSON.parse(new TextDecoder().decode(bytes))
     if (!Number.isSafeInteger(body.client_id) || body.client_id < 1 || !/^[0-9a-f-]{36}$/i.test(body.request_id)) throw new Error()
-    if (!['provision','verify','activate','rotate','replace','provision-call','rotate-call'].includes(body.action)) throw new Error()
+    if (!['provision','verify','activate','rotate','replace','provision-call','rotate-call','pair-shop','bootstrap-shop','onboarding-status','invite-owner'].includes(body.action)) throw new Error()
+    if (!body || Array.isArray(body) || Object.keys(body).some(key => !['client_id','request_id','action','params','credential'].includes(key))) throw new Error()
+    if (body.credential !== undefined) return reply(400, { error:'Shop privileged credentials are not accepted. Use bridge pairing.' })
   } catch { return reply(400, { error: 'Invalid provisioning request' }) }
   const params: any = body.params ?? {}
   // All destination changes are explicitly authorized by the master role in this RPC.
@@ -117,6 +127,14 @@ Deno.serve(async req => {
     if (commitError) fail('Bridge call credential outcome needs completion; resume the same operation.')
   }
   try {
+    if (['pair-shop','bootstrap-shop','onboarding-status','invite-owner'].includes(body.action)) {
+      stage = 'onboarding'
+      let result
+      try { result = await runOnboarding(admin,body,url) }
+      catch (error) { throw new OperatorError(error instanceof OnboardingError ? error.message : 'Onboarding unavailable; retry the same request.') }
+      await step('complete')
+      return reply(200,{ ...result,request_id:body.request_id })
+    }
     let context = await step('context')
     if (['provision-call','rotate-call'].includes(body.action)) {
       stage = 'bridge_call_credential'
@@ -124,29 +142,16 @@ Deno.serve(async req => {
       await step('complete')
       return reply(200,{state:'complete',request_id:body.request_id})
     }
-    if (['provision','replace'].includes(body.action) && context.job.step === 'reserved') {
-      stage = 'saving_credential'
-      const ref = params.project_ref
-      if (!/^[a-z]{20}$/.test(ref) || ref === new URL(url).hostname.split('.')[0]) fail('Choose a Shop project, not the Platform project.')
-      if (typeof params.client_binding !== 'string' || params.client_binding.length < 1 || params.client_binding.length > 200 || params.client_binding !== params.client_binding.trim()) fail('Client binding is required (maximum 200 characters).')
-      if (context.connection && (context.connection.project_ref !== ref || context.connection.client_binding !== params.client_binding)) fail('Existing Shop destination/binding cannot be reassigned by this workflow.')
-      if (typeof body.credential !== 'string' || body.credential.length < 40 || body.credential.length > 4096) fail('Submit the Shop service-role credential once. It is never returned.')
-      await readConfig({ project_ref: ref, service_role_key: body.credential })
-      const discovered = await query(ref,cfgSelect); validateConfig(discovered)
-      if (context.source && (discovered.source_id !== context.source.source_id || discovered.client_binding !== context.source.client_binding)) fail('Existing Shop source/binding does not match this account. Credential was not replaced.')
-      if (body.action === 'provision' && (discovered.usage_mode !== 'legacy' || discovered.delivery_enabled || (discovered.client_binding && discovered.client_binding !== params.client_binding))) fail('Provision only an inactive legacy Shop with the same or empty binding. Adopt existing active clients with Replace Shop Credential.')
-      await step('credential',{ credential:body.credential })
-      body.credential = undefined
-      context = await step('context')
-    }
+    if (['provision','replace'].includes(body.action)) fail('Use Onboarding V2 pairing for new Shops. Existing Shops retain their current source and require explicit reconciliation.');
     if (body.action === 'verify' && !context.connection) fail('Adopt this client with Replace Shop Credential before verifying its managed setup.')
-    const target = await shopCredential(admin,body.client_id)
+    const target = await bridgeCallCredential(admin,body.client_id)
+    if (!target) fail('Bridge call credential missing. Install it before verifying this Shop.')
     if (!Deno.env.get('PLATFORM_MANAGEMENT_TOKEN')) fail('One-time Platform setup required: configure PLATFORM_MANAGEMENT_TOKEN server-side, then resume.')
     stage = 'reading_contract'
     let cfg = await query(target.project_ref,cfgSelect)
     validateConfig(cfg)
     if (context.source && (cfg.source_id !== context.source.source_id || context.source.client_binding !== (target.client_binding ?? context.source.client_binding))) fail('Shop source identity/binding differs from Platform. Manual reconciliation required.')
-    const binding = target.client_binding ?? context.source?.client_binding
+    const binding = context.source?.client_binding ?? context.connection?.client_binding
     if (!binding) fail('Provision a client binding first.')
     const assertBound = () => { if (cfg.client_binding !== binding) fail('Shop binding differs from the provisioned account.') }
     if (body.action === 'provision') {

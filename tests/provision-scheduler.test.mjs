@@ -10,7 +10,8 @@ const code = transformSync(source.replace(/^import .*$/gm,''),{loader:'ts',forma
 const secret = 'synthetic-test-scheduler-value-not-a-real-secret';
 const service = 'synthetic-test-service-key';
 function setup(options = {}) {
-  const { operator = false, allowed = true, queueError = false } = options;
+  const { operator = false, allowed = true, queueError = false, retryQueueError = false,
+    retryJobs = [], retryFails = false, completeError = false, failureError = false } = options;
   const configured = Object.hasOwn(options,'configured') ? options.configured : secret;
   let handler; const calls = [];
   const env = { SUPABASE_URL:'https://example.invalid',SUPABASE_ANON_KEY:'public-test',SUPABASE_SERVICE_ROLE_KEY:service,PLATFORM_SCHEDULER_SECRET:configured };
@@ -18,10 +19,13 @@ function setup(options = {}) {
     Deno:{env:{get:key=>env[key]},serve:fn=>{handler=fn;}},crypto:webcrypto,TextEncoder,TextDecoder,Response,AbortSignal,URL,atob,
     console:{log:()=>assert.fail('Unexpected logging'),error:()=>assert.fail('Unexpected logging')},
     fetch:()=>assert.fail('Unexpected network call'),shopCredential:()=>assert.fail('Unexpected credential resolution'),
+    runOnboarding:async(_admin,job)=>{calls.push(['runOnboarding',job]);if(retryFails)throw Error('Unknown outcome');},
     createClient:(_url,key,options)=>({
       auth:{getUser:async()=>{calls.push(['getUser',options.global.headers.Authorization]);return {data:{user:operator?{id:'operator'}:null},error:operator?null:{message:'invalid'}};}},
       rpc:async(name,args)=>{
         calls.push([name,args,key]);
+        if(name==='platform_onboarding_retry_targets') return {data:retryJobs,error:retryQueueError?{}:null};
+        if(name==='platform_provision_step') return {data:{},error:(args.p_step==='complete'?completeError:failureError)?{}:null};
         if(name==='platform_provision_poll_targets') return {data:[],error:queueError?{}:null};
         assert.equal(name,'platform_provision_begin');
         return allowed?{data:{complete:true},error:null}:{data:null,error:{code:'42501',message:'denied'}};
@@ -40,7 +44,7 @@ function setup(options = {}) {
 test('correct dedicated secret dispatches without user authentication',async()=>{
   const h=setup(); const result=await h.send(`Bearer ${secret}`);
   assert.equal(result.status,200); assert.deepEqual(result.body,{outcomes:[]});
-  assert.deepEqual(h.calls.map(x=>x[0]),['platform_provision_poll_targets']);
+  assert.deepEqual(h.calls.map(x=>x[0]),['platform_onboarding_retry_targets','platform_provision_poll_targets']);
 });
 for(const [name,token,configured] of [
   ['wrong secret','Bearer wrong-secret',secret],['missing bearer',null,secret],
@@ -81,4 +85,31 @@ test('only provisioning gateway is changed and installer uses dedicated Vault va
   const sql=readFileSync(new URL('../supabase/maintenance/install_platform_bridge_schedule.sql',import.meta.url),'utf8');
   assert.match(sql,/orbito_platform_scheduler_secret/); assert.doesNotMatch(sql,/orbito_platform_service_role/);
   assert.match(sql,/'\* \* \* \* \*'/); assert.match(sql,/timeout_milliseconds := 90000/);
+});
+
+
+test('scheduler records bootstrap completion before returning to ordinary polling',async()=>{
+ const job={request_id:'00000000-0000-4000-8000-000000000001',client_id:1,action:'bootstrap-shop',params:{}};
+ const h=setup({retryJobs:[job]});assert.equal((await h.send('Bearer '+secret)).status,200);
+ assert.deepEqual(h.calls.map(c=>c[0]),['platform_onboarding_retry_targets','runOnboarding','platform_provision_step','platform_provision_poll_targets']);
+ assert.equal(h.calls[2][1].p_step,'complete');assert.equal(h.calls[2][1].p_request,job.request_id);
+});
+test('unknown bootstrap and completion-write failures remain retryable through the same job',async()=>{
+ const job={request_id:'00000000-0000-4000-8000-000000000001',client_id:1,action:'bootstrap-shop',params:{}};
+ for(const options of [{retryFails:true},{completeError:true}]) {
+  const h=setup({...options,retryJobs:[job]});assert.equal((await h.send('Bearer '+secret)).status,200);
+  const failure=h.calls.find(c=>c[0]==='platform_provision_step'&&c[1].p_step==='failure');assert.equal(failure[1].p_request,job.request_id);
+  assert.equal(h.calls.filter(c=>c[0]==='runOnboarding').length,1);
+ }
+});
+test('retry-queue and outcome persistence errors surface a safe failure for lease recovery',async()=>{
+ const queue=setup({retryQueueError:true});assert.equal((await queue.send('Bearer '+secret)).status,503);assert.equal(queue.calls.length,1);
+ const outcome=setup({retryJobs:[{request_id:'request',client_id:1,action:'bootstrap-shop'}],retryFails:true,failureError:true});
+ assert.equal((await outcome.send('Bearer '+secret)).status,503);assert.ok(!outcome.calls.some(c=>c[0]==='platform_provision_poll_targets'));
+});
+
+test('V2 rejects password and historical customer credential inputs before any reservation',async()=>{
+ for(const key of ['password','service_role_key','secret_api_key','database_password','customer_pat','supabase_password','credential']){
+ const h=setup({operator:true});const r=await h.send('Bearer operator-jwt',{client_id:1,request_id:'00000000-0000-4000-8000-000000000001',action:'bootstrap-shop',params:{},[key]:'synthetic-forbidden-value'});assert.equal(r.status,400);assert.deepEqual(h.calls.map(c=>c[0]),['getUser']);assert.doesNotMatch(JSON.stringify(r.body),/synthetic-forbidden-value/);
+ }
 });

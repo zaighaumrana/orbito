@@ -15,7 +15,13 @@ export function clientModals(type, md) {
           <form data-p-form="add-client">
             <div class="form-grid">
               <label class="field"><span>Business Name</span>
-                <input name="name" required placeholder="e.g. FixPoint Mobile Care"></label>
+                <input name="name" required placeholder="e.g. Your Business Name"></label>
+              <p class="muted">Owner Setup Method: Manual (default). Create the confirmed owner Auth account directly in the Shop project after provisioning; no owner password is entered here. Email invitation is an optional action once infrastructure is ready.</p>
+              <label class="field"><span>Business Owner Name</span><input name="owner_name" required maxlength="160" autocomplete="name"></label>
+              <label class="field"><span>Business Owner Email</span><input name="owner_email" type="email" required maxlength="254" autocomplete="email"></label>
+              <label class="field"><span>Paper Resupply / Thermal Paper Service</span><select name="paper_resupply_enabled"><option value="false">Not included</option><option value="true">Included</option></select></label>
+              <p class="muted">Printing &amp; Thermal Tracking: Included</p>
+              <label class="field"><span>Shop ownership</span><select name="pairing_mode"><option value="managed">Managed Shop</option><option value="byo">Client-owned Supabase — one-time manual pairing</option></select></label>
               <label class="field"><span>Industry</span>
                 <input name="industry" value="Mobile Repair Shop"></label>
               <label class="field"><span>Plan</span>
@@ -25,10 +31,11 @@ export function clientModals(type, md) {
                   <option value="Pro Plus">Pro Plus — Pro + Employee Management</option>
                 </select>
               </label>
+              <label class="field"><span>Break Tracking (requires Pro Plus / EMS)</span><select name="ems_track_breaks"><option value="false">Not selected</option><option value="true">Selected</option></select></label>
               <label class="field"><span>Billing Currency (ISO code)</span>
                 <input name="currency" required pattern="[A-Z]{3}" maxlength="3" placeholder="USD / PKR / EUR" list="currency-codes"><datalist id="currency-codes"><option>PKR</option><option>USD</option><option>EUR</option><option>GBP</option><option>AED</option><option>SAR</option><option>CAD</option><option>AUD</option></datalist></label>
               <label class="field" style="grid-column:1/-1"><span>Shop URL</span>
-                <input name="shop_url" placeholder="https://…"></label>
+                <input name="shop_url" type="url" required placeholder="https://…"></label>
             </div>
 
             <div style="margin:16px 0 8px;padding:12px;background:var(--surface-2);border-radius:8px">
@@ -84,6 +91,7 @@ export function clientModals(type, md) {
             <button class="icon-button" data-p-close>✕</button>
           </div>
           <form data-p-form="edit-client">
+            ${c.onboarding_version === 2 ? `<label class="field"><span>Shop ownership / pairing</span><select name="pairing_mode"><option value="managed" ${c.pairing_mode === 'managed' ? 'selected' : ''}>Managed</option><option value="byo" ${c.pairing_mode === 'byo' ? 'selected' : ''}>Client-owned / BYO</option></select></label>` : ''}
             <div class="form-grid">
               <label class="field"><span>Business Name</span>
                 <input name="name" value="${esc(c.name || "")}"></label>

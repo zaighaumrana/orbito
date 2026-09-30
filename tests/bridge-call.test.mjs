@@ -15,7 +15,8 @@ function fixture({missing=false,lookupError=false,http=200,network=false,respons
  const context={job:{step:'credential_saved',plan:{}},connection:{project_ref:ref,client_binding:'orbito-client-1'},source:{source_id:sourceId,client_binding:'orbito-client-1',enabled:true,usage_from_sequence:7},currency:'PKR',projection_exists:true,source_credential_exists:true};
  const rpc=async(name,args)=>{
   calls.push({name,args});
-  if(name==='platform_provision_poll_targets')return {data:[1]};
+  if(name==='platform_onboarding_retry_targets') return {data:[]};
+        if(name==='platform_provision_poll_targets')return {data:[1]};
   if(name==='platform_bridge_call_credential')return lookupError?{error:{message:callSecret}}:{data:missing?null:{project_ref:ref,bridge_call_secret:callSecret}};
   if(name==='platform_bridge_call_health')return {data:null};
   if(name==='platform_provision_begin')return allowed?{data:{complete:false}}:{error:{code:'42501',message:'denied'}};
@@ -60,8 +61,8 @@ function fixture({missing=false,lookupError=false,http=200,network=false,respons
 }
 test('full scheduler handler selects existing client and dispatches dedicated credential',async()=>{
  const h=fixture(); const r=await h.run();assert.equal(r.status,200);assert.equal(r.body.outcomes[0].ok,true);
- assert.deepEqual(h.calls.map(c=>c.name),['platform_provision_poll_targets','platform_bridge_call_credential','platform_bridge_call_health']);
- assert.equal(h.calls[1].args.p_client,1);
+ assert.deepEqual(h.calls.map(c=>c.name),['platform_onboarding_retry_targets','platform_provision_poll_targets','platform_bridge_call_credential','platform_bridge_call_health']);
+ assert.equal(h.calls.find(c=>c.name==='platform_bridge_call_credential').args.p_client,1);
 });
 for(const [name,options,code] of [
  ['missing',{missing:true},'missing_bridge_call_credential'],['lookup failure',{lookupError:true},'credential_lookup_failed'],

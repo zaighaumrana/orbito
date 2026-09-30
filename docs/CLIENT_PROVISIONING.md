@@ -1,5 +1,8 @@
 # Client provisioning and Turnstile setup
 
+> Superseded onboarding guidance: use [NEW_CLIENT_ONBOARDING_V2.md](../NEW_CLIENT_ONBOARDING_V2.md), [BYO_SUPABASE_ONBOARDING.md](../BYO_SUPABASE_ONBOARDING.md) and [credential cleanup](../LEGACY_PRIVILEGED_CREDENTIAL_CLEANUP.md). Manual owner activation is the default. Never collect Shop privileged keys or customer account credentials; retired maps/resolvers are unavailable in the current runtime. Historical rollout details below are not current setup instructions.
+
+
 Status: implemented locally; this follow-up has not been deployed or runtime-tested. The owner reports the earlier control-plane migration, platform-bridge and platform-config are already deployed. Apply this follow-up separately; do not reapply those migrations. No frozen Shop files were changed.
 
 ## Once per Platform
@@ -12,7 +15,7 @@ Status: implemented locally; this follow-up has not been deployed or runtime-tes
 
 The scheduler selects up to 20 Vault-managed, enabled clients per invocation, oldest attempted poll first, and invokes the finished Shop's existing platform-bridge function in groups of five. Pending provisioning jobs are excluded. Repeated failures do not starve other clients. At one invocation per minute, fleets larger than 20 have a longer poll interval; monitor and size the schedule for the fleet. Inspect cron/pg_net execution results and each client's Last contact. A successful scheduled HTTP request is not proof that every Shop poll succeeded; the response contains per-client success flags. No Shop cron or Shop schema/function deployment is created by onboarding.
 
-For management/config operations, existing clients using PLATFORM_SHOP_CREDENTIALS continue to resolve through that server-secret fallback when no Vault credential exists. Bridge invocation has no such fallback and requires the separate per-Shop call credential. Keep their existing scheduling until they are adopted into Vault. Then remove redundant per-Shop schedules after confirming the shared dispatcher works. Apply the migration before redeploying platform-config: resolver errors fail closed rather than silently using stale credentials.
+Current configuration uses authenticated bridge operations with no Shop privileged-key fallback. Existing Shops require updated bridge config operations and the separate call credential; do not recreate/reset them. Historical credential inventory/cleanup is a release operation after dependencies are verified.
 
 ### Turnstile server and frontend configuration
 
