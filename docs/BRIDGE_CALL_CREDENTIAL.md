@@ -1,5 +1,8 @@
 # Platform to Shop bridge credential: implementation and rollout
 
+> Superseded onboarding guidance: use [NEW_CLIENT_ONBOARDING_V2.md](../NEW_CLIENT_ONBOARDING_V2.md), [BYO_SUPABASE_ONBOARDING.md](../BYO_SUPABASE_ONBOARDING.md) and [credential cleanup](../LEGACY_PRIVILEGED_CREDENTIAL_CLEANUP.md). Manual owner activation is the default. Never collect Shop privileged keys or customer account credentials; retired maps/resolvers are unavailable in the current runtime. Historical rollout details below are not current setup instructions.
+
+
 Status: Platform code prepared locally on development. No migration, deployment, live secret change, Shop edit or live smoke test was performed.
 
 ## Authentication boundaries
@@ -12,7 +15,7 @@ Status: Platform code prepared locally on development. No migration, deployment,
 
 Previously dispatch resolved the Shop service-role JWT using shopCredential and sent it as bearer to the Shop. The Shop hash comparison still required identical JWT bytes. Dispatch now resolves only the dedicated call credential and sends Authorization: Bearer with POST {} to the same Shop endpoint. There is no service-role, source-secret or JSON fallback for invocation.
 
-Shop service-role credentials remain in their existing Vault slot and PLATFORM_SHOP_CREDENTIALS fallback for management/config access (including platform-config and provisioning verification). Do not delete or repurpose them. No frontend or Platform gateway configuration changes are required by this follow-up.
+The current V2 runtime uses only the dedicated bridge call token for Shop configuration and status. Historical Vault service-key slots may remain for metadata-only release inventory; PLATFORM_SHOP_CREDENTIALS is retired and has no runtime fallback. Do not restore or repurpose it.
 
 ## Storage and lifecycle
 

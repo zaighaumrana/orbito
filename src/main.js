@@ -1,4 +1,4 @@
-import { pb, loadConfig, loadPlatform } from "./supabase.js";
+import { pb, loadConfig, loadPlatform, loadOperatorIdentity } from "./supabase.js";
 import { pState }                        from "./state.js";
 import { render }                        from "./render.js";
 import { initEvents }                    from "./events.js";
@@ -87,41 +87,11 @@ render();
       "/settings": "settings",
     };
     const restoredPage = pathMap[window.location.pathname] || "overview";
-    const email = session.user?.email;
-
-    if (email === import.meta.env.VITE_PLATFORM_AUTH_EMAIL) {
-      /* Master admin */
+    try {
+      pState.currentUser = await loadOperatorIdentity();
       await loadConfig();
-      const { PCFG } = await import("./state.js");
-      pState.currentUser = {
-        role:     "master_admin",
-        username: PCFG.admin_username || "admin",
-        isMember: false,
-      };
-    } else {
-      /* Team member — look up their role */
-      await loadConfig();
-      const { data: userRow } = await pb.from("platform_users")
-        .select("id, name, email, role, status")
-        .eq("email", email)
-        .single();
-
-      if (!userRow || userRow.status !== "Active") {
-        /* Unknown user — force logout */
-        await pb.auth.signOut();
-        pState.authenticated = false;
-        pState.page = "login";
-        render();
-        return;
-      }
-      pState.currentUser = {
-        role:         userRow.role,
-        username:     userRow.name,
-        email:        userRow.email,
-
-        userId:       userRow.id,
-        isMember:     true,
-      };
+    } catch (error) {
+      await pb.auth.signOut();throw error;
     }
 
     pState.authenticated = true;

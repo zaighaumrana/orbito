@@ -1,16 +1,51 @@
+import { renderClientSetup } from './client-setup.js';
 import { pb, loadClientData } from './supabase.js';
 import { pState } from './state.js';
 import { esc } from './operations.js';
 import { render } from './render.js';
 
+async function submitOnboarding(form, requestedAction) {
+  const client = pState.selectedClient, job = pState.clientData.provisioning?.job;
+  form.querySelectorAll('button').forEach(button => { button.disabled = true; });
+  try {
+    if (requestedAction === 'cancel') {
+      const { error } = await pb.rpc('platform_provision_cancel',{p_client:client.id,p_request:job.request_id});
+      if (error) throw error;
+    } else {
+      const action = requestedAction === 'resume' ? job.action : requestedAction;
+      const invoke = async (next, requestId) => {
+        const result = await pb.functions.invoke('platform-provision',{body:{client_id:client.id,request_id:requestId,action:next,params:{}}});
+        if (result.error || result.data?.error) {
+          let message = result.data?.error;
+          try { message ||= (await result.error.context.clone().json()).error; } catch {}
+          throw new Error(message || 'Provisioning outcome unavailable. Refresh status and retry the recorded operation.');
+        }
+        return result.data;
+      };
+      const data = await invoke(action, requestedAction === 'resume' ? job.request_id : crypto.randomUUID());
+      if (data.message) alert(data.message);
+      if (data.setup_file) {
+        const url = URL.createObjectURL(new Blob([data.setup_file],{type:'text/plain'}));
+        delete data.setup_file;
+        const link = document.createElement('a'); link.href=url; link.download='orbito-shop-pairing.env'; link.click();
+        setTimeout(() => URL.revokeObjectURL(url),1000);
+      } else if (action === 'pair-shop' && data.state === 'paired') {
+        await invoke('bootstrap-shop',crypto.randomUUID());
+      }
+    }
+  } catch (error) { alert(error.message); }
+  finally { await loadClientData(client); render(); }
+}
+
 export function provisioningPanel(client, detail) {
+  if (client.onboarding_version === 2) return renderClientSetup(client,detail,pState.currentUser.role==='master_admin');
   const info = detail.provisioning || {}, connection = info.connection, job = info.job;
   const health = connection?.health || {}, source = detail.operations?.source;
   const pending = job && job.state !== 'complete';
   const master = pState.currentUser.role === 'master_admin';
   const project = connection?.project_ref || /^https:\/\/([a-z]{20})\.supabase\.co\/?$/.exec(client.supabase_url || '')?.[1] || '';
   const binding = connection?.client_binding || source?.client_binding || `orbito-client-${client.id}`;
-  return `<div class="card"><h2>Connection / Client Provisioning</h2>
+  return `<section class="card client-setup"><div class="setup-heading"><h2>Shop connection</h2><span class="badge ${health.error?'bad':connection?.verified_at?'good':'warn'}">${health.error?'Needs attention':connection?.verified_at?'Verified':'Not verified'}</span></div><p>Existing Shop · owner onboarding is not required.</p><div class="setup-health"><article><h3>Connection</h3><span class="badge ${health.connection==='Connected'?'good':'warn'}">${health.connection==='Connected'?'Supabase connected':'Not verified'}</span><p>Database: ${health.config_access?'Checked':'Not checked'}</p></article><article><h3>Platform Bridge</h3><span class="badge ${source?.enabled?'good':'warn'}">${source?.enabled?'Usage delivery active':'Needs verification'}</span><p>Recorded connection health. Refresh to load the latest observation.</p></article><article><h3>${esc(client.plan)} features</h3><div class="setup-features">${[['Workshop',client.technician_module_enabled],['Live Tracking',client.live_tracking_enabled],['EMS',client.ems_enabled],['Inventory',client.inventory_module_enabled],['Paper Resupply',client.paper_resupply_enabled],['Printing & thermal',true]].filter(([,on])=>on).map(([label])=>`<span class="badge">${label}</span>`).join('')}</div></article></div><button class="secondary-button" data-p-action="refresh-operations">Refresh status</button><details class="setup-advanced"><summary>Advanced / Technical Details</summary><h3>Connection / Client Provisioning</h3>
     <p class="muted">Create Client → Configure Shop → Provision → Verify → Activate</p>
     ${detail.provisioningError ? `<p role="alert">${esc(detail.provisioningError)} — deploy the provisioning migration and function before using these controls.</p>` : ''}
     <p>Project: ${esc(project || "Not configured")} · Binding: ${esc(binding)}</p>
@@ -33,8 +68,6 @@ export function provisioningPanel(client, detail) {
     ${master ? `<form data-p-form="client-provisioning" autocomplete="off" class="form-grid">
       <label class="field"><span>Shop Supabase Project Ref</span><input name="project_ref" pattern="[a-z]{20}" maxlength="20" value="${esc(project)}" ${connection ? 'readonly' : ''} placeholder="20-letter Shop project ref"></label>
       <label class="field"><span>Client binding</span><input name="client_binding" maxlength="200" value="${esc(binding)}" ${connection ? 'readonly' : ''}></label>
-      <label class="field" style="grid-column:1/-1"><span>Shop service-role credential (submit once; never displayed again)</span><input name="credential" type="password" autocomplete="new-password" maxlength="4096" placeholder="Required for first provision or credential replacement"></label>
-      <p class="muted" style="grid-column:1/-1">Stored server-side in Vault. Leave blank for verify, activate, rotate or a resume after credential storage succeeded. One-time Platform Management API setup is required for automated provisioning.</p>
       <div style="grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap">
         <button type="submit" name="action" value="provision" class="primary-button" ${pending || source?.usage_from_sequence != null ? 'disabled' : ''}>Provision Client</button>
         <button type="submit" name="action" value="verify" class="secondary-button" ${pending ? 'disabled' : ''}>Verify Setup</button>
@@ -46,22 +79,21 @@ export function provisioningPanel(client, detail) {
       <details style="grid-column:1/-1"><summary>Advanced — credentials / reconciliation / diagnostic IDs</summary>
         <p>Project: ${esc(project || 'Not configured')} · Binding: ${esc(binding)}<br>Request: ${esc(job?.request_id || 'None')}</p>
         <p class="muted">Rotation may briefly delay bridge delivery; queued events retain their identities. Running operations are locked until completed or explicitly reconciled by an administrator. Do not rebind an existing ledger to another Shop.</p>
-        <button type="submit" name="action" value="replace" class="secondary-button" ${pending ? 'disabled' : ''}>Replace Shop Credential</button>
         <button type="submit" name="action" value="rotate" class="secondary-button" ${pending || !source ? 'disabled' : ''}>Rotate Bridge Secret</button>
         ${job?.state === 'retry' ? `<button type="submit" name="action" value="resume" class="primary-button">Resume ${esc(job.action)}</button>
           ${['reserved','credential_saved'].includes(job.step) || job.action === 'verify' ? '<button type="submit" name="action" value="cancel" class="secondary-button">Dismiss failed setup attempt</button>' : ''}` : ''}
-        <p class="muted">A shared Platform polling schedule must be configured once before live delivery. The test-accounting reset remains a manual, guarded maintenance script for test clients 1 and 3 only.</p>
+        <p class="muted">A shared Platform polling schedule must be configured once before live delivery. Existing accounting and cutover remain unchanged; use the guarded maintenance runbook for authorised reconciliation.</p>
       </details>
     </form>` : '<p>Provisioning and credential changes require the master administrator. Existing module and billing roles are unchanged.</p>'}
     <details><summary>Provisioning audit</summary>${(info.audit || []).map(a => `<p>${esc(a.created_at)} · ${esc(a.action)} · ${esc(a.detail?.request_id || '')}</p>`).join('') || '<p>No provisioning actions recorded.</p>'}</details>
-  </div>`;
+  </details></section>`;
 }
 
 export async function submitProvisioning(form, requestedAction) {
   const client = pState.selectedClient, job = pState.clientData.provisioning?.job;
   if (!client || !requestedAction) return;
-  let credential = form.elements.credential.value;
-  form.elements.credential.value = ''; // Never put this in pState, storage, retry payloads or HTML.
+  if (client.onboarding_version === 2) return submitOnboarding(form, requestedAction);
+
   const buttons = [...form.querySelectorAll('button[type="submit"]')];
   const disabled = buttons.map(button => button.disabled);
   buttons.forEach(button => { button.disabled = true; });
@@ -80,11 +112,8 @@ export async function submitProvisioning(form, requestedAction) {
         if (!confirm('Activate bridge billing for this client at the exact Shop sequence captured by the server? Keep Shop writes paused until success.')) return;
       }
       if (action === 'rotate' && !confirm('Rotate the bridge secret server-side? Delivery may pause until this operation completes.')) return;
-      const body = { client_id:client.id,request_id:requestedAction === 'resume' ? job.request_id : crypto.randomUUID(),action,params,credential:credential || undefined };
-      credential = '';
-      let result;
-      try { result = await pb.functions.invoke('platform-provision',{ body }); }
-      finally { body.credential = undefined; }
+      const body = { client_id:client.id,request_id:requestedAction === 'resume' ? job.request_id : crypto.randomUUID(),action,params };
+      const result = await pb.functions.invoke('platform-provision',{ body });
       if (result.error || result.data?.error) {
         let message = result.data?.error;
         try { message ||= (await result.error.context.clone().json()).error; } catch { /* Generic transport failure. */ }
@@ -97,7 +126,6 @@ export async function submitProvisioning(form, requestedAction) {
     try { await loadClientData(client); render(); } catch {}
     alert(error.message);
   } finally {
-    credential = '';
     buttons.forEach((button,index) => { if (button.isConnected) button.disabled = disabled[index]; });
   }
 }
