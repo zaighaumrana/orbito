@@ -2,7 +2,7 @@ import { submitProvisioning } from './provisioning.js';
 import { validateOwner } from './onboarding.js';
 import { rpc, recordPayment, retryOperation } from "./operations.js";
 import { pState, PCFG } from "./state.js";
-import { pb, PLATFORM_AUTH_EMAIL, loadPlatform, loadClientData, updateClientConfig } from "./supabase.js";
+import { pb, loadOperatorIdentity, loadPlatform, loadClientData, updateClientConfig } from "./supabase.js";
 import { render } from "./render.js";
 
 function validatePassword(pw) {
@@ -166,7 +166,7 @@ export async function handleFormSubmit(event) {
   /* ── Change Master Admin Username ── */
   if (type === "change-username") {
     const { error: authErr } = await pb.auth.signInWithPassword({
-      email: PLATFORM_AUTH_EMAIL, password: data.current,
+      email: (await loadOperatorIdentity()).email, password: data.current,
     });
     if (authErr) { alert("Current password is wrong."); return; }
     const { error } = await pb.from("platform_config")

@@ -1,36 +1,8 @@
+import { renderClientSetup } from './client-setup.js';
 import { pb, loadClientData } from './supabase.js';
 import { pState } from './state.js';
 import { esc } from './operations.js';
 import { render } from './render.js';
-
-function onboardingPanel(client, detail) {
-  const info = detail.provisioning || {}, health = info.connection?.health || {}, job = info.job;
-  const pending = job && job.state !== 'complete';
-  const master = pState.currentUser.role === 'master_admin';
-  return `<section class="card"><h2>Shop onboarding</h2><p>Reserved Owner: ${esc(client.owner_name)} · ${esc(client.owner_email)}</p>
-    <p>Supabase: ${esc(health.connection || 'Not paired')} · ${esc(client.pairing_mode === 'byo' ? 'Client-owned project' : 'Managed project')}</p>
-    <p>Bridge call credential: ${info.connection?.bridge_call_configured ? 'Configured' : 'Missing'}</p>
-    <p>Shop database: ${esc(health.config_access || 'Not verified')}</p>
-    <p>Infrastructure: ${health.infrastructure === 'ready' ? 'Ready' : 'Pending'}</p>
-    <p>Owner Setup: ${health.owner_setup === 'owner_active' ? 'Active' : 'Pending manual activation'}</p>
-    <p>Shop onboarding: ${esc(health.onboarding || 'onboarding_pending')}</p>
-    <p>Config projection: ${esc(health.billing_projection || 'Pending')}</p>
-    <p>Printing &amp; Thermal Tracking: Included · Paper Resupply: ${client.paper_resupply_enabled ? 'Included' : 'Not included'}</p>
-    ${job ? `<p role="status">${esc(job.action)} · ${esc(job.state)} · ${esc(job.error || '')}</p>` : ''}
-    ${detail.provisioningError ? '<p role="alert">Apply the onboarding migration and deploy the updated functions before provisioning.</p>' : ''}
-    <p class="muted">Manual setup is the default. After provisioning, an authorized operator creates a confirmed Auth user with the reserved email and a password directly in the Shop Supabase Dashboard → Authentication → Users. The owner then logs into the Shop to activate their account and complete setup. No password is entered into Platform.</p>
-    ${master ? `<form data-p-form="client-provisioning"><div style="display:flex;gap:10px;flex-wrap:wrap">
-      <button name="action" value="pair-shop" class="secondary-button" ${pending ? 'disabled' : ''}>${client.pairing_mode === 'byo' ? 'Download BYO pairing file' : 'Pair managed Shop'}</button>
-      <button name="action" value="bootstrap-shop" class="primary-button" ${pending || !info.connection?.bridge_call_configured ? 'disabled' : ''}>Provision Shop / Reserve owner</button>
-      <button name="action" value="onboarding-status" class="secondary-button" ${pending || !info.connection?.bridge_call_configured ? 'disabled' : ''}>Check Owner Account</button>
-      <button name="action" value="invite-owner" class="secondary-button" ${pending || health.infrastructure !== 'ready' || health.owner_setup === 'owner_active' ? 'disabled' : ''}>Send optional email invitation</button>
-      ${job?.state === 'retry' ? '<button name="action" value="resume" class="primary-button">Retry provisioning</button>' : ''}
-      ${job?.state === 'retry' && job.step === 'reserved' ? '<button name="action" value="cancel" class="secondary-button">Dismiss failed attempt</button>' : ''}
-    </div></form>` : ''}
-    ${client.pairing_mode === 'byo' ? `<details><summary>BYO pairing instructions</summary><p>An authorized Shop operator downloads the sensitive pairing file, then runs:</p><pre>supabase secrets set --project-ref ${esc(/^https:\/\/([a-z]{20})\.supabase\.co$/.exec(client.supabase_url || '')?.[1] || 'SHOP_PROJECT_REF')} --env-file orbito-shop-pairing.env</pre><p>Deploy Shop migrations and six Edge Functions, securely delete the pairing file, then click Provision Shop. The customer may temporarily grant authorized project access or follow setup through screen sharing. Never collect their Supabase login password, Shop service key, DB password, secret API key or permanent PAT.</p></details>` : ''}
-    <p class="muted">Email invitation only runs when explicitly requested. It requires working Shop Auth email delivery and an allowed /invite/accept redirect URL; custom SMTP is recommended for reliable email delivery. Email failure leaves manual activation available. Check Shop Auth before retrying unknown outcomes or expired invitations.</p>
-  </section>`;
-}
 
 async function submitOnboarding(form, requestedAction) {
   const client = pState.selectedClient, job = pState.clientData.provisioning?.job;
@@ -66,14 +38,14 @@ async function submitOnboarding(form, requestedAction) {
 }
 
 export function provisioningPanel(client, detail) {
-  if (client.onboarding_version === 2) return onboardingPanel(client, detail);
+  if (client.onboarding_version === 2) return renderClientSetup(client,detail,pState.currentUser.role==='master_admin');
   const info = detail.provisioning || {}, connection = info.connection, job = info.job;
   const health = connection?.health || {}, source = detail.operations?.source;
   const pending = job && job.state !== 'complete';
   const master = pState.currentUser.role === 'master_admin';
   const project = connection?.project_ref || /^https:\/\/([a-z]{20})\.supabase\.co\/?$/.exec(client.supabase_url || '')?.[1] || '';
   const binding = connection?.client_binding || source?.client_binding || `orbito-client-${client.id}`;
-  return `<div class="card"><h2>Connection / Client Provisioning</h2>
+  return `<section class="card client-setup"><div class="setup-heading"><h2>Shop connection</h2><span class="badge ${health.error?'bad':connection?.verified_at?'good':'warn'}">${health.error?'Needs attention':connection?.verified_at?'Verified':'Not verified'}</span></div><p>Existing Shop · owner onboarding is not required.</p><div class="setup-health"><article><h3>Connection</h3><span class="badge ${health.connection==='Connected'?'good':'warn'}">${health.connection==='Connected'?'Supabase connected':'Not verified'}</span><p>Database: ${health.config_access?'Checked':'Not checked'}</p></article><article><h3>Platform Bridge</h3><span class="badge ${source?.enabled?'good':'warn'}">${source?.enabled?'Usage delivery active':'Needs verification'}</span><p>Recorded connection health. Refresh to load the latest observation.</p></article><article><h3>${esc(client.plan)} features</h3><div class="setup-features">${[['Workshop',client.technician_module_enabled],['Live Tracking',client.live_tracking_enabled],['EMS',client.ems_enabled],['Inventory',client.inventory_module_enabled],['Paper Resupply',client.paper_resupply_enabled],['Printing & thermal',true]].filter(([,on])=>on).map(([label])=>`<span class="badge">${label}</span>`).join('')}</div></article></div><button class="secondary-button" data-p-action="refresh-operations">Refresh status</button><details class="setup-advanced"><summary>Advanced / Technical Details</summary><h3>Connection / Client Provisioning</h3>
     <p class="muted">Create Client → Configure Shop → Provision → Verify → Activate</p>
     ${detail.provisioningError ? `<p role="alert">${esc(detail.provisioningError)} — deploy the provisioning migration and function before using these controls.</p>` : ''}
     <p>Project: ${esc(project || "Not configured")} · Binding: ${esc(binding)}</p>
@@ -110,11 +82,11 @@ export function provisioningPanel(client, detail) {
         <button type="submit" name="action" value="rotate" class="secondary-button" ${pending || !source ? 'disabled' : ''}>Rotate Bridge Secret</button>
         ${job?.state === 'retry' ? `<button type="submit" name="action" value="resume" class="primary-button">Resume ${esc(job.action)}</button>
           ${['reserved','credential_saved'].includes(job.step) || job.action === 'verify' ? '<button type="submit" name="action" value="cancel" class="secondary-button">Dismiss failed setup attempt</button>' : ''}` : ''}
-        <p class="muted">A shared Platform polling schedule must be configured once before live delivery. The test-accounting reset remains a manual, guarded maintenance script for test clients 1 and 3 only.</p>
+        <p class="muted">A shared Platform polling schedule must be configured once before live delivery. Existing accounting and cutover remain unchanged; use the guarded maintenance runbook for authorised reconciliation.</p>
       </details>
     </form>` : '<p>Provisioning and credential changes require the master administrator. Existing module and billing roles are unchanged.</p>'}
     <details><summary>Provisioning audit</summary>${(info.audit || []).map(a => `<p>${esc(a.created_at)} · ${esc(a.action)} · ${esc(a.detail?.request_id || '')}</p>`).join('') || '<p>No provisioning actions recorded.</p>'}</details>
-  </div>`;
+  </details></section>`;
 }
 
 export async function submitProvisioning(form, requestedAction) {

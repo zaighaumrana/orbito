@@ -1,7 +1,7 @@
 import { resetTurnstile, mountTurnstile, captchaBusy } from './turnstile.js';
 import { pState }                          from "./state.js";
 import { pb, PLATFORM_AUTH_EMAIL,
-         loadPlatform, loadClientData,
+         loadPlatform, loadClientData, loadOperatorIdentity,
          updateClientConfig }              from "./supabase.js";
 import { render }                          from "./render.js";
 import { generateInvoice, printClientInvoices } from "./billing.js";
@@ -39,6 +39,11 @@ export function initEvents() {
 
     const action = el.dataset.pAction;
     if (!action) return;
+    if (action === 'copy-setup') {
+      try { await navigator.clipboard.writeText(el.dataset.copyValue || '');el.textContent='Copied'; }
+      catch { alert('Copy is unavailable. Select the displayed value to copy it.'); }
+      return;
+    }
     if (action === 'retry-verification') { void mountTurnstile(); return; }
 
     /* Theme toggle */
@@ -157,67 +162,24 @@ export function initEvents() {
       const isEmail = username.includes("@");
       await pb.auth.signOut();
 
-      if (isEmail) {
-        /* Team member login */
-        const { data: authData, error: authError } = await pb.auth.signInWithPassword({
-          email: username, password, options: { captchaToken },
-        });
-        if (authError || !authData.session) {
-          _loginFail(errorEl); return;
-        }
-        const { data: userRow } = await pb.from("platform_users")
-          .select("id, name, email, role, status")
-          .eq("email", username)
-          .single();
-        if (!userRow || userRow.status !== "Active") {
-          await pb.auth.signOut();
-          errorEl.textContent = "Access not authorised for this account.";
-          _loginFail(errorEl, true); return;
-        }
-        /* Local UI identity; Supabase manages the session. */
-        const sessionToken = crypto.randomUUID();
-
-        pState.currentUser = {
-          role: userRow.role, username: userRow.name,
-          email: userRow.email, sessionToken,
-          userId: userRow.id, isMember: true,
-        };
-        const { loadConfig } = await import("./supabase.js");
-        await loadConfig();
-        await loadPlatform();
-        pState.authenticated = true;
-        pState.loginLoading  = false;
-        pState.page = "overview";
-        render();
-
-      } else {
-        /* Master admin login */
-        const { data: authData, error: authError } = await pb.auth.signInWithPassword({
-          email: PLATFORM_AUTH_EMAIL, password, options: { captchaToken },
-        });
-        if (authError || !authData.session) {
-          _loginFail(errorEl); return;
-        }
-        const { loadConfig } = await import("./supabase.js");
-        await loadConfig();
-
-        const { PCFG } = await import("./state.js");
-        if (String(username).toLowerCase() !== String(PCFG.admin_username || "admin").toLowerCase()) {
-          await pb.auth.signOut();
-          _loginFail(errorEl); return;
-        }
-        const sessionToken = crypto.randomUUID();
-
-        pState.currentUser = {
-          role: "master_admin",
-          username: PCFG.admin_username || "admin",
-          sessionToken, isMember: false,
-        };
-        await loadPlatform();
-        pState.authenticated = true;
-        pState.loginLoading  = false;
-        pState.page = "overview";
-        render();
+      if (!isEmail && !PLATFORM_AUTH_EMAIL) {
+        errorEl.textContent = 'Use your Platform Auth email. Username login needs the optional email alias configured.';
+        _loginFail(errorEl, true);return;
+      }
+      const { data: authData, error: authError } = await pb.auth.signInWithPassword({
+        email: isEmail ? username : PLATFORM_AUTH_EMAIL, password, options: { captchaToken },
+      });
+      if (authError || !authData?.session) { _loginFail(errorEl);return; }
+      try {
+        const identity = await loadOperatorIdentity();
+        if (!isEmail && (identity.role !== 'master_admin' || username.toLowerCase() !== String(identity.username || '').toLowerCase()))
+          throw new Error('Access not authorised for this account.');
+        pState.currentUser = { ...identity,sessionToken:crypto.randomUUID() };
+        const { loadConfig } = await import('./supabase.js');
+        await loadConfig();await loadPlatform();
+        pState.authenticated = true;pState.loginLoading = false;pState.page = 'overview';render();
+      } catch (error) {
+        await pb.auth.signOut();errorEl.textContent = error.message;_loginFail(errorEl,true);
       }
       return;
     }

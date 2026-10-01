@@ -18,7 +18,7 @@ export async function runOnboarding(admin: any, request: any, platformUrl: strin
       await step('paired', { connection:'Manual pairing required' })
       // Explicit download only, no state/storage/HTML/logging of this response.
       return { state:'manual_pairing_required',project_ref:target.project_ref,
-        setup_file:secrets.map(s => `${s.name}=${s.value}`).join('\n')+'\n' }
+        setup_file:`# orbito-project-ref: ${target.project_ref}\n# orbito-client-id: ${request.client_id}\n`+secrets.map(s => `${s.name}=${s.value}`).join('\n')+'\n' }
     }
     const token = Deno.env.get('PLATFORM_MANAGEMENT_TOKEN')
     if (!token) throw new OnboardingError('Managed setup requires Platform Management API authorization. For client-owned projects choose BYO and install the pairing file once.')
@@ -74,7 +74,25 @@ export async function runOnboarding(admin: any, request: any, platformUrl: strin
     const projection = await pollShopBridge(admin,request.client_id)
     if (!projection.ok) throw new OnboardingError('Owner is reserved, but initial billing/config projection is pending. Retry provisioning; the owner will not be duplicated.')
   }
+  if (request.action === 'bootstrap-shop') {
+    try {
+      const status = await fetch(`https://${target.project_ref}.supabase.co/functions/v1/platform-bridge`, {
+        method:'POST',redirect:'error',signal:AbortSignal.timeout(30000),
+        headers:{Authorization:`Bearer ${target.call_secret}`,'Content-Type':'application/json'},body:'{"operation":"status"}',
+      })
+      if (!status.ok) { await status.body?.cancel();throw new Error() }
+      result = await status.json()
+    } catch { throw new OnboardingError('Owner reserved and configuration sent. Runtime verification could not be refreshed; retry the same operation.') }
+  }
+  result = verifiedRuntime(result)
   await step('health', result)
   return { state:'complete',infrastructure:result.infrastructure,owner_setup:result.owner_setup,owner_invite:result.owner_invite,onboarding:result.onboarding,
     ...(optionalInvite ? {invitation,message:invitation === 'sent' ? 'Optional invitation sent; inbox delivery is not confirmed.' : invitation === 'pending' ? 'Invitation outcome pending. Wait two minutes and check Shop Auth before retrying. Manual activation remains available.' : invitation === 'failed' ? 'Optional invitation unavailable. Manual activation remains available.' : 'Owner account already provisioned. No invitation was sent.'} : {}) }
+}
+
+export const RUNTIME_CHECKS = ["migrations","database_privileges","rpc_privileges","sequence_privileges","private_config","storage","owner_reservation","bridge_mode","config_projection","database_reachable","bridge_configuration","edge_functions","runtime_configuration","authentication"]
+export function verifiedRuntime(result: any) {
+  const checks = Object.fromEntries(RUNTIME_CHECKS.map(k=>[k,result?.contract==='orbito-onboarding-runtime-v1' && result.checks?.[k]===true]))
+  const owner_account = ['missing','unconfirmed','ready','active','conflict'].includes(result?.owner_account) ? result.owner_account : 'missing'
+  return {...result,checks,owner_account,infrastructure:RUNTIME_CHECKS.every(k=>checks[k]) && owner_account!=='conflict' ? 'ready':'pending'}
 }

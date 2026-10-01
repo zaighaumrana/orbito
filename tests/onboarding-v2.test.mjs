@@ -11,7 +11,7 @@ function fixture({mode='managed',token='test-management',http=200,network=false,
  const calls=[],requests=[];const target={project_ref:'abcdefghijklmnopqrst',pairing_mode:mode,payload,call_secret:callSecret,source_secret:sourceSecret};
  const ctx={Response,URL,AbortSignal,Deno:{env:{get:()=>token}},
   pollShopBridge:async()=>({ok:projection}),
-  fetch:async(url,init)=>{requests.push({url,init});if(network)throw Error('private-network-credential');return new Response(malformed?'invalid-json':JSON.stringify({invitation,infrastructure:'ready',owner_setup:'owner_setup_pending',owner_invite:'owner_invite_not_started',onboarding:'onboarding_pending',source_id:'50000000-0000-4000-8000-000000000001',client_binding:'orbito-client-50',config:{}}),{status:http});},
+  fetch:async(url,init)=>{requests.push({url,init});if(network)throw Error('private-network-credential');return new Response(malformed?'invalid-json':JSON.stringify({contract:'orbito-onboarding-runtime-v1',checks:Object.fromEntries(['migrations','database_privileges','rpc_privileges','sequence_privileges','private_config','storage','owner_reservation','bridge_mode','config_projection','database_reachable','bridge_configuration','edge_functions','runtime_configuration','authentication'].map(k=>[k,true])),owner_account:'missing',invitation,infrastructure:'ready',owner_setup:'owner_setup_pending',owner_invite:'owner_invite_not_started',onboarding:'onboarding_pending',source_id:'50000000-0000-4000-8000-000000000001',client_binding:'orbito-client-50',config:{}}),{status:http});},
  };
  vm.createContext(ctx);vm.runInContext(stripTypeScriptTypes(read('supabase/functions/_shared/onboarding.ts').replace(/^import .*$/gm,'').replace(/^export /gm,'')),ctx);
  const admin={rpc:async(name,args)=>{calls.push({name,args});return {data:args.p_step==='prepare'?target:{}};}};
@@ -44,7 +44,7 @@ test('immediate bootstrap sends safe snapshot using call credential and register
  assert.deepEqual(f.calls.map(c=>c.args.p_step),['prepare','registered','health']);
 });
 test('retry reuses identical reserved payload; no caller password or secret is projected',async()=>{
- const f=fixture();await f.run('bootstrap-shop');await f.run('bootstrap-shop');assert.equal(f.requests[0].init.body,f.requests[1].init.body);
+ const f=fixture();await f.run('bootstrap-shop');await f.run('bootstrap-shop');assert.equal(f.requests[0].init.body,f.requests[2].init.body);
 });
 test('failed initial projection remains retryable without recreating the owner',async()=>{
  const f=fixture({projection:false});await assert.rejects(f.run('bootstrap-shop'),/projection is pending/);
@@ -71,8 +71,8 @@ test('only explicit invitation action sends the optional bridge operation',async
  const code=read('supabase/functions/_shared/onboarding.ts');assert.doesNotMatch(code,/platform_shop_credential|shopCredential|service_role_key|PLATFORM_SHOP_CREDENTIALS/);
 });
 test('manual-first UI collects no password or privileged Shop credential',()=>{
- for(const p of ['src/provisioning.js','src/modals/client.js']){const code=read(p);assert.match(code,/Manual|manual/);assert.doesNotMatch(code,/<input[^>]+(?:name|type)="(?:password|service_role_key|secret_key|PAT)"/i);}
- assert.match(read('src/provisioning.js'),/Check Owner Account/);assert.doesNotMatch(read('src/provisioning.js'),/Production requires custom SMTP/);
+ for(const p of ['src/provisioning.js','src/client-setup.js','src/modals/client.js']){const code=read(p);if(p!=='src/provisioning.js')assert.match(code,/Manual|manual/);assert.doesNotMatch(code,/<input[^>]+(?:name|type)="(?:password|service_role_key|secret_key|PAT)"/i);}
+ assert.match(read('src/client-setup.js'),/Check Owner Account/);assert.doesNotMatch(read('src/provisioning.js'),/Production requires custom SMTP/);
 });
 
 test('optional invitation sanitizes unexpected remote state and tolerates an unreadable response',async()=>{

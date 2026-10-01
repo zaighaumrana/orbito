@@ -3,6 +3,14 @@ import { pState, setPCFG } from './state.js';
 import { retryOperation } from './operations.js';
 export const pb = createClient(import.meta.env.VITE_PLATFORM_URL, import.meta.env.VITE_PLATFORM_ANON);
 export const PLATFORM_AUTH_EMAIL = import.meta.env.VITE_PLATFORM_AUTH_EMAIL;
+export async function loadOperatorIdentity() {
+  const verified = await pb.auth.getUser();
+  if (verified.error || !verified.data?.user) throw new Error('Sign in again to verify your Platform account.');
+  const { data, error } = await pb.rpc('platform_operator_identity');
+  if (error || data?.auth_user_id !== verified.data.user.id || !['master_admin','portfolio_manager','billing_person'].includes(data?.role))
+    throw new Error('Access not authorised for this account. Apply the Platform identity migration if needed.');
+  return data;
+}
 export async function loadConfig() {
   const { data, error } = await pb.from('platform_config').select('id,admin_username').single();
   if (error) throw error;

@@ -24,6 +24,7 @@ const fresh=database('shop');sql(fresh,shopAuth);
 for(const f of migrations(shop)) sql(fresh,read(resolve(shop,'supabase/migrations',f)));
 sql(fresh,read(resolve(shop,'tests/onboarding-v2.sql')));
 sql(fresh,read(resolve(shop,'tests/manual-owner-activation.sql')));
+sql(fresh,read(resolve(shop,'tests/onboarding-stabilization.sql')));
 console.log('PASS Shop: full migration chain + bootstrap/recovery/conflict/completion SQL assertions');
 for(const fixture of ['phase4-usage.sql','phase4-bridge.sql','phase4-thermal.sql','phase4-pin.sql']) sql(fresh,read(resolve(shop,'tests',fixture)));
 console.log('PASS Shop: existing usage, repair billing, bridge, thermal and PIN SQL regressions');
@@ -58,19 +59,29 @@ for(const [label,seed] of [
 const db=database('platform');
 // Supabase Vault is not available in stock PostgreSQL. This substitute tests
 // function contracts/ACLs/idempotency, not Vault encryption or hosted Auth SMTP.
-sql(db,read(resolve(platform,'tests/local-bootstrap.sql'))+`
+const platformBootstrap=read(resolve(platform,'tests/local-bootstrap.sql'))+`
 create schema extensions;create extension pgcrypto with schema extensions;
 create schema vault;
 create table vault.secrets(id uuid primary key default gen_random_uuid(),secret text);
 create view vault.decrypted_secrets as select id,secret as decrypted_secret from vault.secrets;
 create function vault.create_secret(new_secret text) returns uuid language plpgsql as $$ declare v uuid;begin insert into vault.secrets(secret) values(new_secret) returning id into v; return v; end $$;
 create function vault.update_secret(secret_id uuid,new_secret text) returns void language sql as $$ update vault.secrets set secret=new_secret where id=secret_id $$;
-`);
+`;
+sql(db,platformBootstrap);
 for(const f of migrations(platform))sql(db,read(resolve(platform,'supabase/migrations',f)).replace('create extension if not exists supabase_vault with schema vault;','-- disposable local Vault substitute'));
 sql(db,read(resolve(platform,'tests/onboarding-v2.sql')));
 sql(db,read(resolve(platform,'tests/manual-owner-activation.sql')));
+sql(db,read(resolve(platform,'tests/onboarding-stabilization.sql')));
 for(const fixture of ['control-plane.sql','currencies-boundaries.sql']) sql(db,read(resolve(platform,'tests',fixture)));
 console.log('PASS Platform: full migrations, 12 plan/Inventory/Paper combinations with break variants, onboarding SQL, control plane and currency regressions');
+// Reproduce the observed hosted upgrade shape using synthetic identity only:
+// an existing real-email master authorized by UUID, with no platform_users row.
+const upgrade=database('platform_identity_upgrade');sql(upgrade,platformBootstrap);
+for(const f of migrations(platform).filter(f=>f<'20261001100000'))sql(upgrade,read(resolve(platform,'supabase/migrations',f)).replace('create extension if not exists supabase_vault with schema vault;','-- disposable local Vault substitute'));
+sql(upgrade,read(resolve(platform,'tests/platform-master-upgrade-before.sql')));
+for(const f of migrations(platform).filter(f=>f>='20261001100000'))sql(upgrade,read(resolve(platform,'supabase/migrations',f)));
+sql(upgrade,read(resolve(platform,'tests/platform-master-upgrade.sql')));
+console.log('PASS Platform upgrade: existing real-email UUID master, unchanged Auth/alias/authorization, RPC/RLS and no placeholder takeover');
 console.log('Disposable local databases: '+[fresh,existing,db].join(', '));
 
 // Two real database sessions race against the same Shop reservation.

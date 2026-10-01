@@ -1,3 +1,4 @@
+import { copyValue } from '../client-setup.js';
 import { provisioningPanel } from '../provisioning.js';
 import { esc } from "../operations.js";
 import { pState } from "../state.js";
@@ -58,7 +59,14 @@ export function pageClientDetail() {
   const c = pState.selectedClient;
   if (!c) return '<p>No client selected.</p>';
   const cd = pState.clientData, o = cd.operations;
-  const head = `<div class="page-title"><div><h1>${esc(c.name)}</h1><p>${esc(c.status)} · ${esc(c.plan)}</p></div><button class="secondary-button" data-p-page="clients">← Back</button></div>`;
+  let openShop='';
+  try {
+    const url=new URL(c.shop_url);
+    if(['https:','http:'].includes(url.protocol) && !url.username && !url.password)
+      openShop=`<a class="secondary-button" href="${esc(url.href)}" target="_blank" rel="noopener noreferrer">Open Shop ↗</a>`;
+  } catch {}
+  const head = `<div class="page-title client-detail-header"><div><div class="setup-heading"><h1>${esc(c.name)}</h1><span class="badge ${c.status==='Active'?'good':'bad'}">${esc(c.status)}</span><span class="badge">${esc(c.plan)}</span></div><p>Client #${esc(c.id)} ${copyValue(c.id,'Copy ID')} · ${esc(c.industry||'Business')} · ${c.pairing_mode==='byo'?'Client-owned Supabase':'Managed Supabase'}</p></div><div class="setup-secondary">${openShop}<button class="secondary-button" data-p-modal="edit-client">Edit Client</button><button class="secondary-button" data-p-page="clients">← Back</button></div></div>`;
+
   if (cd._error) return head + `<div class="card">Operations unavailable: ${esc(cd._error)}</div>`;
   if (!o) return head + '<div class="card">Loading operations…</div>';
   const billing = computeClientBilling(c.id), thermal = o.thermal || {}, source = o.source;
@@ -70,17 +78,16 @@ export function pageClientDetail() {
   const ready = c.billing_policy === 'usage-v1' && c.currency && !c.accounting_review_required;
   const projection = o.projection?.payload;
   const safeAmount = value => value == null ? 'Unavailable' : esc(`${c.currency || c.currency_symbol} ${Number(value).toLocaleString()}`);
-  const safeLink = /^https?:\/\//i.test(c.shop_url || '') ? `<a class="secondary-button" href="${esc(c.shop_url)}" target="_blank" rel="noopener noreferrer">Open Shop ↗</a>` : '';
   return head + provisioningPanel(c, cd) + `
   <div class="grid two-col">
-    <div class="card"><h2>Modules / Entitlements</h2>
+    <div class="card"><h2>Modules / Entitlements</h2><details><summary>Manage modules</summary>
       ${canConfig ? [flag('Repairs','repair_module_enabled','toggle-repair'),flag('Inventory','inventory_module_enabled','toggle-inventory'),
         flag('Technician / Workshop','technician_module_enabled','toggle-technician'),flag('Live Tracking','live_tracking_enabled','toggle-tracking'),
         flag('EMS','ems_enabled','toggle-ems'),flag('Paper Resupply','paper_resupply_enabled','toggle-paper')].join('') : '<p>Module changes require a portfolio manager or master administrator.</p>'}
       <p class="muted">Shop config verified: ${esc(cd.verifiedAt || c.config_synced_at || 'Not synced')}. Paper capability reaches the Shop on its next bridge poll.</p>
       ${canConfig ? `<button class="secondary-button" data-p-action="${c.status === 'Active' ? 'suspend-client' : 'activate-client'}" data-p-id="${c.id}">${c.status === 'Active' ? 'Suspend' : 'Activate'}</button>` : ''}
       ${canConfig ? '<button class="secondary-button" data-p-action="read-shop-config">Read current Shop settings</button>' : ''}
-      ${safeLink} <button class="secondary-button" data-p-modal="edit-client">Edit Details</button>
+      </details>
     </div>
     <div class="card"><h2>Billing</h2>
       <p>${ready ? 'Usage policy active' : 'Accounting blocked: select an agreed policy/currency and reconcile flagged history.'}</p>
@@ -89,15 +96,15 @@ export function pageClientDetail() {
       <p>Issued outstanding: <strong>${safeAmount(projection?.outstanding_total)}</strong></p>
       <p class="muted">Per-event rate snapshots; unpaid invoices remain separate. THERMAL adds no charge.</p>
       ${canBill ? `<button class="secondary-button" data-p-action="edit-client-rates" data-p-id="${c.id}">Edit Rates</button>
-      <button class="primary-button" data-p-action="generate-invoice" data-p-id="${c.id}" ${ready ? '' : 'disabled'}>Generate Invoice</button>` : ''}
-      <h2>Bridge / Sync</h2>
+      <button class="secondary-button" data-p-action="generate-invoice" data-p-id="${c.id}" ${ready ? '' : 'disabled'}>Generate Invoice</button>` : ''}
+      <details class="setup-advanced"><summary>Advanced / Technical Details · Billing Sync</summary>
       <p>Source: ${esc(source?.source_id || 'Not provisioned')}</p>
       <p>Last exchange: ${esc(source?.last_received_at || 'Never')} · ${source?.enabled ? 'Enabled' : 'Disabled'}</p>
       <p>Billing revision: ${esc(o.projection?.sync_version || 'Unavailable')} · ${esc(o.projection?.updated_at || '')}</p>
       <p>Received / billed / settled through: ${esc(projection?.estimate_through ?? "—")} / ${esc(projection?.billed_through ?? "—")} / ${esc(projection?.settled_through ?? "—")}</p>
       <p>Usage cutover sequence: ${esc(source?.usage_from_sequence ?? 'Not configured')}</p>
       <p class="muted">${esc(source?.last_error || 'No recorded event rejection')}. Exchange time does not prove the Shop applied a projection or that its outbox is empty.</p>
-      <button class="secondary-button" data-p-action="refresh-operations">Refresh</button>
+      <button class="secondary-button" data-p-action="refresh-operations">Refresh</button></details>
     </div>
   </div>
   <div class="card"><h2>Thermal Usage / Paper Audit</h2>
@@ -119,13 +126,13 @@ export function pageClientDetail() {
       <label class="field"><span>Usable length per roll (mm)</span><input name="usable_length_mm" type="number" min="1" step="1" required></label>
       <label class="field"><span>Width (mm)</span><input name="paper_width_mm" type="number" min="1" step="1" value="80" required></label>
       <label class="field"><span>Delivered at (local time)</span><input name="delivered_at" type="datetime-local" required></label>
-      <button class="primary-button" type="submit">Confirm delivered supply / fulfill request</button></form>` : ''}
+      <button class="secondary-button" type="submit">Confirm delivered supply / fulfill request</button></form>` : ''}
     <h3>Recent confirmed supplies</h3>${(o.supplies || []).map(d=>`<p>${esc(d.reference)} · ${d.roll_count} × ${metres(d.usable_length_mm)} m · width ${d.paper_width_mm} mm · ${esc(d.delivered_at)}</p>`).join('') || '<p>No delivered supply recorded.</p>'}
   </div>
   <div class="card"><h2>Invoice History</h2>${(pState.data.invoices || []).filter(i=>i.client_id===c.id).map(i=>`<div class="list-row"><span>INV-${i.id} · ${esc(i.period_start)} — ${esc(i.period_end)}</span><strong>${safeAmount(i.total_due)} · ${esc(i.payment_status)}</strong><span><button data-p-action="view-invoice" data-p-id="${i.id}">View</button>${canBill && ready && i.payment_status!=='Paid' ? `<button data-p-action="mark-paid" data-p-id="${i.id}" data-p-client-id="${c.id}">Record Payment</button>` : ''}</span></div>`).join('') || '<p>No invoices.</p>'}</div>
-  <div class="card"><h2>Reconciliation / Configuration History</h2>
+  <details class="card setup-advanced"><summary>Advanced / Reconciliation History</summary>
     ${(o.failures || []).map(f=>`<p>${esc(f.recorded_at)} · ${esc(f.event_id)} · ${esc(f.reason)}</p>`).join('') || '<p>No ingestion failures recorded.</p>'}
     ${(o.config_jobs || []).map(j=>`<p>${esc(j.created_at)} · ${esc(j.state)} · ${esc(JSON.stringify(j.changes))}</p>`).join('')}
     <p class="muted">Uncertain configuration writes require server-side read-back before releasing the pending operation. No automatic concurrent retry.</p>
-  </div>`;
+  </details>`;
 }

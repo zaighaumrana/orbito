@@ -2,6 +2,8 @@
 
 Review and manual-first follow-up complete. Confirmed local defects were narrowly fixed and revalidated. Both repositories remain on feature/onboarding-v2. Changes are uncommitted. No push, merge, deployment, remote migration, hosted secret change or scheduler cadence change was made. The legal worktree was not inspected or modified.
 
+The combined stabilization and Client Detail cleanup is also complete locally. [ONBOARDING_V2_STABILIZATION.md](ONBOARDING_V2_STABILIZATION.md) records the latest root causes, exact current changed files, forward migrations, Edge dependency audit, setup tooling, commands/results and 32-check hosted acceptance procedure. The earlier implementation inventory below is historical; use that combined report for this pass.
+
 PASS means inspected code and local tests meet the requirement; it does not imply hosted verification or access to live Client 1.
 
 | Section | Verdict | Evidence / limitation |
@@ -19,7 +21,7 @@ PASS means inspected code and local tests meet the requirement; it does not impl
 
 ## Manual-first architecture and exact changes
 
-Default bootstrap now calls Shop bridge_onboarding('reserve'), never inviteUserByEmail. It reserves owner name/normalized email/correlation, initializes modules and enables bridge delivery; Platform registers/projects through the existing billing control plane. Manual UI shows Infrastructure Ready, Owner Setup Pending manual activation, Reserved Owner and Check Owner Account. The six-step wizard remains intact, with Security as step four.
+Default bootstrap now calls Shop bridge_onboarding('reserve'), never inviteUserByEmail. It reserves owner name/normalized email/correlation, initializes modules and enables bridge delivery; Platform registers/projects through the existing billing control plane. Client Detail now shows six lifecycle stages, compact health/owner/features cards, one state-dependent primary action and collapsed diagnostics. Backend Ready requires the current 14-check runtime contract, actual config/Auth reachability, five protected function probes, consistent reservation/binding, bridge mode, applied projection and matching enabled Platform source. Status is refreshed after projection. CAPTCHA hostname/key correctness and browser routes still require hosted testing. The six-step wizard remains intact, with Security as step four.
 
 The authorized operator creates a confirmed account/password directly in that Shop's Supabase Dashboard after verifying the intended email. BYO customers grant temporary project access or follow instructions through screen sharing; no Supabase login password or privileged customer keys are collected. Creating Auth alone leaves owner_setup_pending until a matching session claims it.
 
@@ -35,9 +37,9 @@ Runtime edits: Platform provisioning gateway, onboarding helper and Add Client/p
 
 ## Validation after fixes
 
-- Platform: **60/60 Node tests pass**.
-- Shop: **62/62 Node tests pass**.
-- Both production builds pass. Platform retains existing Vite CJS/mixed-import warnings.
+- Platform: **72/72 Node tests pass**.
+- Shop: **70/70 Node tests pass**.
+- Both production builds pass after the latest fix. Platform retains existing Vite CJS/mixed-import warnings. Its missing local VITE_TURNSTILE_KEY correctly fails validation; the passing local build uses Cloudflare's public test key via a process variable only. Release requires the real site key; no environment file or hosted setting was changed.
 - Both git diff --check runs pass.
 - Disposable loopback PostgreSQL tests apply both full migration chains. Shop uses a minimal local Auth schema; Platform uses a Vault substitute, so these tests do not prove hosted Auth or Vault encryption.
 - Existing usage/repair billing, bridge, thermal, PIN, control-plane and currency SQL tests pass.
@@ -46,6 +48,9 @@ Runtime edits: Platform provisioning gateway, onboarding helper and Add Client/p
 - Two additional actual authenticated PostgreSQL sessions race at first manual activation: one Auth account, one canonical owner and zero employees. Manual SQL covers unconfirmed/mismatched/unknown users, initialized/suspended Shop, existing conflicting owner, duplicates, email failure and SMTP-free completion.
 - Retired public resolver/direct writer are inaccessible to service_role. V2 legacy-step calls are rejected. Tests cover both absent and synthetic retained historical key pointers without returning their values.
 - Earlier six-step browser verification used the real wizard with in-memory services; it did not send email. The final route/invite regressions execute real controllers with mocked boundaries.
+- Latest actual-role SQL verifies Platform Add Client grants/RLS and sensitive direct-write denial, Shop Edge config/settings/employee/reset privileges, private browser-config denial, and owner staff-email conflicts. Both complete migration chains replay successfully, including the new forward grant/preflight files.
+- Client Detail and BYO guide were checked locally with synthetic data on desktop and 390px phone viewports. Six-step save/back/retry/resume/completion and exact decoded 512 KiB logo limits execute in targeted controller/endpoint tests. CLI setup is tested with injected boundaries; real CLI/hosted deployment was not run.
+- Final identity consistency review used read-only Platform Auth/function metadata: the deployed master is authorized by its existing UUID, with a real email different from the historical placeholder. New forward migrations preserve that helper. A synthetic pre-checkpoint UUID-master upgrade replay and actual frontend login/restoration/password-flow tests prove compatibility. Runtime explanatory text now follows the same backend checks as progress, independently of timestamps, and explicitly separates external smoke checks. See the combined report's final consistency sections.
 
 ## Confirmed defects and exact fixes
 
@@ -60,6 +65,7 @@ Runtime edits: Platform provisioning gateway, onboarding helper and Add Client/p
 9. Removed unused frontend credential variables/body cleanup left after the service-role input was removed.
 10. The renamed legacy provisioning function retained its prior direct service-role grant. The forward migration revokes it and the retired public resolver, and restricts V2 jobs to their isolated state machine. Historical credential-writing source remains inaccessible through the active wrapper.
 11. New provisioning accepts only the closed request field set; passwords/privileged customer credentials are rejected before reservation. Optional invitation diagnostics use fixed messages and enumerated states, including malformed/unknown response handling that preserves manual setup.
+12. Latest stabilization fixes explicit table/column/sequence grants, missing runtime detection, readiness/source consistency, canonical server-bound Platform identity, exact logo limits and reserved-email staff conflict diagnostics. New forward files preserve migration history. Deterministic BYO tooling installs/deploys/verifies without receiving customer privileged keys; approved Git integration handles migrations. Owner-conflict guidance requests reconciliation; an unused duplicate link renderer was removed. See the combined report for exact files and validation.
 
 ## Fresh-Shop detection: exact predicates and counterexamples
 
@@ -132,6 +138,8 @@ No invoice/payment ledger, repair financial core, BILL/INVENTORY/THERMAL capture
 
 Exactly three entries:
 
+The current download also includes two non-secret comment lines identifying the target project ref and Client ID; setup validates these before installation.
+
 - PLATFORM_BRIDGE_CALL_SECRET: sensitive per-Shop opaque Platform -> Shop operations token; can bootstrap owner and manage modules.
 - PLATFORM_BRIDGE_SOURCE_SECRET: independent sensitive Shop -> Platform ingestion token.
 - PLATFORM_BRIDGE_ENDPOINT: non-secret ingestion URL.
@@ -164,9 +172,9 @@ Legacy cutover code remains for existing clients. An unreachable legacy provisio
 ## Documentation
 
 Both repositories contain NEW_CLIENT_ONBOARDING_V2.md, BYO_SUPABASE_ONBOARDING.md and MODULE_ENTITLEMENTS.md. Both repositories also contain LEGACY_PRIVILEGED_CREDENTIAL_CLEANUP.md. This report and the local cross-repository SQL runner live in Platform.
-## Changed-file inventory
+## Earlier implementation inventory (historical)
 
-The following inventory includes new files, which ordinary `git diff --stat` does not include until staging. No files were staged merely to obtain a diff.
+The following inventory describes the preceding implementation checkpoint. The exact current stabilization/UI changes are listed in ONBOARDING_V2_STABILIZATION.md. No files were staged merely to obtain a diff.
 
 ### Orbito Platform
 
