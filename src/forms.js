@@ -1,4 +1,5 @@
 import { submitProvisioning } from './provisioning.js';
+import { publicEnvironment } from './lifecycle.js';
 import { validateOwner } from './onboarding.js';
 import { rpc, recordPayment, retryOperation } from "./operations.js";
 import { pState, PCFG } from "./state.js";
@@ -17,6 +18,28 @@ export async function handleFormSubmit(event) {
   event.preventDefault();
   const form = event.target;
   const type = form.dataset.pForm;
+  if(['client-lifecycle','config-recovery','provision-recovery','public-environment'].includes(type)) {
+    if(form.dataset.busy)return;
+    form.dataset.busy='true';
+    const client=pState.selectedClient,action=event.submitter?.value;
+    const value=name=>form.elements[name]?.value?.trim() || '';
+    try {
+      if(type==='public-environment') {
+        await navigator.clipboard.writeText(publicEnvironment(client,value('anon'),value('site_key')));return;
+      }
+      if(type==='client-lifecycle')await rpc('platform_client_lifecycle',{p_client:client.id,p_action:action,p_reason:value('reason'),p_project_ref:value('project_ref')||null});
+      if(type==='provision-recovery')await rpc('platform_provision_reconcile',{p_client:client.id,p_request:value('request_id'),p_action:action,p_reason:value('reason')});
+      if(type==='config-recovery'){
+        const {data,error}=await pb.functions.invoke('platform-config',{body:{client_id:client.id,request_id:value('request_id'),action:'recover',recovery_action:action,reason:value('reason')}});
+        if(error || data?.error){let body=data;try{body ||= await error.context.clone().json();}catch{}throw Error(body?.error || 'Recovery response unavailable. Refresh server status.');}
+        if(data.config)pState.clientData.config={...client,...data.config};
+        if(data.state==='unresolved')alert('Read-back has not confirmed the intended change. The operation remains unresolved.');
+      }
+      pState.modal=null;await loadPlatform();await loadClientData(pState.selectedClient);render();
+    }catch(error){alert(error.message);await loadPlatform();await loadClientData(pState.selectedClient);render();}
+    finally{delete form.dataset.busy;}
+    return;
+  }
   if (type === 'client-provisioning') { await submitProvisioning(form, event.submitter?.value); return; }
   const data = Object.fromEntries(new FormData(form).entries());
 

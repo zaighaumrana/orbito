@@ -52,6 +52,7 @@ test('operator identity is verified by server UUID/role independently of optiona
 });
 // Exercise the complete detail renderer as well as the isolated setup component.
 Object.assign(ui,{pState:{currentUser:{role:'master_admin'},data:{invoices:[]}},computeClientBilling:()=>({billCount:0,inventoryCount:0,grandTotal:0}),moduleToggleRow:()=>''});
+vm.runInContext(read('src/lifecycle.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ui);
 vm.runInContext(read('src/provisioning.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ui);
 vm.runInContext(read('src/pages/clients.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ui);
 test('full detail header renders copyable client ID and safe Shop link; legacy Client 1 stays outside V2',()=>{

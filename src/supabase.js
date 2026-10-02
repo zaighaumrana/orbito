@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { pState, setPCFG } from './state.js';
-import { retryOperation } from './operations.js';
+import { serverConfigOperation } from './operations.js';
 export const pb = createClient(import.meta.env.VITE_PLATFORM_URL, import.meta.env.VITE_PLATFORM_ANON);
 export const PLATFORM_AUTH_EMAIL = import.meta.env.VITE_PLATFORM_AUTH_EMAIL;
 export async function loadOperatorIdentity() {
@@ -41,13 +41,18 @@ export async function loadClientData(client) {
   pState.selectedClient = client;
   const { data, error } = await pb.rpc('platform_client_operations', { p_client: client.id });
   const provision = await pb.rpc('platform_provision_status', { p_client: client.id });
+  const overhaul = await pb.rpc('platform_overhaul_status', { p_client: client.id });
+  if(!overhaul.error)localStorage.removeItem(`orbito-operation:config:${client.id}`);
   const connection = provision.data?.connection;
   const latestRead = connection?.verified_at && (!client.config_synced_at || new Date(connection.verified_at) > new Date(client.config_synced_at));
   pState.clientData = { config: latestRead ? { ...client, ...connection.health?.shop_config } : client, operations: data, _error: error?.message,
-    provisioning: provision.data, provisioningError: provision.error?.message, verifiedAt: latestRead ? connection.verified_at : client.config_synced_at };
+    provisioning: provision.data, provisioningError: provision.error?.message, overhaul:overhaul.data,overhaulError:overhaul.error?.message, verifiedAt: latestRead ? connection.verified_at : client.config_synced_at };
 }
 export async function updateClientConfig(client, updates) {
-  await retryOperation(`config:${client.id}`, updates, async requestId => {
+  await serverConfigOperation(client.id,updates,async()=>{
+    const {data,error}=await pb.rpc('platform_overhaul_status',{p_client:client.id});
+    if(error)throw error;return data;
+  }, async requestId => {
     const { data, error } = await pb.functions.invoke('platform-config', { body: { client_id: client.id, request_id: requestId, changes: updates } });
     if (error || data?.state !== 'applied') {
       let body = data;

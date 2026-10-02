@@ -20,9 +20,42 @@ Deno.serve(async req => {
   const { error: accessError } = await caller.rpc('platform_client_operations', { p_client: body.client_id })
   if (accessError) return reply(403, { error: 'Operator not authorized', definite_failure: true })
   const admin = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } })
+  let recovery: any
+  if (body.action === 'recover') {
+    const reserved=await caller.rpc('platform_config_recovery',{p_client:body.client_id,p_request:body.request_id,p_action:body.recovery_action,p_reason:body.reason})
+    if(reserved.error)return reply(409,{error:reserved.error.message})
+    recovery=reserved.data
+    if(recovery.complete)return reply(200,recovery)
+  }
   let target: any
   try { target = await bridgeCallCredential(admin, body.client_id); if (!target) throw new Error('Bridge call credential missing') }
-  catch (error) { return reply(503, { error: (error as Error).message, definite_failure: true }) }
+  catch (error) {
+    if(recovery)await admin.rpc('platform_config_recovery_finish',{p_request:body.request_id,p_recovery:recovery.recovery_id,p_state:null,p_result:null})
+    return reply(503, { error: (error as Error).message, definite_failure: true })
+  }
+  if(recovery){
+    let state: string|null=null,result: any=null
+    try {
+      const bridge=async(operation: string)=>fetch(`https://${target.project_ref}.supabase.co/functions/v1/platform-bridge`,{method:'POST',redirect:'error',signal:AbortSignal.timeout(12000),headers:{Authorization:`Bearer ${target.bridge_call_secret}`,'Content-Type':'application/json'},body:JSON.stringify(operation==='config-read'?{operation}:{operation,request_id:body.request_id,changes:recovery.changes})})
+      const read=await bridge('config-read')
+      if(!read.ok){await read.body?.cancel();throw new Error()}
+      const observed=(await read.json()).config
+      if(!observed || !fields.every(k=>typeof observed[k]==='boolean'))throw new Error()
+      result=Object.fromEntries(fields.map(k=>[k,observed[k]]))
+      const matches=Object.entries(recovery.changes).every(([k,v])=>observed[k]===v)
+      if(body.recovery_action!=='read' && matches)state='applied'
+      else if(body.recovery_action==='retry'){
+        // Replay EXACT original identity/payload, using Shop's durable config journal.
+        const written=await bridge('config-write')
+        if(written.ok){const config=(await written.json()).config;if(config && fields.every(k=>typeof config[k]==='boolean') && Object.entries(recovery.changes).every(([k,v])=>config[k]===v)){result=Object.fromEntries(fields.map(k=>[k,config[k]]));state='applied'}}
+        else {await written.body?.cancel();if(written.status>=400 && written.status<500)state='failed'}
+        state ||= 'uncertain'
+      }
+    }catch{ /* Read/retry failure never proves the prior remote write failed. */ }
+    const finished=await admin.rpc('platform_config_recovery_finish',{p_request:body.request_id,p_recovery:recovery.recovery_id,p_state:state,p_result:result})
+    if(finished.error)return reply(503,{error:'Recovery outcome unavailable; refresh server status before retrying.'})
+    return reply(result?200:503,{state:state || 'unresolved',config:result,...(!result?{error:'Shop read-back unavailable; the original operation remains unresolved.'}:{})})
+  }
   if (body.action === 'read') {
     const { error: readAuthError } = await caller.rpc('platform_client_operations', { p_client: body.client_id })
     if (readAuthError) return reply(403, { error: 'Operator not authorized', definite_failure: true })

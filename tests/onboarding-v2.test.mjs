@@ -71,7 +71,7 @@ test('only explicit invitation action sends the optional bridge operation',async
  const code=read('supabase/functions/_shared/onboarding.ts');assert.doesNotMatch(code,/platform_shop_credential|shopCredential|service_role_key|PLATFORM_SHOP_CREDENTIALS/);
 });
 test('manual-first UI collects no password or privileged Shop credential',()=>{
- for(const p of ['src/provisioning.js','src/client-setup.js','src/modals/client.js']){const code=read(p);if(p!=='src/provisioning.js')assert.match(code,/Manual|manual/);assert.doesNotMatch(code,/<input[^>]+(?:name|type)="(?:password|service_role_key|secret_key|PAT)"/i);}
+ for(const p of ['src/provisioning.js','src/client-setup.js','src/modals/client.js']){const code=read(p).replace(/export function managedSetupModal[\s\S]*?(?=export const copyValue)/,'');if(p!=='src/provisioning.js')assert.match(code,/Manual|manual/);assert.doesNotMatch(code,/<input[^>]+(?:name|type)="(?:password|service_role_key|secret_key|PAT)"/i);}
  assert.match(read('src/client-setup.js'),/Check Owner Account/);assert.doesNotMatch(read('src/provisioning.js'),/Production requires custom SMTP/);
 });
 

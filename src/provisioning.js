@@ -5,7 +5,10 @@ import { esc } from './operations.js';
 import { render } from './render.js';
 
 async function submitOnboarding(form, requestedAction) {
+  if(form.dataset.busy)return;
+  form.dataset.busy='true';
   const client = pState.selectedClient, job = pState.clientData.provisioning?.job;
+  let publicEnv;
   form.querySelectorAll('button').forEach(button => { button.disabled = true; });
   try {
     if (requestedAction === 'cancel') {
@@ -13,8 +16,11 @@ async function submitOnboarding(form, requestedAction) {
       if (error) throw error;
     } else {
       const action = requestedAction === 'resume' ? job.action : requestedAction;
+      const params=['managed-setup','rotate-turnstile'].includes(action)?(requestedAction==='resume'?job.params:{site_key:form.elements.site_key?.value.trim()}):{};
+      const oneTimeSecret=form.elements.turnstile_secret?.value;
+      if(form.elements.turnstile_secret)form.elements.turnstile_secret.value='';
       const invoke = async (next, requestId) => {
-        const result = await pb.functions.invoke('platform-provision',{body:{client_id:client.id,request_id:requestId,action:next,params:{}}});
+        const result = await pb.functions.invoke('platform-provision',{body:{client_id:client.id,request_id:requestId,action:next,params,...(['managed-setup','rotate-turnstile'].includes(next) && oneTimeSecret?{turnstile_secret:oneTimeSecret}:{})}});
         if (result.error || result.data?.error) {
           let message = result.data?.error;
           try { message ||= (await result.error.context.clone().json()).error; } catch {}
@@ -23,6 +29,7 @@ async function submitOnboarding(form, requestedAction) {
         return result.data;
       };
       const data = await invoke(action, requestedAction === 'resume' ? job.request_id : crypto.randomUUID());
+      publicEnv=data.public_env;
       if (data.message) alert(data.message);
       if (data.setup_file) {
         const url = URL.createObjectURL(new Blob([data.setup_file],{type:'text/plain'}));
@@ -34,7 +41,7 @@ async function submitOnboarding(form, requestedAction) {
       }
     }
   } catch (error) { alert(error.message); }
-  finally { await loadClientData(client); render(); }
+  finally { delete form.dataset.busy;pState.modal=null;await loadClientData(client);if(publicEnv)pState.clientData.publicEnv=publicEnv; render(); }
 }
 
 export function provisioningPanel(client, detail) {

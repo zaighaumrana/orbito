@@ -91,7 +91,7 @@ export function clientModals(type, md) {
             <button class="icon-button" data-p-close>✕</button>
           </div>
           <form data-p-form="edit-client">
-            ${c.onboarding_version === 2 ? `<label class="field"><span>Shop ownership / pairing</span><select name="pairing_mode"><option value="managed" ${c.pairing_mode === 'managed' ? 'selected' : ''}>Managed</option><option value="byo" ${c.pairing_mode === 'byo' ? 'selected' : ''}>Client-owned / BYO</option></select></label>` : ''}
+            ${c.onboarding_version === 2 ? `<p>Shop ownership: ${c.pairing_mode==='byo'?'Client-owned / BYO':'Managed'} · immutable to preserve bindings and history.</p><input type="hidden" name="pairing_mode" value="${esc(c.pairing_mode)}">` : ''}
             <div class="form-grid">
               <label class="field"><span>Business Name</span>
                 <input name="name" value="${esc(c.name || "")}"></label>

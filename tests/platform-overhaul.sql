@@ -1,0 +1,101 @@
+-- Disposable local fixtures ONLY. All identities/clients are synthetic.
+begin;
+create function pg_temp.assert(ok boolean,msg text) returns void language plpgsql as $$ begin if ok is distinct from true then raise exception 'ASSERT: %',msg;end if;end $$;
+insert into auth.users(id,email) values('99000000-0000-4000-8000-000000000001','platformadmin@retailos.internal'),('99000000-0000-4000-8000-000000000002','overhaul-manager@example.test');
+insert into public.platform_users(auth_user_id,name,email,role,status) values('99000000-0000-4000-8000-000000000002','Synthetic manager','overhaul-manager@example.test','portfolio_manager','Active');
+select set_config('request.jwt.claim.sub','99000000-0000-4000-8000-000000000001',true);
+insert into public.clients(id,name,status,supabase_url,supabase_anon) values(9100,'Synthetic lifecycle','Active','https://cdefghijklmnopqrstuv.supabase.co',''),(9101,'Synthetic gone','Suspended','https://abcdefghijklmnopqrst.supabase.co','');
+select public.platform_begin_config(9100,'99000000-0000-4000-8000-000000000010','{"suspended":true}');
+select public.platform_finish_config('99000000-0000-4000-8000-000000000010','applied','{"repair_module_enabled":true,"inventory_module_enabled":false,"technician_module_enabled":false,"live_tracking_enabled":false,"ems_enabled":false,"ems_track_breaks":false,"suspended":true}');
+select pg_temp.assert((select lifecycle_state='Suspended' and status='Suspended' from public.clients where id=9100),'Active -> Suspended');
+select public.platform_begin_config(9100,'99000000-0000-4000-8000-000000000011','{"suspended":false}');
+select public.platform_finish_config('99000000-0000-4000-8000-000000000011','applied','{"repair_module_enabled":true,"inventory_module_enabled":false,"technician_module_enabled":false,"live_tracking_enabled":false,"ems_enabled":false,"ems_track_breaks":false,"suspended":false}');
+select pg_temp.assert((select lifecycle_state='Active' from public.clients where id=9100),'Suspended -> Active');
+select public.platform_begin_config(9100,'99000000-0000-4000-8000-000000000012','{"suspended":true}');
+select public.platform_finish_config('99000000-0000-4000-8000-000000000012','uncertain',null);
+do $$ begin
+ begin perform public.platform_begin_config(9100,'99000000-0000-4000-8000-000000000013','{"suspended":true}');raise exception 'duplicate accepted';exception when unique_violation then null;end;
+ begin perform public.platform_config_recovery(9100,'99000000-0000-4000-8000-000000000012','retry','Synthetic recovery reason');raise exception 'live recovery accepted';exception when others then if sqlerrm not like 'Operation still executing%' then raise;end if;end;
+end $$;
+update public.config_jobs set updated_at=now()-interval '2 minutes' where request_id='99000000-0000-4000-8000-000000000012';
+do $$ declare lease jsonb;begin
+ lease:=public.platform_config_recovery(9100,'99000000-0000-4000-8000-000000000012','read','Synthetic read-back reason');
+ begin perform public.platform_config_recovery(9100,'99000000-0000-4000-8000-000000000012','retry','Concurrent recovery reason');raise exception 'duplicate recovery accepted';exception when others then if sqlerrm not like 'Operation still executing%' then raise;end if;end;
+ perform public.platform_config_recovery_finish('99000000-0000-4000-8000-000000000012',(lease->>'recovery_id')::uuid,null,'{"suspended":false}');
+ if (select state from public.config_jobs where request_id='99000000-0000-4000-8000-000000000012')<>'uncertain' then raise exception 'Read alone cleared uncertain';end if;
+ lease:=public.platform_config_recovery(9100,'99000000-0000-4000-8000-000000000012','reconcile','Synthetic matching read-back');
+ perform public.platform_config_recovery_finish('99000000-0000-4000-8000-000000000012',(lease->>'recovery_id')::uuid,'applied','{"repair_module_enabled":true,"inventory_module_enabled":false,"technician_module_enabled":false,"live_tracking_enabled":false,"ems_enabled":false,"ems_track_breaks":false,"suspended":true}');
+end $$;
+select public.platform_begin_config(9100,'99000000-0000-4000-8000-000000000014','{"suspended":false}');
+update public.config_jobs set updated_at=now()-interval '2 minutes' where request_id='99000000-0000-4000-8000-000000000014';
+select public.platform_config_recovery(9100,'99000000-0000-4000-8000-000000000014','close','Explicit unknown-outcome closure');
+select pg_temp.assert((select result->>'remote_outcome'='unknown' from public.config_jobs where request_id='99000000-0000-4000-8000-000000000014'),'manual closure preserves unknown outcome');
+select public.platform_begin_config(9100,'99000000-0000-4000-8000-000000000015','{"suspended":false}');
+update public.clients set currency='PKR' where id=9100;
+insert into public.usage_logs(client_id,module_type,token_count,rate_at_log) values(9100,'BILL',1,5);
+select public.platform_generate_invoice(9100,'99000000-0000-4000-8000-000000000016');
+select public.platform_record_payment((select id from public.billing_cycles where client_id=9100 limit 1),2,'cash',current_date,'Synthetic retained payment','99000000-0000-4000-8000-000000000017');
+create temp table before_history as select (select count(*) from public.usage_logs) usage,(select count(*) from public.payments) payments,(select count(*) from public.billing_cycles) invoices,(select count(*) from public.config_jobs) jobs;
+select pg_temp.assert(exists(select 1 from before_history where usage>0 and payments>0 and invoices>0),'retention fixture has real nonzero ledgers');
+select public.platform_client_lifecycle(9100,'archive','Synthetic retained history reason',null);
+select public.platform_finish_config('99000000-0000-4000-8000-000000000015','applied','{"suspended":false}');
+select pg_temp.assert((select lifecycle_state='Archived' and status='Archived' from public.clients where id=9100),'archive cannot be resurrected by late callback');
+select pg_temp.assert(exists(select 1 from before_history b where b.usage=(select count(*) from public.usage_logs) and b.payments=(select count(*) from public.payments) and b.invoices=(select count(*) from public.billing_cycles) and b.jobs=(select count(*) from public.config_jobs)),'financial/usage/request history retained');
+update public.clients set supabase_url='https://abcdefghijklmnopqrst.supabase.co' where id=9101;
+select public.platform_client_lifecycle(9101,'mark-destroyed','Verified external project destruction','abcdefghijklmnopqrst');
+select public.platform_client_lifecycle(9101,'archive','Archive already destroyed infrastructure',null);
+do $$ begin
+ begin perform public.platform_begin_config(9101,gen_random_uuid(),'{"suspended":true}');raise exception 'retired dispatch accepted';exception when others then if sqlerrm not like 'Client infrastructure is retired%' then raise;end if;end;
+end $$;
+insert into public.clients(id,name,plan,onboarding_version,owner_name,owner_email,supabase_url,supabase_anon,shop_url,currency,billing_policy,pairing_mode) values(9200,'Synthetic managed','Basic',2,'Synthetic owner','owner@example.test','https://bcdefghijklmnopqrstu.supabase.co','','https://synthetic.example.test','PKR','usage-v1','managed');
+select pg_temp.assert((select lifecycle_state='Provisioning' from public.clients where id=9200),'new V2 begins Provisioning');
+select public.platform_provision_begin(9200,'99000000-0000-4000-8000-000000000020','managed-setup','{"site_key":"synthetic-public-site"}');
+select public.platform_onboarding_step('99000000-0000-4000-8000-000000000020','prepare','{}');
+select public.platform_managed_stage('99000000-0000-4000-8000-000000000020','migrations','passed','release-hash');
+select pg_temp.assert((public.platform_managed_stage('99000000-0000-4000-8000-000000000020','migrations','running','release-hash')->>'skip')::boolean,'passed stage is skipped');
+select public.platform_managed_stage('99000000-0000-4000-8000-000000000020','turnstile','passed',null);
+select public.platform_managed_stage('99000000-0000-4000-8000-000000000020','server-secrets','passed',null);
+do $$ begin
+ begin perform public.platform_managed_stage('99000000-0000-4000-8000-000000000020','migrations','running','different-release');raise exception 'changed artifact accepted';exception when others then if sqlerrm not like 'Approved artifact changed%' then raise;end if;end;
+end $$;
+select pg_temp.assert((select turnstile_site_key='synthetic-public-site' and turnstile_configured_at is not null from public.clients where id=9200),'only public site key and configured timestamp saved');
+do $$ begin
+ begin perform public.platform_provision_begin(9200,gen_random_uuid(),'managed-setup','{"site_key":"synthetic-public-site"}');raise exception 'duplicate provision accepted';exception when others then if sqlerrm not like 'Reconcile pending operation%' then raise;end if;end;
+ begin update public.clients set pairing_mode='byo' where id=9200;raise exception 'mode switch accepted';exception when others then if sqlerrm not like 'Managed/BYO mode is immutable%' then raise;end if;end;
+end $$;
+update platform_private.provision_jobs set updated_at=now()-interval '11 minutes' where request_id='99000000-0000-4000-8000-000000000020';
+select public.platform_provision_reconcile(9200,'99000000-0000-4000-8000-000000000020','resume','Recovered interrupted provisioner');
+select public.platform_provision_begin(9200,'99000000-0000-4000-8000-000000000020','managed-setup','{"site_key":"synthetic-public-site"}');
+select pg_temp.assert((public.platform_managed_stage('99000000-0000-4000-8000-000000000020','migrations','running','release-hash')->>'skip')::boolean,'retry preserves completed stage');
+select public.platform_onboarding_step('99000000-0000-4000-8000-000000000020','registered','{"source_id":"99000000-0000-4000-8000-000000000099","client_binding":"orbito-client-9200"}');
+do $$ declare health jsonb;begin
+ health:=jsonb_build_object('contract','orbito-onboarding-runtime-v1','checks',(select jsonb_object_agg(k,true) from unnest(array['migrations','database_privileges','rpc_privileges','sequence_privileges','private_config','storage','owner_reservation','bridge_mode','config_projection','database_reachable','bridge_configuration','edge_functions','runtime_configuration','authentication']) k),'owner_setup','owner_setup_pending','owner_account','missing','owner_invite','owner_invite_not_started','onboarding','onboarding_pending','source_id','99000000-0000-4000-8000-000000000099','client_binding','orbito-client-9200','config','{"repair_module_enabled":true,"inventory_module_enabled":false,"technician_module_enabled":false,"live_tracking_enabled":false,"ems_enabled":false,"ems_track_breaks":false,"suspended":false}'::jsonb);
+ health:=health||'{"infrastructure":"ready"}';
+ perform public.platform_onboarding_step('99000000-0000-4000-8000-000000000020','health',health);
+ perform pg_temp.assert((select lifecycle_state='Provisioning' from public.clients where id=9200),'runtime readiness alone does not activate unfinished owner onboarding');
+ health:=health||'{"owner_setup":"owner_active","owner_account":"active","onboarding":"onboarding_complete"}';
+ perform public.platform_onboarding_step('99000000-0000-4000-8000-000000000020','health',health);
+ perform pg_temp.assert((select lifecycle_state='Active' from public.clients where id=9200),'completed owner onboarding and preflight activate lifecycle');
+end $$;
+select set_config('request.jwt.claim.sub','99000000-0000-4000-8000-000000000002',true);
+do $$ begin
+ begin perform public.platform_client_lifecycle(9200,'archive','Manager must not archive this',null);raise exception 'manager archive accepted';exception when insufficient_privilege then null;end;
+ begin perform public.platform_config_recovery(9100,'99000000-0000-4000-8000-000000000015','close','Manager must not recover this');raise exception 'manager recovery accepted';exception when insufficient_privilege then null;end;
+end $$;
+select pg_temp.assert(not has_function_privilege('authenticated','public.platform_managed_stage(uuid,text,text,text)','EXECUTE') and not has_function_privilege('authenticated','public.platform_provision_status_service(integer)','EXECUTE'),'stage writes and privileged status are service-only');
+select pg_temp.assert(exists(select 1 from public.operator_audit where client_id=9100 and action='archive') and exists(select 1 from public.operator_audit where client_id=9200 and action='provision_stage'),'recovery/lifecycle/stages audited');
+select set_config('request.jwt.claim.sub','99000000-0000-4000-8000-000000000001',true);
+select public.platform_provision_step('99000000-0000-4000-8000-000000000020','complete','{}');
+select public.platform_provision_begin(9200,'99000000-0000-4000-8000-000000000021','rotate-turnstile','{"site_key":"synthetic-public-site"}');
+select public.platform_managed_stage('99000000-0000-4000-8000-000000000021','turnstile','running','fixture-oneway-fingerprint');
+select public.platform_managed_stage('99000000-0000-4000-8000-000000000021','turnstile','failed','fixture-oneway-fingerprint');
+do $$ begin
+ begin perform public.platform_managed_stage('99000000-0000-4000-8000-000000000021','turnstile','running','changed-fingerprint');raise exception 'changed same-request secret accepted';exception when others then if sqlerrm not like 'Resume with the original Turnstile secret%' then raise;end if;end;
+end $$;
+select public.platform_managed_stage('99000000-0000-4000-8000-000000000021','turnstile','passed','fixture-oneway-fingerprint');
+select pg_temp.assert((public.platform_managed_stage('99000000-0000-4000-8000-000000000021','turnstile','running',null)->>'skip')::boolean,'passed secret stage needs no secret re-entry');
+set local role authenticated;
+select pg_temp.assert(public.platform_overhaul_status(9100)->'config_jobs'='[]'::jsonb,'authenticated read uses server terminal state');
+select public.platform_client_lifecycle(9200,'archive','Authenticated master retained history',null);
+reset role;
+rollback;

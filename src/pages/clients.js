@@ -1,4 +1,5 @@
 import { copyValue } from '../client-setup.js';
+import { lifecycleState, canContactShop, visibleClients, lifecyclePanel } from '../lifecycle.js';
 import { provisioningPanel } from '../provisioning.js';
 import { esc } from "../operations.js";
 import { pState } from "../state.js";
@@ -6,13 +7,13 @@ import { computeClientBilling, getLifecycleFlag, getInvoicePayments, getInvoiceP
 import { tit, moduleToggleRow, money } from "../helpers.js";
 
 export function pageClients() {
-  const clients = pState.data.clients
-    .filter(c => c.name.toLowerCase().includes(pState.filter.toLowerCase()));
+  const clients = visibleClients(pState.data.clients,pState.clientView,pState.filter);
 
   return `
     ${tit("All Clients", "Manage every client on the platform.", `
       <button class="primary-button" data-p-modal="add-client">+ Add Client</button>`)}
     <div class="toolbar">
+      ${[['current','Current clients'],['historical','Historical / Archived'],['all','All clients']].map(([view,label])=>`<button class="secondary-button" data-p-action="client-view" data-view="${view}" aria-pressed="${pState.clientView===view}">${label}</button>`).join('')}
       <input class="search" data-p-filter placeholder="Search clients…"
         value="${esc(pState.filter)}" style="min-width:260px">
     </div>
@@ -29,7 +30,7 @@ export function pageClients() {
                 <p class="muted" style="font-size:13px;margin-top:3px">${esc(c.industry || "—")} · ${esc(c.plan)}</p>
               </div>
               <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
-                <span class="badge ${c.status === "Active" ? "good" : "bad"}">${esc(c.status)}</span>
+                <span class="badge ${lifecycleState(c) === "Active" ? "good" : "warn"}">${esc(lifecycleState(c))}</span>
                 ${lifecycle ? `<span class="badge ${lifecycle.cls}">${lifecycle.label}</span>` : ""}
               </div>
             </div>
@@ -40,15 +41,12 @@ export function pageClients() {
             </div>
             <div class="tenant-card-actions">
               <button class="secondary-button" data-p-action="open-client" data-p-id="${c.id}">Manage</button>
-              <button class="${c.status === "Active" ? "danger-button" : "primary-button"}"
+              ${canContactShop(c) && ['master_admin','portfolio_manager'].includes(role)?`<button class="${c.status === "Active" ? "danger-button" : "primary-button"}"
                 data-p-action="${c.status === "Active" ? "suspend-client" : "activate-client"}"
                 data-p-id="${c.id}">
                 ${c.status === "Active" ? "Suspend" : "Activate"}
-              </button>
-              <button class="danger-button" style="font-size:12px;padding:5px 10px"
-                data-p-action="delete-client" data-p-id="${c.id}">
-                Retain history
-              </button>
+              </button>`:''}
+              ${role==='master_admin' && lifecycleState(c)!=='Archived'?`<button class="secondary-button" data-p-action="archive-client" data-p-id="${c.id}">Archive / Retire</button>`:''}
             </div>
           </div>`;
       }).join("") : `<div class="empty">No clients yet. Add your first client.</div>`}
@@ -65,7 +63,7 @@ export function pageClientDetail() {
     if(['https:','http:'].includes(url.protocol) && !url.username && !url.password)
       openShop=`<a class="secondary-button" href="${esc(url.href)}" target="_blank" rel="noopener noreferrer">Open Shop ↗</a>`;
   } catch {}
-  const head = `<div class="page-title client-detail-header"><div><div class="setup-heading"><h1>${esc(c.name)}</h1><span class="badge ${c.status==='Active'?'good':'bad'}">${esc(c.status)}</span><span class="badge">${esc(c.plan)}</span></div><p>Client #${esc(c.id)} ${copyValue(c.id,'Copy ID')} · ${esc(c.industry||'Business')} · ${c.pairing_mode==='byo'?'Client-owned Supabase':'Managed Supabase'}</p></div><div class="setup-secondary">${openShop}<button class="secondary-button" data-p-modal="edit-client">Edit Client</button><button class="secondary-button" data-p-page="clients">← Back</button></div></div>`;
+  const head = `<div class="page-title client-detail-header"><div><div class="setup-heading"><h1>${esc(c.name)}</h1><span class="badge ${lifecycleState(c)==='Active'?'good':'warn'}">${esc(lifecycleState(c))}</span><span class="badge">${esc(c.plan)}</span></div><p>Client #${esc(c.id)} ${copyValue(c.id,'Copy ID')} · ${esc(c.industry||'Business')} · ${c.pairing_mode==='byo'?'Client-owned Supabase':'Managed Supabase'}</p></div><div class="setup-secondary">${canContactShop(c)?openShop+'<button class="secondary-button" data-p-modal="edit-client">Edit Client</button>':''}<button class="secondary-button" data-p-page="clients">← Back</button></div></div>`;
 
   if (cd._error) return head + `<div class="card">Operations unavailable: ${esc(cd._error)}</div>`;
   if (!o) return head + '<div class="card">Loading operations…</div>';
@@ -73,12 +71,12 @@ export function pageClientDetail() {
   const metres = value => (Number(value || 0) / 1000).toLocaleString(undefined, { maximumFractionDigits: 3 });
   const flag = (label, field, action) => moduleToggleRow(label,
     field === 'paper_resupply_enabled' ? 'Owner request capability only; thermal collection always continues' : (cd.verifiedAt || c.config_synced_at) ? 'Last verified Shop configuration' : 'Not yet verified with Shop', cd.config?.[field] === true, action);
-  const canConfig = ['master_admin','portfolio_manager'].includes(pState.currentUser.role);
+  const canConfig = canContactShop(c) && ['master_admin','portfolio_manager'].includes(pState.currentUser.role);
   const canBill = ['master_admin','billing_person'].includes(pState.currentUser.role);
   const ready = c.billing_policy === 'usage-v1' && c.currency && !c.accounting_review_required;
   const projection = o.projection?.payload;
   const safeAmount = value => value == null ? 'Unavailable' : esc(`${c.currency || c.currency_symbol} ${Number(value).toLocaleString()}`);
-  return head + provisioningPanel(c, cd) + `
+  return head + lifecyclePanel(c,cd,pState.currentUser.role==='master_admin') + (canContactShop(c)?provisioningPanel(c, cd):'') + `
   <div class="grid two-col">
     <div class="card"><h2>Modules / Entitlements</h2><details><summary>Manage modules</summary>
       ${canConfig ? [flag('Repairs','repair_module_enabled','toggle-repair'),flag('Inventory','inventory_module_enabled','toggle-inventory'),
