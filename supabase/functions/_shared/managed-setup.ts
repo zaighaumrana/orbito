@@ -57,7 +57,7 @@ export async function runManagedSetup(admin: any,request: any,platformUrl: strin
     // advisory lock plus version read-back recovers a timeout-after-commit safely.
     await api('/database/query','POST',{query:managedMigrationQuery(migration)})
    },migration.sha256)
-  },release.sha256)
+  },release.stage_checksums.migrations)
  }
  let current: any
  if(request.action==='managed-setup'){
@@ -85,11 +85,11 @@ export async function runManagedSetup(admin: any,request: any,platformUrl: strin
  },secret?await secretFingerprint(secret):null)
  if(request.action==='managed-setup') {
   await stage('functions',async()=>{for(const fn of release.functions)await stage('function:'+fn.name,async()=>{
-   const bytes=Uint8Array.from(atob(fn.zip),c=>c.charCodeAt(0));const form=new FormData()
-   form.append('file',new Blob([bytes],{type:'application/zip'}),fn.name+'.zip')
+   const form=new FormData()
+   for(const file of fn.files)form.append('file',new Blob([file.content],{type:'application/typescript'}),file.path)
    form.append('metadata',JSON.stringify({name:fn.name,entrypoint_path:fn.entrypoint,verify_jwt:fn.verify_jwt}))
    await api('/functions/deploy?slug='+fn.name,'POST',form)
-  },fn.sha256)},release.sha256)
+  },fn.stage_sha256)},release.stage_checksums.functions)
   await stage('bridge-owner',async()=>{await runOnboarding(admin,{...request,action:'bootstrap-shop'},platformUrl)})
   await stage('preflight',async()=>{
    await runOnboarding(admin,{...request,action:'onboarding-status'},platformUrl)

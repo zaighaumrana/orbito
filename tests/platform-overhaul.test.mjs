@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {stripTypeScriptTypes} from 'node:module';
 import vm from 'node:vm';
-import {webcrypto} from 'node:crypto';
+import {webcrypto,createHash} from 'node:crypto';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const load=(p,context={})=>{const ctx=vm.createContext({console,URL,Response,AbortSignal,FormData,Blob,Uint8Array,TextEncoder,crypto:webcrypto,atob,...context});vm.runInContext(stripTypeScriptTypes(read(p).replace(/^import .*$/gm,'').replace(/^export /gm,'')),ctx);return ctx;};
 const esc=String,noop=()=>{};
@@ -28,28 +28,75 @@ test('server config source of truth clears stale browser ghosts and coalesces su
  const first=ctx.serverConfigOperation(42,{},async()=>({config_jobs:[]}),async id=>{calls++;assert.equal(id,'new-request');return true;});
  assert.equal(ctx.serverConfigOperation(42,{},()=>assert.fail(),()=>assert.fail()),first);await first;assert.equal(calls,1);
 });
-function managedFixture({ref='abcdefghijklmnopqrst',mode='managed',failure=null,history=[],foreignShop=false,target={},schemaCount=0,savedStages=[]}={}){
- const states=new Map(savedStages.map(name=>[name,'passed'])),calls=[],http=[],secrets=[],order=[];let reject=failure;
+function managedFixture({ref='abcdefghijklmnopqrst',mode='managed',failure=null,failureStatus=0,history=[],foreignShop=false,target={},schemaCount=0,savedStages=[],savedChecksums={},artifact=null,requestId='same-request'}={}){
+ const states=new Map(savedStages.map(name=>[name,'passed'])),calls=[],http=[],secrets=[],order=[],uploads=[];let reject=failure;
  const current={onboarding_version:0,platform_client_id:null,client_binding:null,owner_request:null,has_owner:false,...(foreignShop?{onboarding_version:2,platform_client_id:42,client_binding:'orbito-client-42',owner_request:'different-bootstrap-uuid',has_owner:true}:{}),...target};
- const release={sha256:'release-hash',migrations:[{version:'20261003121000',name:'test',sql:'begin;\nselect 1;\ncommit;',sha256:'migration-hash'}],functions:[{name:'platform-bridge',entrypoint:'platform-bridge/index.ts',verify_jwt:false,sha256:'function-hash',zip:Buffer.from('fixturezip').toString('base64')}]};
+ const release=artifact || {sha256:'release-hash',stage_checksums:{migrations:'legacy-release-hash',functions:'legacy-release-hash'},migrations:[{version:'20261003121000',name:'test',sql:'begin;\nselect 1;\ncommit;',sha256:'migration-hash'}],functions:[{name:'platform-bridge',entrypoint:'platform-bridge/index.ts',verify_jwt:false,sha256:'function-hash',stage_sha256:'legacy-function-hash',files:[{path:'_shared/runtime-preflight.ts',content:'export const checkRuntime = () => ({});'},{path:'platform-bridge/index.ts',content:"import { checkRuntime } from '../_shared/runtime-preflight.ts';"}]}]};
+ const stageChecksum=name=>name==='project-access'?ref:name==='migrations'?release.stage_checksums.migrations:name==='functions'?release.stage_checksums.functions:name==='turnstile'?createHash('sha256').update('private-turnstile').digest('hex'):name.startsWith('migration:')?release.migrations.find(m=>'migration:'+m.version===name).sha256:name.startsWith('function:')?release.functions.find(f=>'function:'+f.name===name).stage_sha256:null;
+ const checksums=new Map(savedStages.map(name=>[name,Object.hasOwn(savedChecksums,name)?savedChecksums[name]:stageChecksum(name)]));
  const ctx=load('supabase/functions/_shared/managed-setup.ts',{release,Deno:{env:{get:()=> 'server-management-token'}},runOnboarding:async(_admin,request)=>{http.push('bridge-owner');order.push(request.action);},fetch:async(url,init={})=>{
    http.push(url);assert.ok(url.startsWith('https://api.supabase.com/v1/projects/'+ref));assert.equal(init.headers.Authorization,'Bearer server-management-token');
-   if(reject && url.includes(reject)){reject=null;throw Error('sensitive remote exception');}
+   if(reject && url.includes(reject)){reject=null;if(failureStatus)return Response.json({error:'Entrypoint path does not exist'},{status:failureStatus});throw Error('sensitive remote exception');}
    if(url.endsWith('/secrets')){order.push('secrets');secrets.push(...JSON.parse(init.body));return new Response(null,{status:201});}
    if(url.endsWith('/database/migrations'))return Response.json(history);
    if(url.endsWith('/database/query')){const query=JSON.parse(init.body).query;if(query.startsWith('begin;')){http.push('migration-write');order.push('migration');}if(query.startsWith('select sc.'))order.push('validate');return Response.json(query.startsWith('select sc.')?[current]:[{count:schemaCount}]);}
-   if(url.includes('/functions/deploy'))order.push('functions');
+   if(url.includes('/functions/deploy')){
+    order.push('functions');assert.ok(init.body instanceof FormData);assert.equal(init.headers['Content-Type'],undefined);
+    const metadata=JSON.parse(init.body.get('metadata')),files=await Promise.all(init.body.getAll('file').map(async file=>({path:file.name,content:await file.text(),type:file.type})));
+    uploads.push({metadata,files});
+   }
    if(url.endsWith('/api-keys?reveal=true'))return Response.json([{name:'service_role',api_key:'NEVER-BROWSER-SERVICE'},{name:'secret',api_key:'sb_secret_fixture'},{name:'anon',api_key:anon}]);
    return Response.json({id:ref});
  }});
  const admin={from:()=>({select:()=>({eq:()=>({single:async()=>({data:{supabase_url:'https://'+ref+'.supabase.co',pairing_mode:mode,onboarding_version:2,lifecycle_state:'Provisioning',infrastructure_state:'unknown'}})})})}),rpc:async(name,args)=>{
-   calls.push({name,args});if(name==='platform_onboarding_step'){order.push('prepare');return {data:{project_ref:ref,call_secret:'server-call',source_secret:'server-source',payload:{client_binding:'orbito-client-42',request_id:'same-request'}}};}
+   calls.push({name,args});if(name==='platform_onboarding_step'){order.push('prepare');return {data:{project_ref:ref,call_secret:'server-call',source_secret:'server-source',payload:{client_binding:'orbito-client-42',request_id:requestId}}};}
    if(name==='platform_provision_status_service')return {data:{infrastructure:'ready'}};
-   const previous=states.get(args.p_name);if(previous==='passed')return {data:{skip:true}};states.set(args.p_name,args.p_state);return {data:{skip:false}};
+   const previous=states.get(args.p_name),checksum=checksums.get(args.p_name),missingPassedSecret=args.p_name==='turnstile' && previous==='passed' && args.p_checksum===null;
+   if((previous==='passed' || (args.p_name==='turnstile' && checksum!=null)) && checksum!==args.p_checksum && !missingPassedSecret)return {error:{message:'Approved artifact changed; reconcile before retry'}};
+   if(previous==='passed')return {data:{skip:true}};states.set(args.p_name,args.p_state);checksums.set(args.p_name,args.p_checksum);return {data:{skip:false}};
  }};
- const request={client_id:42,request_id:'same-request',action:'managed-setup',params:{site_key:'public-site'}};
- return {run:(secret='private-turnstile')=>ctx.runManagedSetup(admin,request,'https://ukbhyerxshteyetwomqy.supabase.co',secret),states,calls,http,secrets,request,order};
+ const request={client_id:42,request_id:requestId,action:'managed-setup',params:{site_key:'public-site'}};
+ return {run:(...args)=>ctx.runManagedSetup(admin,request,'https://ukbhyerxshteyetwomqy.supabase.co',args.length?args[0]:'private-turnstile'),states,checksums,calls,http,secrets,request,order,uploads};
 }
+
+test('approved Shop functions deploy repeated source file parts with included entrypoints and unchanged JWT metadata',async()=>{
+ const artifact=JSON.parse(read('supabase/functions/_shared/shop-release.json')),f=managedFixture({artifact});await f.run();
+ assert.equal(f.uploads.length,6);
+ for(const upload of f.uploads){
+  const fn=artifact.functions.find(fn=>fn.name===upload.metadata.name);
+  assert.deepEqual(upload.metadata,{name:fn.name,entrypoint_path:fn.entrypoint,verify_jwt:fn.verify_jwt});
+  assert.ok(upload.files.length>1);assert.deepEqual(upload.files.map(file=>({path:file.path,content:file.content})),fn.files.map(file=>({path:file.path,content:file.content})));
+  assert.ok(upload.files.some(file=>file.path===upload.metadata.entrypoint_path));assert.ok(upload.files.every(file=>file.type==='application/typescript' && !file.path.endsWith('.zip')));
+  assert.doesNotMatch(JSON.stringify(upload),/server-management-token|private-turnstile|server-call|server-source|NEVER-BROWSER-SERVICE/);
+ }
+ assert.equal(f.uploads.find(u=>u.metadata.name==='platform-bridge').metadata.verify_jwt,false);
+});
+
+test('HTTP 400 account-admin failure resumes the recorded UUID without reinstalling passed stages or re-entering Turnstile',async()=>{
+ const artifact=JSON.parse(read('supabase/functions/_shared/shop-release.json'));
+ const legacy=JSON.parse(read('../Orbitoshopv2-v1/scripts/managed-release-v1-checksums.json'));
+ const requestId='70df1850-292f-447f-93fb-8d5e0e915f9e';
+ const f=managedFixture({artifact,requestId,failure:'/functions/deploy?slug=account-admin',failureStatus:400});
+ await assert.rejects(f.run(),/HTTP 400/);assert.equal(f.states.get('function:account-admin'),'failed');assert.equal(f.states.get('functions'),'failed');
+ assert.equal(f.checksums.get('migrations'),legacy.release_sha256);assert.equal(f.states.get('turnstile'),'passed');
+ const saved=new Map(f.checksums),writes=f.http.filter(url=>url==='migration-write' || url.endsWith('/secrets')).length;
+ assert.equal((await f.run(undefined)).state,'complete');
+ assert.equal(f.http.filter(url=>url==='migration-write' || url.endsWith('/secrets')).length,writes);
+ for(const stage of ['migrations','server-secrets','turnstile'])assert.equal(f.checksums.get(stage),saved.get(stage));
+ assert.deepEqual(f.uploads.map(u=>u.metadata.name),artifact.functions.map(fn=>fn.name));
+ assert.ok(f.calls.filter(c=>c.name==='platform_managed_stage').every(c=>c.args.p_request===requestId));
+ await f.run(undefined);assert.equal(f.uploads.length,6);assert.equal(f.order.filter(stage=>stage==='bootstrap-shop').length,1);
+});
+
+test('regenerated release skips a legacy passed function and rejects a changed successful checksum',async()=>{
+ const artifact=JSON.parse(read('supabase/functions/_shared/shop-release.json'));
+ const legacy=JSON.parse(read('../Orbitoshopv2-v1/scripts/managed-release-v1-checksums.json'));
+ const savedStages=['project-access','migrations','server-secrets','turnstile','function:account-admin'];
+ const f=managedFixture({artifact,savedStages,savedChecksums:{migrations:legacy.release_sha256,'function:account-admin':legacy.functions.find(fn=>fn.name==='account-admin').stage_sha256}});
+ await f.run(undefined);assert.deepEqual(f.uploads.map(u=>u.metadata.name),artifact.functions.slice(1).map(fn=>fn.name));assert.equal(f.secrets.length,0);assert.ok(!f.http.includes('migration-write'));
+ const changed=managedFixture({artifact,savedStages,savedChecksums:{'function:account-admin':'unapproved-source-checksum'}});
+ await assert.rejects(changed.run(undefined),/Stage state unavailable/);assert.equal(changed.uploads.length,0);
+});
 
 test('freshly migrated version-0 Shop is accepted before pairing and canonical bootstrap',async()=>{
  const f=managedFixture();assert.equal((await f.run()).state,'complete');
