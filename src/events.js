@@ -7,6 +7,7 @@ import { render }                          from "./render.js";
 import { generateInvoice, printClientInvoices } from "./billing.js";
 import { validateSession }                 from "./helpers.js";
 import { rpc } from "./operations.js";
+import { openShopSupport } from './support-handoff.js';
 
 export function initEvents() {
 
@@ -39,6 +40,12 @@ export function initEvents() {
 
     const action = el.dataset.pAction;
     if (!action) return;
+    if(action==='open-shop-support'){
+      if(!pState.authenticated || pState.currentUser?.role!=='master_admin' || !pState.selectedClient)return;
+      el.disabled=true;
+      try {await openShopSupport(pState.selectedClient);} catch(error){alert(error.message);} finally{if(el.isConnected)el.disabled=false;}
+      return;
+    }
     if (action === 'copy-setup') {
       try { await navigator.clipboard.writeText(el.dataset.copyValue || '');el.textContent='Copied'; }
       catch { alert('Copy is unavailable. Select the displayed value to copy it.'); }

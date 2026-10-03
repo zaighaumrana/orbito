@@ -1,5 +1,7 @@
 # Managed Shop support access
 
+The password-login design described below is superseded by [one-time Platform support handoff](SUPPORT_SESSION_HANDOFF.md). The three-setting repair remains available for compatibility; current support entry uses the new handoff, requires the new Platform migration/function and updated Shop login/frontends, and does not call Platform password Auth. Use the linked handoff document for current deployment and Test 4 instructions.
+
 Local implementation only. No hosted project was queried or changed, and nothing was committed, pushed or deployed.
 
 ## Root cause and authoritative values
