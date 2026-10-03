@@ -8,7 +8,7 @@ const validation=await import('data:text/javascript;base64,'+Buffer.from(read('s
 const callSecret='fixture-call-secret-0000000000000000000000000000',sourceSecret='fixture-source-secret-00000000000000000000000000';
 const payload={request_id:'10000000-0000-4000-8000-000000000001',platform_client_id:50,client_binding:'orbito-client-50',business_name:'Test Shop',owner_name:'Test Owner',owner_email:'owner@example.test',billing_currency:'PKR',shop_url:'https://shop.example.test',modules:{repair_module_enabled:true,inventory_module_enabled:false,technician_module_enabled:false,live_tracking_enabled:false,ems_enabled:false,ems_track_breaks:false},paper_resupply_enabled:false,onboarding_version:2};
 
-for (const action of ['bootstrap-shop','onboarding-status']) {
+for (const action of ['bootstrap-shop','onboarding-status','repair-support-access']) {
  test(`V2 client-provisioning ${action} reaches provisioning with the global busy flag`,async()=>{
   let submit,release;const calls=[],loads=[],buttons=[{disabled:false}];
   const invocation=new Promise(resolve=>{release=resolve;});

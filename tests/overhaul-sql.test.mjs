@@ -24,7 +24,7 @@ async function migrations(db,root){for(const file of readdirSync(new URL(root+'/
 test('Platform full forward chain: lifecycle, unknown operations, stage retry, RBAC and retained history',{skip:!PGlite},async()=>{
  const db=new PGlite();try{
   await db.exec('create role anon;create role authenticated;create role service_role bypassrls;'+read('..','tests/local-bootstrap.sql')+cryptoStub+vaultStub);
-  await migrations(db,'..');await db.exec(read('..','tests/platform-overhaul.sql'));
+  await migrations(db,'..');await db.exec(read('..','tests/platform-overhaul.sql'));await db.exec(read('..','tests/support-access.sql'));
   const {rows}=await db.query("select has_function_privilege('anon','public.platform_client_lifecycle(integer,text,text,text)','EXECUTE') as allowed");assert.equal(rows[0].allowed,false);
  }finally{await db.close();}
 });

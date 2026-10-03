@@ -5,7 +5,7 @@ import {stripTypeScriptTypes} from 'node:module';
 import vm from 'node:vm';
 import {webcrypto,createHash} from 'node:crypto';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const load=(p,context={})=>{const ctx=vm.createContext({console,URL,Response,AbortSignal,FormData,Blob,Uint8Array,TextEncoder,crypto:webcrypto,atob,...context});vm.runInContext(stripTypeScriptTypes(read(p).replace(/^import .*$/gm,'').replace(/^export /gm,'')),ctx);return ctx;};
+const load=(p,context={})=>{const ctx=vm.createContext({console,URL,Response,AbortSignal,FormData,Blob,Uint8Array,TextEncoder,crypto:webcrypto,atob,...context});if(p==='supabase/functions/_shared/managed-setup.ts')vm.runInContext(stripTypeScriptTypes(read('supabase/functions/_shared/support-auth.ts').replace(/^export /gm,'')),ctx);vm.runInContext(stripTypeScriptTypes(read(p).replace(/^import .*$/gm,'').replace(/^export /gm,'')),ctx);return ctx;};
 const esc=String,noop=()=>{};
 const ui=load('src/lifecycle.js',{esc});
 const anon='header.'+Buffer.from(JSON.stringify({role:'anon',ref:'abcdefghijklmnopqrst'})).toString('base64url')+'.signature';
@@ -34,10 +34,13 @@ function managedFixture({ref='abcdefghijklmnopqrst',mode='managed',failure=null,
  const release=artifact || {sha256:'release-hash',stage_checksums:{migrations:'legacy-release-hash',functions:'legacy-release-hash'},migrations:[{version:'20261003121000',name:'test',sql:'begin;\nselect 1;\ncommit;',sha256:'migration-hash'}],functions:[{name:'platform-bridge',entrypoint:'platform-bridge/index.ts',verify_jwt:false,sha256:'function-hash',stage_sha256:'legacy-function-hash',files:[{path:'_shared/runtime-preflight.ts',content:'export const checkRuntime = () => ({});'},{path:'platform-bridge/index.ts',content:"import { checkRuntime } from '../_shared/runtime-preflight.ts';"}]}]};
  const stageChecksum=name=>name==='project-access'?ref:name==='migrations'?release.stage_checksums.migrations:name==='functions'?release.stage_checksums.functions:name==='turnstile'?createHash('sha256').update('private-turnstile').digest('hex'):name.startsWith('migration:')?release.migrations.find(m=>'migration:'+m.version===name).sha256:name.startsWith('function:')?release.functions.find(f=>'function:'+f.name===name).stage_sha256:null;
  const checksums=new Map(savedStages.map(name=>[name,Object.hasOwn(savedChecksums,name)?savedChecksums[name]:stageChecksum(name)]));
- const ctx=load('supabase/functions/_shared/managed-setup.ts',{release,Deno:{env:{get:()=> 'server-management-token'}},runOnboarding:async(_admin,request)=>{http.push('bridge-owner');order.push(request.action);},fetch:async(url,init={})=>{
+ const platformUrl='https://ukbhyerxshteyetwomqy.supabase.co',platformAnon='h.'+Buffer.from(JSON.stringify({role:'anon',ref:'ukbhyerxshteyetwomqy'})).toString('base64url')+'.s';
+ const env={PLATFORM_MANAGEMENT_TOKEN:'server-management-token',SUPABASE_URL:platformUrl,SUPABASE_ANON_KEY:platformAnon};
+ const caller={rpc:async name=>{assert.equal(name,'platform_operator_identity');return {data:{auth_user_id:'master-id',role:'master_admin',email:'canonical-master@example.test'}};}};
+ const ctx=load('supabase/functions/_shared/managed-setup.ts',{release,Deno:{env:{get:key=>env[key]}},runOnboarding:async(_admin,request)=>{http.push('bridge-owner');order.push(request.action);},fetch:async(url,init={})=>{
    http.push(url);assert.ok(url.startsWith('https://api.supabase.com/v1/projects/'+ref));assert.equal(init.headers.Authorization,'Bearer server-management-token');
    if(reject && url.includes(reject)){reject=null;if(failureStatus)return Response.json({error:'Entrypoint path does not exist'},{status:failureStatus});throw Error('sensitive remote exception');}
-   if(url.endsWith('/secrets')){order.push('secrets');secrets.push(...JSON.parse(init.body));return new Response(null,{status:201});}
+   if(url.endsWith('/secrets')){if(init.method==='POST'){order.push('secrets');secrets.push(...JSON.parse(init.body));return new Response(null,{status:201});}return Response.json(secrets.map(({name})=>({name,value:'digest'})));}
    if(url.endsWith('/database/migrations'))return Response.json(history);
    if(url.endsWith('/database/query')){const query=JSON.parse(init.body).query;if(query.startsWith('begin;')){http.push('migration-write');order.push('migration');}if(query.startsWith('select sc.'))order.push('validate');return Response.json(query.startsWith('select sc.')?[current]:[{count:schemaCount}]);}
    if(url.includes('/functions/deploy')){
@@ -56,7 +59,7 @@ function managedFixture({ref='abcdefghijklmnopqrst',mode='managed',failure=null,
    if(previous==='passed')return {data:{skip:true}};states.set(args.p_name,args.p_state);checksums.set(args.p_name,args.p_checksum);return {data:{skip:false}};
  }};
  const request={client_id:42,request_id:requestId,action:'managed-setup',params:{site_key:'public-site'}};
- return {run:(...args)=>ctx.runManagedSetup(admin,request,'https://ukbhyerxshteyetwomqy.supabase.co',args.length?args[0]:'private-turnstile'),states,checksums,calls,http,secrets,request,order,uploads};
+ return {run:(...args)=>ctx.runManagedSetup(admin,request,platformUrl,args.length?args[0]:'private-turnstile',caller,'master-id'),states,checksums,calls,http,secrets,request,order,uploads};
 }
 
 test('approved Shop functions deploy repeated source file parts with included entrypoints and unchanged JWT metadata',async()=>{
@@ -88,11 +91,11 @@ test('HTTP 400 account-admin failure resumes the recorded UUID without reinstall
  await f.run(undefined);assert.equal(f.uploads.length,6);assert.equal(f.order.filter(stage=>stage==='bootstrap-shop').length,1);
 });
 
-test('regenerated release skips a legacy passed function and rejects a changed successful checksum',async()=>{
+test('regenerated release skips an approved passed function and rejects a changed successful checksum',async()=>{
  const artifact=JSON.parse(read('supabase/functions/_shared/shop-release.json'));
  const legacy=JSON.parse(read('../Orbitoshopv2-v1/scripts/managed-release-v1-checksums.json'));
- const savedStages=['project-access','migrations','server-secrets','turnstile','function:account-admin'];
- const f=managedFixture({artifact,savedStages,savedChecksums:{migrations:legacy.release_sha256,'function:account-admin':legacy.functions.find(fn=>fn.name==='account-admin').stage_sha256}});
+ const savedStages=['project-access','migrations','server-secrets','turnstile','support-auth-config','function:account-admin'];
+ const f=managedFixture({artifact,savedStages,savedChecksums:{migrations:legacy.release_sha256,'function:account-admin':artifact.functions.find(fn=>fn.name==='account-admin').stage_sha256}});
  await f.run(undefined);assert.deepEqual(f.uploads.map(u=>u.metadata.name),artifact.functions.slice(1).map(fn=>fn.name));assert.equal(f.secrets.length,0);assert.ok(!f.http.includes('migration-write'));
  const changed=managedFixture({artifact,savedStages,savedChecksums:{'function:account-admin':'unapproved-source-checksum'}});
  await assert.rejects(changed.run(undefined),/Stage state unavailable/);assert.equal(changed.uploads.length,0);
@@ -100,13 +103,22 @@ test('regenerated release skips a legacy passed function and rejects a changed s
 
 test('freshly migrated version-0 Shop is accepted before pairing and canonical bootstrap',async()=>{
  const f=managedFixture();assert.equal((await f.run()).state,'complete');
- assert.deepEqual(f.order,['migration','validate','prepare','secrets','secrets','functions','bootstrap-shop','onboarding-status']);
+ assert.deepEqual(f.order,['migration','validate','prepare','secrets','secrets','secrets','functions','bootstrap-shop','onboarding-status']);
+});
+
+test('new support stage runs independently when all prior managed stages already passed',async()=>{
+ const f=managedFixture({savedStages:['project-access','migrations','server-secrets','turnstile','functions','bridge-owner','preflight'],target:{onboarding_version:2,platform_client_id:42,client_binding:'orbito-client-42',owner_request:'same-request'}});
+ assert.equal((await f.run(undefined)).state,'complete');
+ assert.deepEqual(f.secrets.map(s=>s.name),['PLATFORM_SUPABASE_URL','PLATFORM_SUPABASE_ANON','PLATFORM_AUTH_EMAIL']);
+ assert.equal(f.uploads.length,0);assert.ok(!f.http.includes('migration-write'));assert.ok(!f.http.includes('bridge-owner'));
+ assert.equal(f.states.get('support-auth-config'),'passed');
+ await f.run(undefined);assert.equal(f.secrets.length,3);
 });
 
 test('same recorded request resumes a fresh Shop after the migrations stage passed',async()=>{
  const f=managedFixture({savedStages:['project-access','migrations','migration:20261003121000']});assert.equal((await f.run()).state,'complete');
  assert.ok(!f.http.some(url=>url.endsWith('/database/migrations') || url==='migration-write'));
- assert.deepEqual(f.order,['validate','prepare','secrets','secrets','functions','bootstrap-shop','onboarding-status']);
+ assert.deepEqual(f.order,['validate','prepare','secrets','secrets','secrets','functions','bootstrap-shop','onboarding-status']);
  assert.ok(f.calls.every(c=>c.args.p_request===f.request.request_id || c.name==='platform_provision_status_service'));
 });
 
@@ -140,8 +152,9 @@ test('managed rejects Platform project and BYO before contacting Management API'
 });
 test('managed stages install approved artifacts, secrets, bridge/owner and preflight; response is public only',async()=>{
  const f=managedFixture();const result=await f.run();
- for(const name of ['project-access','migrations','migration:20261003121000','server-secrets','turnstile','functions','function:platform-bridge','bridge-owner','preflight'])assert.equal(f.states.get(name),'passed',name);
- assert.deepEqual(f.secrets.map(s=>s.name),['PLATFORM_BRIDGE_CALL_SECRET','PLATFORM_BRIDGE_SOURCE_SECRET','PLATFORM_BRIDGE_ENDPOINT','TURNSTILE_SECRET']);
+ for(const name of ['project-access','migrations','migration:20261003121000','server-secrets','turnstile','support-auth-config','functions','function:platform-bridge','bridge-owner','preflight'])assert.equal(f.states.get(name),'passed',name);
+ assert.deepEqual(f.secrets.map(s=>s.name),['PLATFORM_BRIDGE_CALL_SECRET','PLATFORM_BRIDGE_SOURCE_SECRET','PLATFORM_BRIDGE_ENDPOINT','TURNSTILE_SECRET','PLATFORM_SUPABASE_URL','PLATFORM_SUPABASE_ANON','PLATFORM_AUTH_EMAIL']);
+ assert.equal(f.secrets.find(s=>s.name==='PLATFORM_SUPABASE_URL').value,'https://ukbhyerxshteyetwomqy.supabase.co');assert.equal(f.secrets.find(s=>s.name==='PLATFORM_AUTH_EMAIL').value,'canonical-master@example.test');
  assert.equal(result.public_env.VITE_SUPABASE_ANON,anon);
  assert.doesNotMatch(JSON.stringify(result),/NEVER-BROWSER-SERVICE|private-turnstile|server-management-token|server-call|server-source|sb_secret/);
  assert.doesNotMatch(JSON.stringify(f.calls),/private-turnstile|server-management-token|server-call|server-source/);

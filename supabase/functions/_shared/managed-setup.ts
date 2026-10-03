@@ -1,5 +1,6 @@
 import release from './shop-release.json' with { type: 'json' }
 import { runOnboarding } from './onboarding.ts'
+import { configureSupportAuth } from './support-auth.ts'
 export class ManagedSetupError extends Error {}
 const literal=(s: string)=>"'"+s.replaceAll("'","''")+"'"
 const secretFingerprint=async(value: string)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))).map(b=>b.toString(16).padStart(2,'0')).join('')
@@ -23,7 +24,7 @@ export function publicShopKey(keys: any[]) {
   try { const claims=JSON.parse(atob(legacy.api_key.split('.')[1].replaceAll('-','+').replaceAll('_','/')));if(claims.role!=='anon')throw new Error() } catch { throw new ManagedSetupError('Public Shop key is not an anon JWT.') }
   return legacy.api_key
 }
-export async function runManagedSetup(admin: any,request: any,platformUrl: string,secret?: string) {
+export async function runManagedSetup(admin: any,request: any,platformUrl: string,secret?: string,caller?: any,userId?: string) {
  const token=Deno.env.get('PLATFORM_MANAGEMENT_TOKEN')
  if(!token)throw new ManagedSetupError('Configure PLATFORM_MANAGEMENT_TOKEN on Platform server before managed setup.')
  const client=await admin.from('clients').select('supabase_url,pairing_mode,onboarding_version,lifecycle_state,infrastructure_state').eq('id',request.client_id).single()
@@ -84,6 +85,7 @@ export async function runManagedSetup(admin: any,request: any,platformUrl: strin
   await api('/secrets','POST',[{name:'TURNSTILE_SECRET',value:secret}])
  },secret?await secretFingerprint(secret):null)
  if(request.action==='managed-setup') {
+  await stage('support-auth-config',async()=>{await configureSupportAuth(api,caller,userId!)})
   await stage('functions',async()=>{for(const fn of release.functions)await stage('function:'+fn.name,async()=>{
    const form=new FormData()
    for(const file of fn.files)form.append('file',new Blob([file.content],{type:'application/typescript'}),file.path)
