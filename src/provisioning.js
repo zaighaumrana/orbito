@@ -5,8 +5,6 @@ import { esc } from './operations.js';
 import { render } from './render.js';
 
 async function submitOnboarding(form, requestedAction) {
-  if(form.dataset.busy)return;
-  form.dataset.busy='true';
   const client = pState.selectedClient, job = pState.clientData.provisioning?.job;
   let publicEnv;
   form.querySelectorAll('button').forEach(button => { button.disabled = true; });
@@ -41,7 +39,7 @@ async function submitOnboarding(form, requestedAction) {
       }
     }
   } catch (error) { alert(error.message); }
-  finally { delete form.dataset.busy;pState.modal=null;await loadClientData(client);if(publicEnv)pState.clientData.publicEnv=publicEnv; render(); }
+  finally { pState.modal=null;await loadClientData(client);if(publicEnv)pState.clientData.publicEnv=publicEnv; render(); }
 }
 
 export function provisioningPanel(client, detail) {
