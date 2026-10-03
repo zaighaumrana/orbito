@@ -59,17 +59,21 @@ export async function runManagedSetup(admin: any,request: any,platformUrl: strin
    },migration.sha256)
   },release.sha256)
  }
+ let current: any
+ if(request.action==='managed-setup'){
+  // Approved migrations leave a fresh Shop at version 0. Only canonical owner
+  // bootstrap advances it to V2; validate before preparing pairing or writing secrets.
+  const rows=await api('/database/query','POST',{query:"select sc.onboarding_version,sc.platform_client_id,bc.client_binding,b.payload->>'request_id' as owner_request,exists(select 1 from public.app_users where role='Business Owner') as has_owner from public.shop_config sc cross join app_private.bridge_config bc left join app_private.owner_bootstrap b on b.singleton where sc.id=1 and bc.singleton"})
+  current=rows?.[0]
+  const fresh=current?.onboarding_version===0 && current.platform_client_id===null && current.client_binding===null && current.owner_request===null && current.has_owner===false
+  const reserved=current?.onboarding_version===2 && typeof current.client_binding==='string' && typeof current.owner_request==='string' && current.platform_client_id===request.client_id
+  if(!fresh && !reserved)throw new ManagedSetupError('Target is an initialized or differently bound Shop. Manual adoption is required; its secrets were not replaced.')
+ }
  const prepare=await admin.rpc('platform_onboarding_step',{p_request:request.request_id,p_step:'prepare',p_data:{}})
  if(prepare.error || prepare.data?.project_ref!==ref)throw new ManagedSetupError('Immutable Shop pairing could not be prepared.')
  const target=prepare.data
- if(request.action==='managed-setup'){
-  // Validate database ownership BEFORE changing a single Shop secret/function.
-  // A populated unrelated V2 Shop can share a numeric client ID but cannot share
-  // the immutable bootstrap request UUID generated for this reservation.
-  const rows=await api('/database/query','POST',{query:"select sc.onboarding_version,sc.platform_client_id,bc.client_binding,b.payload->>'request_id' as owner_request,exists(select 1 from public.app_users where role='Business Owner') as has_owner from public.shop_config sc cross join app_private.bridge_config bc left join app_private.owner_bootstrap b on b.singleton where sc.id=1 and bc.singleton"})
-  const current=rows?.[0]
-  if(!current || current.onboarding_version!==2 || (current.client_binding!==null && (current.client_binding!==target.payload.client_binding || current.owner_request!==target.payload.request_id || current.platform_client_id!==request.client_id)) || (current.client_binding===null && (current.has_owner || current.platform_client_id!==null)))throw new ManagedSetupError('Target is an initialized or differently bound Shop. Manual adoption is required; its secrets were not replaced.')
- }
+ // A V2 retry must match the immutable reservation, not just the numeric client ID.
+ if(current?.onboarding_version===2 && (current.client_binding!==target.payload.client_binding || current.owner_request!==target.payload.request_id))throw new ManagedSetupError('Target is an initialized or differently bound Shop. Manual adoption is required; its secrets were not replaced.')
  if(request.action==='managed-setup')await stage('server-secrets',async()=>{
   await api('/secrets','POST',[{name:'PLATFORM_BRIDGE_CALL_SECRET',value:target.call_secret},{name:'PLATFORM_BRIDGE_SOURCE_SECRET',value:target.source_secret},{name:'PLATFORM_BRIDGE_ENDPOINT',value:platformUrl+'/functions/v1/platform-bridge'}])
  })

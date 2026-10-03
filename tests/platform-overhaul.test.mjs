@@ -28,26 +28,66 @@ test('server config source of truth clears stale browser ghosts and coalesces su
  const first=ctx.serverConfigOperation(42,{},async()=>({config_jobs:[]}),async id=>{calls++;assert.equal(id,'new-request');return true;});
  assert.equal(ctx.serverConfigOperation(42,{},()=>assert.fail(),()=>assert.fail()),first);await first;assert.equal(calls,1);
 });
-function managedFixture({ref='abcdefghijklmnopqrst',mode='managed',failure=null,history=[],foreignShop=false}={}){
- const states=new Map(),calls=[],http=[],secrets=[];let reject=failure;
+function managedFixture({ref='abcdefghijklmnopqrst',mode='managed',failure=null,history=[],foreignShop=false,target={},schemaCount=0,savedStages=[]}={}){
+ const states=new Map(savedStages.map(name=>[name,'passed'])),calls=[],http=[],secrets=[],order=[];let reject=failure;
+ const current={onboarding_version:0,platform_client_id:null,client_binding:null,owner_request:null,has_owner:false,...(foreignShop?{onboarding_version:2,platform_client_id:42,client_binding:'orbito-client-42',owner_request:'different-bootstrap-uuid',has_owner:true}:{}),...target};
  const release={sha256:'release-hash',migrations:[{version:'20261003121000',name:'test',sql:'begin;\nselect 1;\ncommit;',sha256:'migration-hash'}],functions:[{name:'platform-bridge',entrypoint:'platform-bridge/index.ts',verify_jwt:false,sha256:'function-hash',zip:Buffer.from('fixturezip').toString('base64')}]};
- const ctx=load('supabase/functions/_shared/managed-setup.ts',{release,Deno:{env:{get:()=> 'server-management-token'}},runOnboarding:async()=>{http.push('bridge-owner');},fetch:async(url,init={})=>{
+ const ctx=load('supabase/functions/_shared/managed-setup.ts',{release,Deno:{env:{get:()=> 'server-management-token'}},runOnboarding:async(_admin,request)=>{http.push('bridge-owner');order.push(request.action);},fetch:async(url,init={})=>{
    http.push(url);assert.ok(url.startsWith('https://api.supabase.com/v1/projects/'+ref));assert.equal(init.headers.Authorization,'Bearer server-management-token');
    if(reject && url.includes(reject)){reject=null;throw Error('sensitive remote exception');}
-   if(url.endsWith('/secrets')){secrets.push(...JSON.parse(init.body));return new Response(null,{status:201});}
+   if(url.endsWith('/secrets')){order.push('secrets');secrets.push(...JSON.parse(init.body));return new Response(null,{status:201});}
    if(url.endsWith('/database/migrations'))return Response.json(history);
-   if(url.endsWith('/database/query')){if(JSON.parse(init.body).query.startsWith('begin;'))http.push('migration-write');return Response.json(JSON.parse(init.body).query.startsWith('select sc.')?[{onboarding_version:2,platform_client_id:foreignShop?42:null,client_binding:foreignShop?'orbito-client-42':null,owner_request:foreignShop?'different-bootstrap-uuid':null,has_owner:foreignShop}]:[{count:0}]);}
+   if(url.endsWith('/database/query')){const query=JSON.parse(init.body).query;if(query.startsWith('begin;')){http.push('migration-write');order.push('migration');}if(query.startsWith('select sc.'))order.push('validate');return Response.json(query.startsWith('select sc.')?[current]:[{count:schemaCount}]);}
+   if(url.includes('/functions/deploy'))order.push('functions');
    if(url.endsWith('/api-keys?reveal=true'))return Response.json([{name:'service_role',api_key:'NEVER-BROWSER-SERVICE'},{name:'secret',api_key:'sb_secret_fixture'},{name:'anon',api_key:anon}]);
    return Response.json({id:ref});
  }});
  const admin={from:()=>({select:()=>({eq:()=>({single:async()=>({data:{supabase_url:'https://'+ref+'.supabase.co',pairing_mode:mode,onboarding_version:2,lifecycle_state:'Provisioning',infrastructure_state:'unknown'}})})})}),rpc:async(name,args)=>{
-   calls.push({name,args});if(name==='platform_onboarding_step')return {data:{project_ref:ref,call_secret:'server-call',source_secret:'server-source',payload:{client_binding:'orbito-client-42',request_id:'same-request'}}};
+   calls.push({name,args});if(name==='platform_onboarding_step'){order.push('prepare');return {data:{project_ref:ref,call_secret:'server-call',source_secret:'server-source',payload:{client_binding:'orbito-client-42',request_id:'same-request'}}};}
    if(name==='platform_provision_status_service')return {data:{infrastructure:'ready'}};
    const previous=states.get(args.p_name);if(previous==='passed')return {data:{skip:true}};states.set(args.p_name,args.p_state);return {data:{skip:false}};
  }};
  const request={client_id:42,request_id:'same-request',action:'managed-setup',params:{site_key:'public-site'}};
- return {run:(secret='private-turnstile')=>ctx.runManagedSetup(admin,request,'https://ukbhyerxshteyetwomqy.supabase.co',secret),states,calls,http,secrets,request};
+ return {run:(secret='private-turnstile')=>ctx.runManagedSetup(admin,request,'https://ukbhyerxshteyetwomqy.supabase.co',secret),states,calls,http,secrets,request,order};
 }
+
+test('freshly migrated version-0 Shop is accepted before pairing and canonical bootstrap',async()=>{
+ const f=managedFixture();assert.equal((await f.run()).state,'complete');
+ assert.deepEqual(f.order,['migration','validate','prepare','secrets','secrets','functions','bootstrap-shop','onboarding-status']);
+});
+
+test('same recorded request resumes a fresh Shop after the migrations stage passed',async()=>{
+ const f=managedFixture({savedStages:['project-access','migrations','migration:20261003121000']});assert.equal((await f.run()).state,'complete');
+ assert.ok(!f.http.some(url=>url.endsWith('/database/migrations') || url==='migration-write'));
+ assert.deepEqual(f.order,['validate','prepare','secrets','secrets','functions','bootstrap-shop','onboarding-status']);
+ assert.ok(f.calls.every(c=>c.args.p_request===f.request.request_id || c.name==='platform_provision_status_service'));
+});
+
+test('exact reserved V2 identity remains resumable',async()=>{
+ const f=managedFixture({target:{onboarding_version:2,platform_client_id:42,client_binding:'orbito-client-42',owner_request:'same-request'}});
+ assert.equal((await f.run()).state,'complete');
+});
+
+for(const [name,target] of [
+ ['initialized version-2 Shop',{onboarding_version:2}],
+ ['owner-existing Shop',{has_owner:true}],
+ ['fresh version with conflicting binding',{client_binding:'another-client'}],
+ ['fresh version with existing owner request',{owner_request:'different-bootstrap-uuid'}],
+ ['fresh version with different client ID',{platform_client_id:99}],
+ ['reserved Shop with different binding',{onboarding_version:2,platform_client_id:42,client_binding:'another-client',owner_request:'same-request'}],
+ ['reserved Shop with different request',{onboarding_version:2,platform_client_id:42,client_binding:'orbito-client-42',owner_request:'different-bootstrap-uuid'}],
+ ['reserved Shop with different client ID',{onboarding_version:2,platform_client_id:99,client_binding:'orbito-client-42',owner_request:'same-request'}],
+ ['unsupported onboarding version',{onboarding_version:1}],
+])test(`managed rejects ${name} before secrets/functions`,async()=>{
+ const f=managedFixture({target});await assert.rejects(f.run(),/initialized or differently bound Shop/);
+ assert.equal(f.secrets.length,0);assert.ok(!f.http.some(url=>url.includes('/functions/deploy')));
+ assert.ok(!f.order.includes('bootstrap-shop'));
+});
+
+test('existing schema without approved migration history requires manual adoption',async()=>{
+ const f=managedFixture({schemaCount:1});await assert.rejects(f.run(),/Existing schema without approved history/);
+ assert.equal(f.secrets.length,0);assert.ok(!f.http.includes('migration-write'));assert.ok(!f.order.includes('prepare'));
+});
 test('managed rejects Platform project and BYO before contacting Management API',async()=>{
  for(const options of [{ref:'ukbhyerxshteyetwomqy'},{mode:'byo'}]){const f=managedFixture(options);await assert.rejects(f.run(),/Exact managed Shop/);assert.equal(f.http.length,0);}
 });

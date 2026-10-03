@@ -44,6 +44,11 @@ test('actual managed migration envelopes atomically apply the approved Shop chai
   for(const m of release.migrations){try{await db.exec(ctx.managedMigrationQuery(m));}catch(e){throw Error(m.version+': '+e.message);}}
   for(const m of release.migrations)await db.exec(ctx.managedMigrationQuery(m));
   const history=await db.query('select count(*)::integer as count from supabase_migrations.schema_migrations');assert.equal(history.rows[0].count,release.migrations.length);
+  const ownershipQuery="select sc.onboarding_version,sc.platform_client_id,bc.client_binding,b.payload->>'request_id' as owner_request,exists(select 1 from public.app_users where role='Business Owner') as has_owner from public.shop_config sc cross join app_private.bridge_config bc left join app_private.owner_bootstrap b on b.singleton where sc.id=1 and bc.singleton";
+  assert.deepEqual((await db.query(ownershipQuery)).rows,[{onboarding_version:0,platform_client_id:null,client_binding:null,owner_request:null,has_owner:false}]);
+  const payload={request_id:'97000000-0000-4000-8000-000000000001',platform_client_id:42,client_binding:'orbito-client-42',business_name:'Test Shop',owner_name:'Test Owner',owner_email:'owner@example.test',billing_currency:'PKR',shop_url:'https://shop.example.test',modules:{repair_module_enabled:true,inventory_module_enabled:false,technician_module_enabled:false,live_tracking_enabled:false,ems_enabled:false,ems_track_breaks:false},paper_resupply_enabled:false,onboarding_version:2};
+  await db.query("select public.bridge_onboarding('reserve',$1::jsonb)",[JSON.stringify(payload)]);
+  assert.deepEqual((await db.query(ownershipQuery)).rows,[{onboarding_version:2,platform_client_id:42,client_binding:payload.client_binding,owner_request:payload.request_id,has_owner:false}]);
   await db.exec(read('../../Orbitoshopv2-v1','tests/config-journal.sql'));
  }finally{await db.close();}
 });
