@@ -1,6 +1,7 @@
 import release from './shop-release.json' with { type: 'json' }
 import { runOnboarding } from './onboarding.ts'
 import { configureSupportAuth } from './support-auth.ts'
+import { legacyPublicAnonKey } from './public-api-key.ts'
 export class ManagedSetupError extends Error {}
 const literal=(s: string)=>"'"+s.replaceAll("'","''")+"'"
 const secretFingerprint=async(value: string)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))).map(b=>b.toString(16).padStart(2,'0')).join('')
@@ -15,14 +16,13 @@ export async function managedPublicEnvironment(admin: any,clientId: number,platf
  if(c.error || !ref || ref===new URL(platformUrl).hostname.split('.')[0] || c.data.pairing_mode!=='managed' || !token || c.data.lifecycle_state==='Archived' || ['destroyed','decommissioned'].includes(c.data.infrastructure_state))throw new ManagedSetupError('Managed public configuration is unavailable for this target.')
  let response: Response;try{response=await fetch(`https://api.supabase.com/v1/projects/${ref}/api-keys?reveal=true`,{redirect:'error',signal:AbortSignal.timeout(15000),headers:{Authorization:`Bearer ${token}`}})}catch{throw new ManagedSetupError('Public configuration lookup unavailable.')}
  if(!response.ok){await response.body?.cancel();throw new ManagedSetupError('Public configuration lookup rejected.')}
- const anon=publicShopKey(await response.json())
+ const anon=publicShopKey(await response.json(),ref)
  return {VITE_SUPABASE_URL:c.data.supabase_url,VITE_SUPABASE_ANON:anon,VITE_TURNSTILE_SITE_KEY:c.data.turnstile_site_key || ''}
 }
-export function publicShopKey(keys: any[]) {
-  const legacy=keys.find(k=>k.name==='anon' && typeof k.api_key==='string')
-  if (!legacy) throw new ManagedSetupError('The existing Shop gateway contract requires its public anon JWT. Enable the legacy public key in Shop settings; no service key is accepted.')
-  try { const claims=JSON.parse(atob(legacy.api_key.split('.')[1].replaceAll('-','+').replaceAll('_','/')));if(claims.role!=='anon')throw new Error() } catch { throw new ManagedSetupError('Public Shop key is not an anon JWT.') }
-  return legacy.api_key
+export function publicShopKey(keys: any[],projectRef: string) {
+  const anon=legacyPublicAnonKey(keys,projectRef)
+  if (!anon) throw new ManagedSetupError('The existing Shop gateway contract requires its public anon JWT. Enable the legacy public key in Shop settings; no service key is accepted.')
+  return anon
 }
 export async function runManagedSetup(admin: any,request: any,platformUrl: string,secret?: string,caller?: any,userId?: string) {
  const token=Deno.env.get('PLATFORM_MANAGEMENT_TOKEN')
@@ -101,6 +101,6 @@ export async function runManagedSetup(admin: any,request: any,platformUrl: strin
  }
  // Get keys only inside the server. Filter before returning; never return the API
  // array, which may contain service_role/secret keys.
- const anon=publicShopKey(await api('/api-keys?reveal=true'))
+ const anon=publicShopKey(await api('/api-keys?reveal=true'),ref)
  return {state:'complete',request_id:request.request_id,public_env:{VITE_SUPABASE_URL:`https://${ref}.supabase.co`,VITE_SUPABASE_ANON:anon,VITE_TURNSTILE_SITE_KEY:request.params.site_key}}
 }

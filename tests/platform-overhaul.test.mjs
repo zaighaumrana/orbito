@@ -5,7 +5,7 @@ import {stripTypeScriptTypes} from 'node:module';
 import vm from 'node:vm';
 import {webcrypto,createHash} from 'node:crypto';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const load=(p,context={})=>{const ctx=vm.createContext({console,URL,Response,AbortSignal,FormData,Blob,Uint8Array,TextEncoder,crypto:webcrypto,atob,...context});if(p==='supabase/functions/_shared/managed-setup.ts')vm.runInContext(stripTypeScriptTypes(read('supabase/functions/_shared/support-auth.ts').replace(/^export /gm,'')),ctx);vm.runInContext(stripTypeScriptTypes(read(p).replace(/^import .*$/gm,'').replace(/^export /gm,'')),ctx);return ctx;};
+const load=(p,context={})=>{const ctx=vm.createContext({console,URL,Response,AbortSignal,FormData,Blob,Uint8Array,TextEncoder,crypto:webcrypto,atob,...context});if(p==='supabase/functions/_shared/managed-setup.ts')for(const dependency of ['public-api-key.ts','support-auth.ts'])vm.runInContext(stripTypeScriptTypes(read('supabase/functions/_shared/'+dependency).replace(/^import .*$/gm,'').replace(/^export /gm,'')),ctx);vm.runInContext(stripTypeScriptTypes(read(p).replace(/^import .*$/gm,'').replace(/^export /gm,'')),ctx);return ctx;};
 const esc=String,noop=()=>{};
 const ui=load('src/lifecycle.js',{esc});
 const anon='header.'+Buffer.from(JSON.stringify({role:'anon',ref:'abcdefghijklmnopqrst'})).toString('base64url')+'.signature';
@@ -28,17 +28,22 @@ test('server config source of truth clears stale browser ghosts and coalesces su
  const first=ctx.serverConfigOperation(42,{},async()=>({config_jobs:[]}),async id=>{calls++;assert.equal(id,'new-request');return true;});
  assert.equal(ctx.serverConfigOperation(42,{},()=>assert.fail(),()=>assert.fail()),first);await first;assert.equal(calls,1);
 });
-function managedFixture({ref='abcdefghijklmnopqrst',mode='managed',failure=null,failureStatus=0,history=[],foreignShop=false,target={},schemaCount=0,savedStages=[],savedChecksums={},artifact=null,requestId='same-request'}={}){
+function managedFixture({ref='abcdefghijklmnopqrst',mode='managed',failure=null,failureStatus=0,history=[],foreignShop=false,target={},schemaCount=0,savedStages=[],savedChecksums={},artifact=null,requestId='same-request',platformKeys=null,platformLegacyEnabled=true}={}){
  const states=new Map(savedStages.map(name=>[name,'passed'])),calls=[],http=[],secrets=[],order=[],uploads=[];let reject=failure;
  const current={onboarding_version:0,platform_client_id:null,client_binding:null,owner_request:null,has_owner:false,...(foreignShop?{onboarding_version:2,platform_client_id:42,client_binding:'orbito-client-42',owner_request:'different-bootstrap-uuid',has_owner:true}:{}),...target};
  const release=artifact || {sha256:'release-hash',stage_checksums:{migrations:'legacy-release-hash',functions:'legacy-release-hash'},migrations:[{version:'20261003121000',name:'test',sql:'begin;\nselect 1;\ncommit;',sha256:'migration-hash'}],functions:[{name:'platform-bridge',entrypoint:'platform-bridge/index.ts',verify_jwt:false,sha256:'function-hash',stage_sha256:'legacy-function-hash',files:[{path:'_shared/runtime-preflight.ts',content:'export const checkRuntime = () => ({});'},{path:'platform-bridge/index.ts',content:"import { checkRuntime } from '../_shared/runtime-preflight.ts';"}]}]};
  const stageChecksum=name=>name==='project-access'?ref:name==='migrations'?release.stage_checksums.migrations:name==='functions'?release.stage_checksums.functions:name==='turnstile'?createHash('sha256').update('private-turnstile').digest('hex'):name.startsWith('migration:')?release.migrations.find(m=>'migration:'+m.version===name).sha256:name.startsWith('function:')?release.functions.find(f=>'function:'+f.name===name).stage_sha256:null;
  const checksums=new Map(savedStages.map(name=>[name,Object.hasOwn(savedChecksums,name)?savedChecksums[name]:stageChecksum(name)]));
  const platformUrl='https://ukbhyerxshteyetwomqy.supabase.co',platformAnon='h.'+Buffer.from(JSON.stringify({role:'anon',ref:'ukbhyerxshteyetwomqy'})).toString('base64url')+'.s';
- const env={PLATFORM_MANAGEMENT_TOKEN:'server-management-token',SUPABASE_URL:platformUrl,SUPABASE_ANON_KEY:platformAnon};
+ const env={PLATFORM_MANAGEMENT_TOKEN:'server-management-token',SUPABASE_URL:platformUrl,SUPABASE_ANON_KEY:'sb_publishable_runtime-platform'};
  const caller={rpc:async name=>{assert.equal(name,'platform_operator_identity');return {data:{auth_user_id:'master-id',role:'master_admin',email:'canonical-master@example.test'}};}};
  const ctx=load('supabase/functions/_shared/managed-setup.ts',{release,Deno:{env:{get:key=>env[key]}},runOnboarding:async(_admin,request)=>{http.push('bridge-owner');order.push(request.action);},fetch:async(url,init={})=>{
-   http.push(url);assert.ok(url.startsWith('https://api.supabase.com/v1/projects/'+ref));assert.equal(init.headers.Authorization,'Bearer server-management-token');
+   http.push(url);assert.equal(init.headers.Authorization,'Bearer server-management-token');
+   if(url.startsWith('https://api.supabase.com/v1/projects/ukbhyerxshteyetwomqy/api-keys')){
+    assert.equal(init.method,'GET');assert.equal(init.body,undefined);
+    return Response.json(url.endsWith('/legacy')?{enabled:platformLegacyEnabled}:platformKeys || [{name:'service_role',type:'legacy',api_key:'NEVER-BROWSER-PLATFORM-SERVICE'},{name:'publishable',type:'publishable',api_key:'sb_publishable_management-platform'},{name:'anon',type:'legacy',api_key:platformAnon}]);
+   }
+   assert.ok(url.startsWith('https://api.supabase.com/v1/projects/'+ref));
    if(reject && url.includes(reject)){reject=null;if(failureStatus)return Response.json({error:'Entrypoint path does not exist'},{status:failureStatus});throw Error('sensitive remote exception');}
    if(url.endsWith('/secrets')){if(init.method==='POST'){order.push('secrets');secrets.push(...JSON.parse(init.body));return new Response(null,{status:201});}return Response.json(secrets.map(({name})=>({name,value:'digest'})));}
    if(url.endsWith('/database/migrations'))return Response.json(history);
@@ -113,6 +118,36 @@ test('new support stage runs independently when all prior managed stages already
  assert.equal(f.uploads.length,0);assert.ok(!f.http.includes('migration-write'));assert.ok(!f.http.includes('bridge-owner'));
  assert.equal(f.states.get('support-auth-config'),'passed');
  await f.run(undefined);assert.equal(f.secrets.length,3);
+});
+
+test('future managed support stage resolves Platform legacy anon through Management with publishable runtime key',async()=>{
+ const f=managedFixture(),result=await f.run();
+ const lookup='https://api.supabase.com/v1/projects/ukbhyerxshteyetwomqy/api-keys?reveal=true';
+ assert.ok(f.http.includes(lookup));assert.ok(f.http.includes(lookup.replace('?reveal=true','/legacy')));
+ assert.equal(f.states.get('support-auth-config'),'passed');
+ const value=f.secrets.find(s=>s.name==='PLATFORM_SUPABASE_ANON').value;
+ assert.deepEqual(JSON.parse(Buffer.from(value.split('.')[1],'base64url').toString()),{role:'anon',ref:'ukbhyerxshteyetwomqy'});
+ assert.notEqual(value,'sb_publishable_runtime-platform');
+ assert.doesNotMatch(JSON.stringify([result,f.calls]),/NEVER-BROWSER-PLATFORM-SERVICE|sb_publishable_|api_key/);
+ assert.ok(!JSON.stringify([result,f.calls]).includes(value));
+ for(const options of [{platformKeys:[]},{platformKeys:[{name:'anon',api_key:anon}]},{platformLegacyEnabled:false}]){
+  const failed=managedFixture(options);await assert.rejects(failed.run(),/Platform public anon JWT unavailable/);
+  assert.equal(failed.states.get('support-auth-config'),'failed');assert.equal(failed.uploads.length,0);
+  assert.ok(!failed.secrets.some(s=>s.name.startsWith('PLATFORM_SUPABASE') || s.name==='PLATFORM_AUTH_EMAIL'));
+ }
+});
+
+test('managed public environment still returns only the exact Shop public JWT via the shared selector',async()=>{
+ let keys=[{name:'secret',type:'secret',api_key:'sb_secret_never-public'},{name:'service_role',api_key:'NEVER-PUBLIC-SERVICE'},{name:'publishable',type:'publishable',api_key:'sb_publishable_other'},{name:'anon',type:'legacy',api_key:anon}];
+ const ctx=load('supabase/functions/_shared/managed-setup.ts',{Deno:{env:{get:()=> 'server-management-token'}},fetch:async(url,init)=>{
+  assert.equal(url,'https://api.supabase.com/v1/projects/abcdefghijklmnopqrst/api-keys?reveal=true');assert.equal(init.headers.Authorization,'Bearer server-management-token');assert.equal(init.redirect,'error');return Response.json(keys);
+ }});
+ const admin={from:()=>({select:()=>({eq:()=>({single:async()=>({data:{supabase_url:'https://abcdefghijklmnopqrst.supabase.co',pairing_mode:'managed',turnstile_site_key:'public-site'}})})})})};
+ const result=await ctx.managedPublicEnvironment(admin,42,'https://ukbhyerxshteyetwomqy.supabase.co');
+ assert.deepEqual(JSON.parse(JSON.stringify(result)),{VITE_SUPABASE_URL:'https://abcdefghijklmnopqrst.supabase.co',VITE_SUPABASE_ANON:anon,VITE_TURNSTILE_SITE_KEY:'public-site'});
+ assert.doesNotMatch(JSON.stringify(result),/sb_secret_|NEVER-PUBLIC-SERVICE|api_key/);
+ keys=[{name:'anon',api_key:'h.'+Buffer.from(JSON.stringify({role:'anon',ref:'ukbhyerxshteyetwomqy'})).toString('base64url')+'.s'}];
+ await assert.rejects(ctx.managedPublicEnvironment(admin,42,'https://ukbhyerxshteyetwomqy.supabase.co'),/public anon JWT/);
 });
 
 test('same recorded request resumes a fresh Shop after the migrations stage passed',async()=>{
