@@ -1,5 +1,7 @@
 # Platform modernization implementation report and deployment checklist
 
+> Repository status update — 2026-10-04: Modernization/provisioning (5734847/d65d872) and subsequent changes are committed and pushed. Local HEAD and the live GitHub `feature/platform-overhaul-v1` head match at `a054e28`. Current integration target is `developmentv2`. Preserve the original validation/deployment evidence below as a point-in-time record; Git does not prove hosted deployment. See [engineering history](../ENGINEERING_HISTORY.md) for the owner-reported hosted checkpoint and pending smoke gate.
+
 > Superseded onboarding guidance: use [NEW_CLIENT_ONBOARDING_V2.md](../NEW_CLIENT_ONBOARDING_V2.md), [BYO_SUPABASE_ONBOARDING.md](../BYO_SUPABASE_ONBOARDING.md) and [credential cleanup](../LEGACY_PRIVILEGED_CREDENTIAL_CLEANUP.md). Manual owner activation is the default. Never collect Shop privileged keys or customer account credentials; retired maps/resolvers are unavailable in the current runtime. Historical rollout details below are not current setup instructions.
 
 

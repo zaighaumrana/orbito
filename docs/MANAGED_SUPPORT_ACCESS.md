@@ -1,5 +1,7 @@
 # Managed Shop support access
 
+> Repository status update — 2026-10-04: Support configuration/repair (a616097) and public-key correction (29b11e2) are committed and pushed. Local HEAD and the live GitHub `feature/platform-overhaul-v1` head match at `a054e28`. Current integration target is `developmentv2`. Preserve the original validation/deployment evidence below as a point-in-time record; Git does not prove hosted deployment. See [engineering history](../ENGINEERING_HISTORY.md) for the owner-reported hosted checkpoint and pending smoke gate.
+
 The password-login design described below is superseded by [one-time Platform support handoff](SUPPORT_SESSION_HANDOFF.md). The three-setting repair remains available for compatibility; current support entry uses the new handoff, requires the new Platform migration/function and updated Shop login/frontends, and does not call Platform password Auth. Use the linked handoff document for current deployment and Test 4 instructions.
 
 Local implementation only. No hosted project was queried or changed, and nothing was committed, pushed or deployed.

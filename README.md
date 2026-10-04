@@ -6,20 +6,24 @@ The frontend uses JavaScript and Vite. Supabase provides authentication, Postgre
 
 ## Current status
 
-The owner reports the original control-plane migration and platform-bridge/platform-config are deployed. The new client provisioning and Turnstile follow-up is implemented locally and awaits manual deployment and acceptance. Its new SQL and Edge code have not been runtime-tested. The connected Shop repository remains a read-only compatibility reference.
+As of 2026-10-04, Onboarding V2 is integrated into `developmentv2`; Platform Overhaul V1 and secure one-time support handoff are committed and pushed on `feature/platform-overhaul-v1`. Local HEAD and the live GitHub feature branch match at `a054e28`. The Shop counterpart is also committed and pushed at `68885d4`. Historical reports' local-only wording describes their original checkpoints.
+
+The project owner reports managed provisioning, hosted Shop/custom domain/Turnstile, owner setup, suspension/reactivation and one-time support smoke verified. Reconciliation, concurrent/cross-session recovery, infrastructure destruction, offline Archive, retention and secret-exposure checks remain pending. Do not merge before the hosted smoke gate completes. Local validation and Git status do not independently prove deployment; see [engineering history](ENGINEERING_HISTORY.md) for evidence boundaries.
 
 Billing is usage-only at each client's configured BILL and INVENTORY rates. Each client chooses its own currency; balances in different currencies are displayed separately. THERMAL tracks estimated printing and has no financial charge.
 
 ## Documentation
 
-- [Client provisioning and Turnstile setup](docs/CLIENT_PROVISIONING.md) — current onboarding workflow, one-time infrastructure, credential rotation and recovery.
+- [Working rules](AGENTS.md) and [engineering history](ENGINEERING_HISTORY.md) — current decisions, evidence and efficient task protocol.
+- [Onboarding V2](NEW_CLIENT_ONBOARDING_V2.md), [Overhaul V1](PLATFORM_OVERHAUL_V1.md) and [one-time support handoff](docs/SUPPORT_SESSION_HANDOFF.md) — current setup, lifecycle/recovery and support contracts.
+- [Client provisioning and Turnstile setup](docs/CLIENT_PROVISIONING.md) — historical provisioning details; current V2 guidance supersedes older setup paths.
 
 - [Implementation report and deployment checklist](docs/PLATFORM_MODERNIZATION_IMPLEMENTATION.md) — architecture, billing rules, migration, provisioning, cutover, validation and live acceptance.
 - [Full change manifest](docs/ORBITO_CHANGE_MANIFEST.txt) — tracked change summary and new files, including the documentation update.
 - [Live smoke-test checklist](docs/PLATFORM_MODERNIZATION_IMPLEMENTATION.md#validation--live-acceptance).
 - [Deployment requirements](docs/PLATFORM_MODERNIZATION_IMPLEMENTATION.md#deployment-requirements--not-performed).
 
-The implementation report is the current reference. Older handoff documents in docs are retained for historical context and carry superseded-reference banners.
+The V2/overhaul/support documents above establish current contracts. The modernization implementation report and older handoff documents retain historical architecture, validation and rollout evidence; superseding notes distinguish later committed/pushed state from original task results.
 
 ## Local development
 

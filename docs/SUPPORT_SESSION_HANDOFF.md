@@ -1,5 +1,7 @@
 # One-time Platform support handoff
 
+> Repository status update — 2026-10-04: The handoff is committed and pushed in Platform a054e28 and Shop 68885d4; the no-commit/deployment statement below describes the original implementation task. Local HEAD and the live GitHub `feature/platform-overhaul-v1` head match at `a054e28`. Current integration target is `developmentv2`. Preserve the original validation/deployment evidence below as a point-in-time record; Git does not prove hosted deployment. See [engineering history](../ENGINEERING_HISTORY.md) for the owner-reported hosted checkpoint and pending smoke gate.
+
 This replaces the Shop's Platform password login. The confirmed hosted failure was Platform Auth returning `captcha_failed` because the Shop forwarded a valid master password without a Platform CAPTCHA token. Platform CAPTCHA remains enabled and unchanged. Shop customers keep their existing Shop login/CAPTCHA flow.
 
 ## Authorization and transport
