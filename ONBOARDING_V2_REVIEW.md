@@ -1,5 +1,7 @@
 # Onboarding V2 adversarial review — 2026-10-01
 
+> Repository status update — 2026-10-04: The reviewed Onboarding V2 work was later committed (5b6c0eb/2c03676), merged into developmentv2 (4f86abf) and pushed. Local HEAD and the live GitHub `feature/platform-overhaul-v1` head match at `a054e28`. Current integration target is `developmentv2`. Preserve the original validation/deployment evidence below as a point-in-time record; Git does not prove hosted deployment. See [engineering history](ENGINEERING_HISTORY.md) for the owner-reported hosted checkpoint and pending smoke gate.
+
 Review and manual-first follow-up complete. Confirmed local defects were narrowly fixed and revalidated. Both repositories remain on feature/onboarding-v2. Changes are uncommitted. No push, merge, deployment, remote migration, hosted secret change or scheduler cadence change was made. The legal worktree was not inspected or modified.
 
 The combined stabilization and Client Detail cleanup is also complete locally. [ONBOARDING_V2_STABILIZATION.md](ONBOARDING_V2_STABILIZATION.md) records the latest root causes, exact current changed files, forward migrations, Edge dependency audit, setup tooling, commands/results and 32-check hosted acceptance procedure. The earlier implementation inventory below is historical; use that combined report for this pass.

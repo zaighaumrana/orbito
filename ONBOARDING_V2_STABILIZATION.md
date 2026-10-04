@@ -1,5 +1,7 @@
 # Onboarding V2 stabilization and Client Detail cleanup — 2026-10-01
 
+> Repository status update — 2026-10-04: The stabilization work was later committed (2c03676), merged into developmentv2 (4f86abf) and pushed. Local HEAD and the live GitHub `feature/platform-overhaul-v1` head match at `a054e28`. Current integration target is `developmentv2`. Preserve the original validation/deployment evidence below as a point-in-time record; Git does not prove hosted deployment. See [engineering history](ENGINEERING_HISTORY.md) for the owner-reported hosted checkpoint and pending smoke gate.
+
 Both requested prompts are implemented and validated locally. Platform and Shop remain on `feature/onboarding-v2`; the changes are uncommitted. No commit, push, merge, deployment, remote migration, hosted-secret modification or scheduler cadence change was performed. The legal repository was not inspected or modified. Production Client 1 was not accessed: its live state is not claimed as verified.
 
 ## Inspection and implementation plan

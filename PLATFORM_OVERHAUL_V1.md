@@ -1,5 +1,7 @@
 # RetraSell Platform Overhaul V1 checkpoint
 
+> Repository status update — 2026-10-04: Overhaul implementation and subsequent fixes (39581e6 through a054e28) are committed and pushed. Local HEAD and the live GitHub `feature/platform-overhaul-v1` head match at `a054e28`. Current integration target is `developmentv2`. Preserve the original validation/deployment evidence below as a point-in-time record; Git does not prove hosted deployment. See [engineering history](ENGINEERING_HISTORY.md) for the owner-reported hosted checkpoint and pending smoke gate.
+
 Both clean starting checkouts were already on `feature/platform-overhaul-v1` with local `developmentv2` as an ancestor. Platform includes merged Onboarding V2; Shop includes merged Onboarding V2 and legal finalization. No old `development` base, legal worktree or hosted client/project was used.
 
 ## Lifecycle and recovery
