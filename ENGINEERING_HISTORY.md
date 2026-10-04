@@ -291,3 +291,36 @@ hosted smoke attribution comes from the user-supplied durable-memory task checkp
 dated 2026-10-04; no independent per-case hosted evidence artifact was supplied.
 This documentation remains uncommitted; suggested message:
 `docs: add durable engineering memory and agent rules`.
+
+## 2026-10-05 — Recovery/lifecycle submit busy ownership fix
+
+Branch: `feature/platform-overhaul-v1`.
+
+### Purpose / changed
+
+Owner-reported hosted Test 1 exposed a duplicate busy-guard conflict: `main.js`
+marked the form busy before dispatch, so `forms.js` returned without executing
+recovery/lifecycle/public-environment actions. Backend uncertainty/recovery behaved
+correctly; the same remote write was already durable with the intended tracking
+flag false. Removed only the inner guard, assignment and cleanup. The global
+submit listener now exclusively owns busy state through completion and refresh;
+overlapping submissions remain blocked.
+
+### Validation
+
+Added one focused test executing the actual outer listener and handler with mocked
+operations for all four special form types, duplicate clicks and error cleanup.
+It failed before the fix and passed afterward. Seven selected overhaul/recovery
+tests passed; no provisioning, database, Shop or full-suite tests ran. Vite build
+passed using process-only synthetic public configuration and isolated ignored
+output; the ordinary build lacked `VITE_TURNSTILE_KEY`. Output is not deployable.
+`git diff --check` passed.
+
+### Deployment / DB impact and Git
+
+No database, function, migration, Shop, hosted-operation or deployment changes.
+Existing uncertain request remains untouched. Rebuild/deploy only the Platform
+frontend using the existing real public configuration. Hosted Test 1 remains
+pending frontend deployment and recovery of the existing request; no PASS claim.
+No commit/push. Preserved pre-existing edits in `ONBOARDING_V2_REVIEW.md`,
+`ONBOARDING_V2_STABILIZATION.md` and `PLATFORM_OVERHAUL_V1.md`.

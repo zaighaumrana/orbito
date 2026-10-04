@@ -19,8 +19,7 @@ export async function handleFormSubmit(event) {
   const form = event.target;
   const type = form.dataset.pForm;
   if(['client-lifecycle','config-recovery','provision-recovery','public-environment'].includes(type)) {
-    if(form.dataset.busy)return;
-    form.dataset.busy='true';
+    // main.js owns the busy flag for the entire submit/refresh lifecycle.
     const client=pState.selectedClient,action=event.submitter?.value;
     const value=name=>form.elements[name]?.value?.trim() || '';
     try {
@@ -37,7 +36,6 @@ export async function handleFormSubmit(event) {
       }
       pState.modal=null;await loadPlatform();await loadClientData(pState.selectedClient);render();
     }catch(error){alert(error.message);await loadPlatform();await loadClientData(pState.selectedClient);render();}
-    finally{delete form.dataset.busy;}
     return;
   }
   if (type === 'client-provisioning') { await submitProvisioning(form, event.submitter?.value); return; }

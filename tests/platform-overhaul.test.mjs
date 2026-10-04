@@ -9,6 +9,51 @@ const load=(p,context={})=>{const ctx=vm.createContext({console,URL,Response,Abo
 const esc=String,noop=()=>{};
 const ui=load('src/lifecycle.js',{esc});
 const anon='header.'+Buffer.from(JSON.stringify({role:'anon',ref:'abcdefghijklmnopqrst'})).toString('base64url')+'.signature';
+test('outer submit dispatcher owns busy state while special forms execute and reject duplicate clicks',async()=>{
+ const cases=[['config-recovery','reconcile'],['client-lifecycle','archive'],['provision-recovery','resume'],['public-environment','copy']];
+ for(const [type,action] of cases){
+  let submit,release,calls=0,refreshes=0,renders=0;const alerts=[];
+  const pending=new Promise(resolve=>release=resolve);
+  const form={dataset:{pForm:type},elements:Object.fromEntries(Object.entries({request_id:'original-request',reason:'Audited recovery',project_ref:'abcdefghijklmnopqrst',anon,site_key:'public-site'}).map(([name,value])=>[name,{value}]))};
+  const operation=async(name,args)=>{
+   calls++;assert.equal(form.dataset.busy,'true');
+   if(type==='config-recovery'){
+    assert.equal(name,'platform-config');assert.equal(args.body.request_id,'original-request');
+    assert.equal(args.body.action,'recover');assert.equal(args.body.recovery_action,action);
+   }else if(type==='public-environment')assert.match(name,/VITE_SUPABASE_URL=/);
+   else{
+    assert.equal(name,type==='client-lifecycle'?'platform_client_lifecycle':'platform_provision_reconcile');
+    assert.equal(args.p_client,42);assert.equal(args.p_action,action);
+    if(type==='provision-recovery')assert.equal(args.p_request,'original-request');
+   }
+   await pending;return {data:{state:'applied'}};
+  };
+  const ctx=load('src/forms.js',{
+   pState:{selectedClient:{id:42,supabase_url:'https://abcdefghijklmnopqrst.supabase.co'},clientData:{config:{}},modal:'open'},
+   rpc:operation,pb:{functions:{invoke:operation}},publicEnvironment:ui.publicEnvironment,
+   navigator:{clipboard:{writeText:operation}},alert:message=>alerts.push(message),
+   loadPlatform:async()=>{refreshes++;assert.equal(form.dataset.busy,'true');},loadClientData:async()=>{},render:()=>renders++,
+   document:{addEventListener:(name,listener)=>{assert.equal(name,'submit');submit=listener;}}
+  });
+  // Execute the actual registration from main.js, without unrelated app boot/network work.
+  const dispatcher=read('src/main.js').split('/* ── Wire up all click/input/keyboard events ── */')[0].replace(/^import .*$/gm,'');
+  vm.runInContext(dispatcher,ctx);
+  const event={target:form,submitter:{value:action},preventDefault:noop};
+  const first=submit(event);
+  assert.equal(calls,1,`${type} must execute after the outer listener sets busy`);
+  await submit(event);assert.equal(calls,1,'an overlapping submit must be ignored');
+  assert.equal(form.dataset.busy,'true');release();await first;
+  assert.equal(form.dataset.busy,undefined);assert.deepEqual(alerts,[]);
+  assert.equal(refreshes,type==='public-environment'?0:1);assert.equal(renders,refreshes);
+  if(type!=='public-environment')assert.equal(ctx.pState.modal,null);
+  // A rejected operation retains error/refresh behavior and releases the outer guard.
+  if(type==='config-recovery'){
+   ctx.pb.functions.invoke=async()=>{throw Error('fixture failure');};
+   await submit(event);assert.deepEqual(alerts,['fixture failure']);
+   assert.equal(form.dataset.busy,undefined);assert.equal(refreshes,2);assert.equal(renders,2);
+  }
+ }
+});
 test('current/historical filters hide archives, retain provisioning and prevent retired contact',()=>{
  const clients=[{id:1,name:'Active',status:'Active'},{id:2,name:'Suspended',status:'Suspended'},{id:3,name:'Archive',lifecycle_state:'Archived'},{id:4,name:'New',lifecycle_state:'Provisioning'}];
  assert.deepEqual(Array.from(ui.visibleClients(clients),c=>c.id),[1,2,4]);assert.deepEqual(Array.from(ui.visibleClients(clients,'historical'),c=>c.id),[3]);assert.equal(ui.visibleClients(clients,'all').length,4);
