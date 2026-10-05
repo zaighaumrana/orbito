@@ -2,6 +2,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.108.2'
 import { pollShopBridge } from '../_shared/bridge-call.ts'
 import { bridgeCallCredential } from '../_shared/shop-credentials.ts'
 import { runOnboarding, OnboardingError } from '../_shared/onboarding.ts'
+import { runManagedSetup, managedPublicEnvironment, ManagedSetupError } from '../_shared/managed-setup.ts'
+import { repairSupportAccess, SupportAccessError } from '../_shared/support-auth.ts'
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Cache-Control': 'no-store' }
 const reply = (status: number, body: unknown) => Response.json(body, { status, headers: cors })
 const fields = ['repair_module_enabled','inventory_module_enabled','technician_module_enabled','live_tracking_enabled','ems_enabled','suspended']
@@ -96,11 +98,27 @@ Deno.serve(async req => {
     const bytes = new Uint8Array(size); let offset = 0; for (const chunk of chunks) { bytes.set(chunk,offset); offset += chunk.length }
     body = JSON.parse(new TextDecoder().decode(bytes))
     if (!Number.isSafeInteger(body.client_id) || body.client_id < 1 || !/^[0-9a-f-]{36}$/i.test(body.request_id)) throw new Error()
-    if (!['provision','verify','activate','rotate','replace','provision-call','rotate-call','pair-shop','bootstrap-shop','onboarding-status','invite-owner'].includes(body.action)) throw new Error()
-    if (!body || Array.isArray(body) || Object.keys(body).some(key => !['client_id','request_id','action','params','credential'].includes(key))) throw new Error()
+    if (!['provision','verify','activate','rotate','replace','provision-call','rotate-call','pair-shop','bootstrap-shop','onboarding-status','invite-owner','managed-setup','rotate-turnstile','frontend-env','repair-support-access'].includes(body.action)) throw new Error()
+    if (!body || Array.isArray(body) || Object.keys(body).some(key => !['client_id','request_id','action','params','credential','turnstile_secret'].includes(key))) throw new Error()
+    if (body.turnstile_secret !== undefined && (!['managed-setup','rotate-turnstile'].includes(body.action) || typeof body.turnstile_secret !== 'string' || body.turnstile_secret.length>512)) throw new Error()
     if (body.credential !== undefined) return reply(400, { error:'Shop privileged credentials are not accepted. Use bridge pairing.' })
   } catch { return reply(400, { error: 'Invalid provisioning request' }) }
   const params: any = body.params ?? {}
+  if(body.action==='repair-support-access'){
+    if(!params || Array.isArray(params) || typeof params!=='object' || Object.keys(params).length)return reply(400,{error:'Support configuration must come from Platform server state.'})
+    const identity=await caller.rpc('platform_operator_identity')
+    if(identity.error || identity.data?.auth_user_id!==auth.user.id || identity.data?.role!=='master_admin')return reply(403,{error:'Verified master administrator required.'})
+    try {
+      const admin=createClient(url,serviceKey,{auth:{persistSession:false}})
+      return reply(200,await repairSupportAccess(admin,caller,auth.user.id,body,url))
+    } catch(error) {return reply(503,{error:error instanceof SupportAccessError?error.message:'Support repair unavailable.',request_id:body.request_id,resumable:true})}
+  }
+  if(body.action==='frontend-env'){
+    const identity=await caller.rpc('platform_operator_identity')
+    if(identity.error || identity.data?.role!=='master_admin')return reply(403,{error:'Master administrator required.'})
+    try{const admin=createClient(url,serviceKey,{auth:{persistSession:false}});return reply(200,{public_env:await managedPublicEnvironment(admin,body.client_id,url)})}
+    catch{return reply(503,{error:'Managed public configuration is unavailable. Check project access and anon JWT availability.'})}
+  }
   // All destination changes are explicitly authorized by the master role in this RPC.
   const { data: reservation, error: reserveError } = await caller.rpc('platform_provision_begin', {
     p_client: body.client_id, p_request: body.request_id, p_action: body.action, p_params: params,
@@ -127,6 +145,13 @@ Deno.serve(async req => {
     if (commitError) fail('Bridge call credential outcome needs completion; resume the same operation.')
   }
   try {
+    if (['managed-setup','rotate-turnstile'].includes(body.action)) {
+      stage='managed-setup'
+      const result=await runManagedSetup(admin,body,url,body.turnstile_secret,caller,auth.user.id)
+      delete body.turnstile_secret
+      await step('complete')
+      return reply(200,result)
+    }
     if (['pair-shop','bootstrap-shop','onboarding-status','invite-owner'].includes(body.action)) {
       stage = 'onboarding'
       let result
@@ -223,7 +248,7 @@ Deno.serve(async req => {
     return reply(200,{ state:'complete',request_id:body.request_id })
   } catch (error) {
     // Only our own fixed errors are returned. Never forward remote bodies or exception payloads.
-    const message = error instanceof OperatorError ? error.message : 'Provisioning interrupted. Refresh status and resume the same operation.'
+    const message = error instanceof OperatorError || error instanceof ManagedSetupError || error instanceof SupportAccessError ? error.message : 'Provisioning interrupted. Refresh status and resume the same operation.'
     try { await step('failure',{ error:message,stage }) } catch { /* Keep running lock for explicit administrator recovery. */ }
     return reply(503,{ error:message,request_id:body.request_id,resumable:true })
   }

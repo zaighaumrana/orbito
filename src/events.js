@@ -7,6 +7,7 @@ import { render }                          from "./render.js";
 import { generateInvoice, printClientInvoices } from "./billing.js";
 import { validateSession }                 from "./helpers.js";
 import { rpc } from "./operations.js";
+import { openShopSupport } from './support-handoff.js';
 
 export function initEvents() {
 
@@ -39,6 +40,12 @@ export function initEvents() {
 
     const action = el.dataset.pAction;
     if (!action) return;
+    if(action==='open-shop-support'){
+      if(!pState.authenticated || pState.currentUser?.role!=='master_admin' || !pState.selectedClient)return;
+      el.disabled=true;
+      try {await openShopSupport(pState.selectedClient);} catch(error){alert(error.message);} finally{if(el.isConnected)el.disabled=false;}
+      return;
+    }
     if (action === 'copy-setup') {
       try { await navigator.clipboard.writeText(el.dataset.copyValue || '');el.textContent='Copied'; }
       catch { alert('Copy is unavailable. Select the displayed value to copy it.'); }
@@ -207,6 +214,16 @@ export function initEvents() {
     }
 
     /* Trusted subscription state update */
+    if(action==='load-public-environment') {
+      el.disabled=true;
+      try {
+        const {data,error}=await pb.functions.invoke('platform-provision',{body:{client_id:pState.selectedClient.id,request_id:crypto.randomUUID(),action:'frontend-env',params:{}}});
+        if(error || !data?.public_env)throw Error('Public configuration unavailable; check managed project access.');
+        pState.clientData.publicEnv=data.public_env;render();
+      }finally{el.disabled=false;}
+      return;
+    }
+    if(action==='client-view') { pState.clientView=el.dataset.view;render();return; }
     if (action === 'suspend-client' || action === 'activate-client') {
       const client = pState.data.clients.find(c => c.id === Number(el.dataset.pId));
       if (await updateClientConfig(client, { suspended: action === 'suspend-client' })) {
@@ -306,8 +323,9 @@ export function initEvents() {
       render(); return;
     }
 
-    if (action === 'delete-client') {
-      alert('Financial and usage history is retained. Use Suspend to stop client access.'); return;
+    if (action === 'archive-client') {
+      const client=pState.data.clients.find(c=>c.id===Number(el.dataset.pId));
+      await loadClientData(client);pState.page='client-detail';pState.modal=null;render();return;
     }
 
     /* ── Edit platform user ── */

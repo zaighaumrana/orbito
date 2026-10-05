@@ -423,3 +423,7 @@ verify_jwt = true
 [functions.platform-provision]
 # Handler authenticates scheduler secret or Auth user + master-admin RPC.
 verify_jwt = false
+
+[functions.platform-support]
+# Issuance verifies the master JWT; exchange verifies the Shop source credential.
+verify_jwt = false

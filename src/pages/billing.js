@@ -1,4 +1,5 @@
 import { esc } from "../operations.js";
+import { lifecycleState } from '../lifecycle.js';
 import { pState } from "../state.js";
 import { computeClientBilling, getInvoicePayments, getInvoicePaidTotal } from "../billing.js";
 import { tit } from "../helpers.js";
@@ -9,7 +10,7 @@ export function pageBilling() {
   const now      = new Date();
   const monthLabel = now.toLocaleString("default", { month: "long", year: "numeric" });
 
-  const rows = clients.filter(c => c.status === "Active").map(c => {
+  const rows = clients.filter(c => lifecycleState(c) === 'Active').map(c => {
     const b           = computeClientBilling(c.id);
     const lastInvoice = invoices
       .filter(i => i.client_id === c.id)
@@ -24,6 +25,7 @@ export function pageBilling() {
 
   return `
     ${tit("Billing", `${monthLabel} — Usage-Based Invoicing · policy activation required`, "")}
+    <p>${invoices.length?'Showing up to the latest 25 issued invoices. Outstanding total includes all issued invoices.':'No issued invoices yet.'}</p>
 
     <p class="muted">Amounts below are rate-snapshot estimates. Clients without an agreed policy/currency, or with flagged carry history, cannot generate invoices. Mixed currencies are not consolidated.</p>
     <div class="grid kpi-grid" style="margin-bottom:4px">
@@ -120,7 +122,7 @@ export function pageBilling() {
           <th>Bills</th><th>Inventory</th><th>Total Due</th><th>Status</th><th></th>
         </tr></thead>
         <tbody>
-          ${invoices.slice(0, 30).map(inv => {
+          ${invoices.slice(0, 25).map(inv => {
             const cl  = clients.find(c => c.id === inv.client_id);
             const sym = esc(cl?.currency || "Unconfigured");
             const totalPaid = getInvoicePaidTotal(inv.id);

@@ -1,5 +1,7 @@
 # Shared scheduler authentication fix
 
+> Repository status update — 2026-10-04: The scheduler fix was later committed (ed2c4a7) and pushed. Local HEAD and the live GitHub `feature/platform-overhaul-v1` head match at `a054e28`. Current integration target is `developmentv2`. Preserve the original validation/deployment evidence below as a point-in-time record; Git does not prove hosted deployment. See [engineering history](../ENGINEERING_HISTORY.md) for the owner-reported hosted checkpoint and pending smoke gate.
+
 Local implementation only; nothing was deployed and no live database was queried or changed.
 
 ## Cause and change

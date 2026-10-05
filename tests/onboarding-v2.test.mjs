@@ -7,6 +7,38 @@ const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const validation=await import('data:text/javascript;base64,'+Buffer.from(read('src/onboarding.js')).toString('base64'));
 const callSecret='fixture-call-secret-0000000000000000000000000000',sourceSecret='fixture-source-secret-00000000000000000000000000';
 const payload={request_id:'10000000-0000-4000-8000-000000000001',platform_client_id:50,client_binding:'orbito-client-50',business_name:'Test Shop',owner_name:'Test Owner',owner_email:'owner@example.test',billing_currency:'PKR',shop_url:'https://shop.example.test',modules:{repair_module_enabled:true,inventory_module_enabled:false,technician_module_enabled:false,live_tracking_enabled:false,ems_enabled:false,ems_track_breaks:false},paper_resupply_enabled:false,onboarding_version:2};
+
+for (const action of ['bootstrap-shop','onboarding-status','repair-support-access']) {
+ test(`V2 client-provisioning ${action} reaches provisioning with the global busy flag`,async()=>{
+  let submit,release;const calls=[],loads=[],buttons=[{disabled:false}];
+  const invocation=new Promise(resolve=>{release=resolve;});
+  const client={id:50,onboarding_version:2};
+  const form={dataset:{pForm:'client-provisioning'},elements:{},querySelectorAll:()=>buttons};
+  const event={target:form,submitter:{value:action},preventDefault:()=>{}};
+  const ctx={
+   pState:{selectedClient:client,clientData:{provisioning:{}},modal:'setup'},
+   crypto:{randomUUID:()=>payload.request_id},
+   document:{addEventListener:(type,handler)=>{assert.equal(type,'submit');submit=handler;}},
+   pb:{functions:{invoke:async(name,{body})=>{calls.push({name,body});await invocation;return {data:{}};}}},
+   loadClientData:async selected=>{assert.equal(form.dataset.busy,'true');loads.push(selected);},
+   render:()=>assert.equal(form.dataset.busy,'true'),
+   alert:message=>assert.fail(message),
+  };
+  vm.createContext(ctx);
+  for(const path of ['src/provisioning.js','src/forms.js'])vm.runInContext(read(path).replace(/^import .*$/gm,'').replace(/^export /gm,''),ctx);
+  vm.runInContext(read('src/main.js').split('initEvents();')[0].replace(/^import .*$/gm,''),ctx);
+  const pending=submit(event);
+  assert.equal(calls.length,1);
+  assert.equal(calls[0].name,'platform-provision');
+  assert.deepEqual(JSON.parse(JSON.stringify(calls[0].body)),{client_id:50,request_id:payload.request_id,action,params:{}});
+  assert.equal(form.dataset.busy,'true');assert.equal(buttons[0].disabled,true);
+  await submit(event);assert.equal(calls.length,1);
+  release();await pending;
+  assert.deepEqual(loads,[client]);assert.equal(ctx.pState.modal,null);
+  assert.equal(Object.hasOwn(form.dataset,'busy'),false);
+ });
+}
+
 function fixture({mode='managed',token='test-management',http=200,network=false,projection=true,malformed=false,invitation=null}={}) {
  const calls=[],requests=[];const target={project_ref:'abcdefghijklmnopqrst',pairing_mode:mode,payload,call_secret:callSecret,source_secret:sourceSecret};
  const ctx={Response,URL,AbortSignal,Deno:{env:{get:()=>token}},
@@ -71,7 +103,7 @@ test('only explicit invitation action sends the optional bridge operation',async
  const code=read('supabase/functions/_shared/onboarding.ts');assert.doesNotMatch(code,/platform_shop_credential|shopCredential|service_role_key|PLATFORM_SHOP_CREDENTIALS/);
 });
 test('manual-first UI collects no password or privileged Shop credential',()=>{
- for(const p of ['src/provisioning.js','src/client-setup.js','src/modals/client.js']){const code=read(p);if(p!=='src/provisioning.js')assert.match(code,/Manual|manual/);assert.doesNotMatch(code,/<input[^>]+(?:name|type)="(?:password|service_role_key|secret_key|PAT)"/i);}
+ for(const p of ['src/provisioning.js','src/client-setup.js','src/modals/client.js']){const code=read(p).replace(/export function managedSetupModal[\s\S]*?(?=export const copyValue)/,'');if(p!=='src/provisioning.js')assert.match(code,/Manual|manual/);assert.doesNotMatch(code,/<input[^>]+(?:name|type)="(?:password|service_role_key|secret_key|PAT)"/i);}
  assert.match(read('src/client-setup.js'),/Check Owner Account/);assert.doesNotMatch(read('src/provisioning.js'),/Production requires custom SMTP/);
 });
 

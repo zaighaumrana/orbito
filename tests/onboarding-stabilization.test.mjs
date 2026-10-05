@@ -52,10 +52,32 @@ test('operator identity is verified by server UUID/role independently of optiona
 });
 // Exercise the complete detail renderer as well as the isolated setup component.
 Object.assign(ui,{pState:{currentUser:{role:'master_admin'},data:{invoices:[]}},computeClientBilling:()=>({billCount:0,inventoryCount:0,grandTotal:0}),moduleToggleRow:()=>''});
+vm.runInContext(read('src/lifecycle.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ui);
 vm.runInContext(read('src/provisioning.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ui);
 vm.runInContext(read('src/pages/clients.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ui);
 test('full detail header renders copyable client ID and safe Shop link; legacy Client 1 stays outside V2',()=>{
  ui.pState.selectedClient=client;ui.pState.clientData=detail(health);const html=ui.pageClientDetail();assert.match(html,/Client #50/);assert.match(html,/href="https:\/\/shop.example.test\/"/);assert.doesNotMatch(html,/\/\^https:/);
  ui.pState.selectedClient={...client,id:1,onboarding_version:0};ui.pState.clientData={...detail({connection:'Connected'}),operations:{source:{enabled:true,usage_from_sequence:37},thermal:{}}};
  const legacy=ui.pageClientDetail();assert.match(legacy,/Existing Shop/);assert.doesNotMatch(legacy,/Client Created|bootstrap-shop|Complete BYO Setup|value="pair-shop"/);assert.match(legacy,/<details class="setup-advanced"><summary>Advanced/);
+});
+
+test('retired detail displays retained identity without Shop controls, secrets or an operations dependency',()=>{
+ const retired={...client,name:'Archived <Shop>',owner_name:'Former <Owner>',pairing_mode:'managed',industry:'Mobile Repair',status:'Archived',lifecycle_state:'Archived',infrastructure_state:'destroyed',created_at:'2026-09-01T10:00:00Z',archived_at:'2026-10-05T10:00:00Z',service_role_key:'NEVER-RENDER-CREDENTIAL',bridge_secret:'NEVER-RENDER-CREDENTIAL',owner_password:'NEVER-RENDER-CREDENTIAL'};
+ ui.pState.selectedClient=retired;ui.pState.clientData=detail(health);
+ const html=ui.pageClientDetail();
+ for(const value of ['Historical client record','50','Archived &lt;Shop>','Former &lt;Owner>','owner@example.test','Pro','Mobile Repair','Managed Supabase',client.shop_url,client.supabase_url,'abcdefghijklmnopqrst',retired.created_at,retired.archived_at,'Archived','destroyed'])assert.ok(html.includes(value),`retained detail must display ${value}`);
+ assert.doesNotMatch(html,/href=|<Owner>|<Shop>|NEVER-RENDER-CREDENTIAL|Open Shop|Configure Support Access|Refresh owner|data-p-modal="(?:edit-client|managed-setup|byo-setup|rotate-turnstile)"|data-p-form="(?:client-provisioning|provision-recovery|public-environment)"|data-p-action="(?:open-support|read-shop-config|load-public-env|toggle-[^"]+|suspend-client|activate-client)"/);
+ for(const clientData of [{_error:'Platform operations unavailable'},{}]){
+  ui.pState.clientData=clientData;
+  const offline=ui.pageClientDetail();assert.match(offline,/Historical client record/);assert.ok(offline.includes(retired.owner_email));assert.ok(offline.includes(client.supabase_url));
+ }
+});
+
+test('Active and Suspended detail retain existing setup and Shop controls',()=>{
+ for(const state of ['Active','Suspended']){
+  ui.pState.selectedClient={...client,status:state,lifecycle_state:state,infrastructure_state:'present'};ui.pState.clientData=detail(health);
+  const html=ui.pageClientDetail();assert.match(html,/Shop setup/);assert.match(html,/href="https:\/\/shop.example.test\/"/);
+  assert.match(html,/data-p-action="read-shop-config"/);assert.ok(html.includes(`data-p-action="${state==='Active'?'suspend-client':'activate-client'}"`));
+  assert.doesNotMatch(html,/Historical client record/);
+ }
 });

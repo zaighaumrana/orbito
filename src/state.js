@@ -9,6 +9,7 @@ export const pState = {
   },
   modal:          null,
   filter:         "",
+  clientView:     'current',
   selectedClient: null,
   clientData:     {},
   authenticated:  false,

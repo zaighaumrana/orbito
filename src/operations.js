@@ -1,6 +1,19 @@
 import { pb } from './supabase.js';
 export const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const flights = new Map();
+// Config intent lives on the server. localStorage remains only for the separate
+// payment protocol, where its existing retry semantics must remain unchanged.
+export function serverConfigOperation(clientId,payload,readStatus,send){
+  const key=`server-config:${clientId}`;
+  if(flights.has(key))return flights.get(key);
+  const work=(async()=>{
+    const status=await readStatus();
+    localStorage.removeItem(`orbito-operation:config:${clientId}`);
+    if(status.config_jobs?.length)throw Error('A server operation is unresolved. Open Client Detail and recover its recorded request.');
+    return send(crypto.randomUUID(),payload);
+  })().finally(()=>flights.delete(key));
+  flights.set(key,work);return work;
+}
 export function retryOperation(key, payload, send) {
   if (flights.has(key)) return flights.get(key);
   const work = (async () => {

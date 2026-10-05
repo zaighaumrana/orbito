@@ -1,13 +1,14 @@
 import { esc } from "../operations.js";
 import { pState } from "../state.js";
+import { lifecycleState, visibleClients } from '../lifecycle.js';
 import { computeClientBilling, getLifecycleFlag } from "../billing.js";
 import { tit } from "../helpers.js";
 
 export function pageOverview() {
   const role    = pState.currentUser.role;
   const clients = pState.data.clients;
-  const active  = clients.filter(c => c.status === "Active").length;
-  const suspended = clients.filter(c => c.status === "Suspended").length;
+  const active  = clients.filter(c => lifecycleState(c) === 'Active').length;
+  const suspended = clients.filter(c => lifecycleState(c) === 'Suspended').length;
   const openTickets = pState.data.support.filter(s => s.status === "Open").length;
 
   const showFinancials = role === "master_admin" || role === "billing_person";
@@ -25,6 +26,8 @@ export function pageOverview() {
     ["Total Clients",    clients.length,   ""],
     ["Active",           active,           "good"],
     ["Suspended",        suspended,        suspended ? "bad" : ""],
+    ['Provisioning',clients.filter(c=>lifecycleState(c)==='Provisioning').length,''],
+    ['Historical',clients.filter(c=>lifecycleState(c)==='Archived').length,''],
     ["Open Tickets",     openTickets,      openTickets ? "warn" : ""],
     ...(showFinancials ? [
       ["Revenue Due",      outstandingText,          "good"],
@@ -57,7 +60,7 @@ export function pageOverview() {
             <th>Actions</th>
           </tr></thead>
           <tbody>
-            ${clients.map(c => {
+            ${visibleClients(clients).map(c => {
               const b         = computeClientBilling(c.id);
               const lifecycle = getLifecycleFlag(c);
               return `<tr>
@@ -67,7 +70,7 @@ export function pageOverview() {
                 </td>
                 <td>${esc(c.plan)}</td>
                 <td>
-                  <span class="badge ${c.status === "Active" ? "good" : "bad"}">${esc(c.status)}</span>
+                  <span class="badge ${lifecycleState(c) === 'Active' ? 'good' : 'warn'}">${esc(lifecycleState(c))}</span>
                   ${lifecycle ? `<span class="badge ${lifecycle.cls}" style="margin-left:4px">${lifecycle.label}</span>` : ""}
                 </td>
                 <td>${/^https?:\/\//i.test(c.shop_url || "")
