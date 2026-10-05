@@ -357,3 +357,21 @@ passed. No Shop/database/concurrency suites ran.
 Platform frontend deployment alone is required. No backend/function/migration,
 Shop or hosted-state changes; the deleted Shop was not recreated. Test 19 remains
 pending hosted rerun after deployment. Clean task-start tree; no commit/push/deploy.
+
+## 2026-10-06 — Hosted destructive smoke checkpoint complete
+
+Branch: `feature/platform-overhaul-v1`.
+
+### Purpose / validation
+
+Completed the authorized hosted smoke gate: Tests 1–32 PASS. Test 19 was user-confirmed after the retained metadata frontend fix; final hosted Historical card was independently observed. Test 24 combines UI inspection and user-assisted DevTools response inspection; no privileged secrets observed within that scope.
+
+Only Shop project `dexzxxqkbwnpetbsuxxv` was externally deleted after identity verification and explicit authorization. Platform `ukbhyerxshteyetwomqy` remains healthy. Manual mark-destroyed recorded exact ref/reason and remote_call=false, closed the existing dead-Shop probe request locally, and disabled bridge coordination. No resurrection observed; local Archive succeeded with backend gone.
+
+### Final state / retention
+
+Status and lifecycle Archived; infrastructure destroyed; archived_at populated; unresolved config jobs 0; unfinished provision jobs 0; bridge enabled=false. Historical metadata usable; normal operational/reactivation/support controls unavailable. Six financial/history baseline counts remain zero; projection retained (revision 1934 to 2965); audit count 160 to 166; seven original provision requests plus locally closed probe and 47 stages retained. Old Shop frontend still loads login but reports configuration unavailable.
+
+### Impact / Git
+
+Concise detailed evidence is retained in the hosted-smoke-tests-13-32.md task checkpoint. No Shop recreation, replacement UUIDs, direct table repairs, code changes, migrations, deployment, commit, push or merge during this continuation. Prior failure/pending notes remain historical; this entry records the completed hosted gate. Broader security audit and deferred remote deletion automation are not implied.
