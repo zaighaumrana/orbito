@@ -324,3 +324,36 @@ frontend using the existing real public configuration. Hosted Test 1 remains
 pending frontend deployment and recovery of the existing request; no PASS claim.
 No commit/push. Preserved pre-existing edits in `ONBOARDING_V2_REVIEW.md`,
 `ONBOARDING_V2_STABILIZATION.md` and `PLATFORM_OVERHAUL_V1.md`.
+
+## 2026-10-05 — Retained historical client metadata visibility
+
+Branch: `feature/platform-overhaul-v1`.
+
+### Purpose / changed
+
+Owner-reported hosted Tests 1–18 now pass; Test 19 exposed retained metadata hidden
+in Archived/destroyed Client Detail. The supplied database inspection found no
+data loss. Owner/project identity lived inside the operational setup panel, which
+`canContactShop()` correctly suppresses for retired clients.
+
+Added a read-only Historical client record card in `src/pages/clients.js`, using
+only explicit non-secret fields from the retained Platform client. It displays
+identity, owner, plan/industry, pairing, former Shop/project URLs and reference,
+created/archive timestamps and lifecycle/infrastructure. Escaped URLs are plain
+text. Metadata remains visible during Platform operations loading/errors.
+Shop-contact semantics and all existing operational UI gates remain unchanged.
+
+### Validation
+
+Two focused full-detail regressions cover Archived/destroyed metadata, escaping,
+credential/control exclusion, loading/errors and Active/Suspended compatibility.
+The retired regression failed before the fix. Five selected detail/lifecycle
+checks passed. Vite build passed with established synthetic public configuration
+and isolated ignored output, not suitable for deployment. `git diff --check`
+passed. No Shop/database/concurrency suites ran.
+
+### Deployment / DB impact and Git
+
+Platform frontend deployment alone is required. No backend/function/migration,
+Shop or hosted-state changes; the deleted Shop was not recreated. Test 19 remains
+pending hosted rerun after deployment. Clean task-start tree; no commit/push/deploy.

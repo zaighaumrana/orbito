@@ -53,6 +53,20 @@ export function pageClients() {
     </div>`;
 }
 
+function renderRetainedClientMetadata(client) {
+  const project = /^https:\/\/([a-z]{20})\.supabase\.co\/?$/.exec(client.supabase_url || '')?.[1];
+  const pairing = {managed:'Managed Supabase',byo:'Client-owned Supabase'}[client.pairing_mode];
+  const field = (label,value) => `<p class="setup-email"><span class="muted">${label}:</span> ${esc(value || 'Not recorded')}</p>`;
+  return `<section class="card"><h2>Historical client record</h2>
+    <p class="muted">Retained Platform record. Former Shop details are for reference.</p>
+    <div class="grid two-col">
+      <div><h3>Client identity</h3>${field('Client ID',client.id)}${field('Business',client.name)}${field('Plan',client.plan)}${field('Industry',client.industry)}</div>
+      <div><h3>Owner</h3>${field('Name',client.owner_name)}${field('Email',client.owner_email)}</div>
+      <div><h3>Former Shop</h3>${field('Shop URL',client.shop_url)}${field('Supabase project ref',project)}${field('Supabase URL',client.supabase_url)}${field('Pairing',pairing)}</div>
+      <div><h3>Lifecycle / dates</h3>${field('Lifecycle',lifecycleState(client))}${field('Infrastructure',client.infrastructure_state)}${field('Created',client.created_at)}${field('Archived',client.archived_at)}</div>
+    </div></section>`;
+}
+
 export function pageClientDetail() {
   const c = pState.selectedClient;
   if (!c) return '<p>No client selected.</p>';
@@ -63,7 +77,7 @@ export function pageClientDetail() {
     if(['https:','http:'].includes(url.protocol) && !url.username && !url.password)
       openShop=`<a class="secondary-button" href="${esc(url.href)}" target="_blank" rel="noopener noreferrer">Open Shop ↗</a>`;
   } catch {}
-  const head = `<div class="page-title client-detail-header"><div><div class="setup-heading"><h1>${esc(c.name)}</h1><span class="badge ${lifecycleState(c)==='Active'?'good':'warn'}">${esc(lifecycleState(c))}</span><span class="badge">${esc(c.plan)}</span></div><p>Client #${esc(c.id)} ${copyValue(c.id,'Copy ID')} · ${esc(c.industry||'Business')} · ${c.pairing_mode==='byo'?'Client-owned Supabase':'Managed Supabase'}</p></div><div class="setup-secondary">${canContactShop(c)?openShop+'<button class="secondary-button" data-p-modal="edit-client">Edit Client</button>':''}<button class="secondary-button" data-p-page="clients">← Back</button></div></div>`;
+  const head = `<div class="page-title client-detail-header"><div><div class="setup-heading"><h1>${esc(c.name)}</h1><span class="badge ${lifecycleState(c)==='Active'?'good':'warn'}">${esc(lifecycleState(c))}</span><span class="badge">${esc(c.plan)}</span></div><p>Client #${esc(c.id)} ${copyValue(c.id,'Copy ID')} · ${esc(c.industry||'Business')} · ${c.pairing_mode==='byo'?'Client-owned Supabase':'Managed Supabase'}</p></div><div class="setup-secondary">${canContactShop(c)?openShop+'<button class="secondary-button" data-p-modal="edit-client">Edit Client</button>':''}<button class="secondary-button" data-p-page="clients">← Back</button></div></div>` + (canContactShop(c) ? '' : renderRetainedClientMetadata(c));
 
   if (cd._error) return head + `<div class="card">Operations unavailable: ${esc(cd._error)}</div>`;
   if (!o) return head + '<div class="card">Loading operations…</div>';
