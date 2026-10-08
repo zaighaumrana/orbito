@@ -1,8 +1,8 @@
 -- Disposable local upgrade fixture. Synthetic account, never hosted identity.
-insert into auth.users(id,email) values
- ('92000000-0000-4000-8000-000000000001','existing-master@example.test'),
- ('92000000-0000-4000-8000-000000000002','platformadmin@retailos.internal'),
- ('92000000-0000-4000-8000-000000000003','unknown@example.test');
+insert into auth.users(id,email,email_confirmed_at) values
+ ('92000000-0000-4000-8000-000000000001','existing-master@example.test',now()),
+ ('92000000-0000-4000-8000-000000000002','platformadmin@retailos.internal',now()),
+ ('92000000-0000-4000-8000-000000000003','unknown@example.test',now());
 insert into public.platform_config(id,admin_username) values(1,'existing-alias');
 create or replace function platform_private.operator_role() returns text
 language sql stable security definer set search_path='' as $$

@@ -1,6 +1,8 @@
 \set ON_ERROR_STOP on
 begin;
-insert into auth.users values('00000000-0000-4000-8000-000000009201','platformadmin@retailos.internal');
+insert into auth.users(id,email,email_confirmed_at) values('00000000-0000-4000-8000-000000009201','fixture-master@example.test',now());
+select platform_private.initialize_config('Fixture master','Disposable currency fixture');
+select platform_private.bind_master('00000000-0000-4000-8000-000000009201',null,'Disposable currency fixture');
 insert into public.clients(id,name,supabase_url,supabase_anon,event_rate) values(9201,'USD fixture','https://example.invalid','public',5),(9202,'EUR fixture','https://example.invalid','public',7);
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000009201',true);
 set local role authenticated;

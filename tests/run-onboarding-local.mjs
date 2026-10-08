@@ -79,7 +79,12 @@ console.log('PASS Platform: full migrations, 12 plan/Inventory/Paper combination
 const upgrade=database('platform_identity_upgrade');sql(upgrade,platformBootstrap);
 for(const f of migrations(platform).filter(f=>f<'20261001100000'))sql(upgrade,read(resolve(platform,'supabase/migrations',f)).replace('create extension if not exists supabase_vault with schema vault;','-- disposable local Vault substitute'));
 sql(upgrade,read(resolve(platform,'tests/platform-master-upgrade-before.sql')));
-for(const f of migrations(platform).filter(f=>f>='20261001100000'))sql(upgrade,read(resolve(platform,'supabase/migrations',f)));
+for(const f of migrations(platform).filter(f=>f>='20261001100000')){
+ if(f==='20261008191709_production_bootstrap_hardening.sql')sql(upgrade,
+  "\\set master_uuid 92000000-0000-4000-8000-000000000001\n\\set reason 'Reviewed disposable legacy harness upgrade'\n"+
+  read(resolve(platform,'supabase/bootstrap/approve-staging-master.sql')));
+ sql(upgrade,read(resolve(platform,'supabase/migrations',f)));
+}
 sql(upgrade,read(resolve(platform,'tests/platform-master-upgrade.sql')));
 console.log('PASS Platform upgrade: existing real-email UUID master, unchanged Auth/alias/authorization, RPC/RLS and no placeholder takeover');
 console.log('Disposable local databases: '+[fresh,existing,db].join(', '));
