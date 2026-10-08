@@ -242,3 +242,95 @@ against either hosted project:
    verify original session/UUID and retained data.
 
 Stop for owner review. No commit, remote Git mutation or hosted deployment yet.
+
+## 2026-10-09 — Current Git checkpoint, preview and P2 follow-up
+
+The local-only Git statements above describe the historical implementation
+checkpoint. The owner subsequently authorized a reviewed Git checkpoint:
+
+- Commit `ba1b770e5ef79b07c4202eaa4c7a56dc0a2b354d`, message
+  `fix(platform): harden production bootstrap and migration atomicity`.
+- Exactly **22 intended files were committed and pushed** on
+  `feature/production-bootstrap-hardening`; the inventory above is unchanged.
+- [Draft PR #1](https://github.com/zaighaumrana/orbito/pull/1) targets `development`;
+  it has not been merged. `development` and `deployment` remain at `a43db6a`;
+  frozen `main` remains at `5df274a`. Protected remote heads were rechecked during
+  this follow-up and remain unchanged.
+- Cloudflare reported a **successful automatic frontend preview deployment**
+  after the feature push (owner-provided result; not independently revalidated
+  against Cloudflare here). A frontend preview does **not** prove database
+  migration, Edge Function deployment, production deployment or hosted test
+  success. No such backend/production outcome is claimed.
+
+**Preview isolation is not verified.** `src/supabase.js` creates the normal app
+client from build-time `VITE_PLATFORM_URL` and `VITE_PLATFORM_ANON`; a preview
+hostname/feature branch does not force a separate database or a read-only app.
+The deployment's preview environment/access settings and built public target
+were not inspected, and the preview was not opened. Before another authorized
+push or preview use, establish that the preview has an approved isolated backend
+or an inert backend configuration and suitable access restrictions. Do not use
+the preview to probe either protected hosted project. No Cloudflare settings
+were changed by this follow-up.
+
+Source review reported no P0/P1 defects and two P2 findings. The local follow-up
+changes only `tests/run-onboarding-local.mjs`, this report and
+`ENGINEERING_HISTORY.md`:
+
+- The disposable SQL-only runner wraps migrations lacking top-level transaction
+  boundaries in one explicit BEGIN/COMMIT; authored boundaries are preserved.
+  Comments, literals and dollar-quoted function/DO bodies are excluded from
+  boundary detection. All fresh/upgrade migration call sites use the same helper.
+- `--platform-only` runs the affected Platform paths without reading Shop sources.
+  A temporary copy of the new migration fails with division by zero after its
+  SQL and before the runner's COMMIT. Configuration/approval/audit, authority and
+  function/table ACLs, defaults and constraints remain unchanged; new binding
+  objects are absent. Clean retry preserves the existing synthetic master UUID.
+- All historical SQL, the new production migration, Shop release artifact and
+  dedicated actual CLI migration-history harness remain unchanged. The runner
+  does not insert history and is not a substitute for the earlier CLI proof.
+
+| Follow-up validation | Result | Evidence/limit |
+| --- | --- | --- |
+| Affected SQL runner: fresh Platform full chain and existing focused SQL fixtures | PASS | Actual disposable loopback PostgreSQL 17.6; synthetic Auth/Vault contracts |
+| Late SQL-only migration failure and clean upgrade retry | PASS | Real psql stdin, catalog/row/ACL assertions and retained approval/authority |
+| Existing focused identity/support/scheduler regressions | PASS | 49 PASS, zero FAIL/SKIP; existing Auth/Management mocks |
+| Runner syntax, whitespace and immutable migration/artifact/harness checks | PASS | No migration or CLI driver edits |
+| Shop execution | SKIP | Explicit no-Shop boundary; Platform-only mode |
+| Hosted backend/preview isolation and hosted smoke | SKIP | Outside authorization; not inferred from preview success |
+
+Reproduce the affected runner from this checkout against a dedicated disposable
+local PostgreSQL 17 server with the existing required roles and local connection
+credentials, never a hosted URL:
+
+```powershell
+node tests/run-onboarding-local.mjs <local-loopback-port> --platform-only
+node --test tests/platform-identity-consistency.test.mjs tests/support-access.test.mjs tests/support-handoff.test.mjs tests/provision-scheduler.test.mjs
+node --check tests/run-onboarding-local.mjs
+git diff --check
+```
+
+Missing dependencies are failures/blockers, not passes. The local test container
+was task-owned and removed after validation; no existing Docker workload was
+changed. Sequence counters can retain gaps after rollback, as documented above.
+This P2 follow-up remains **uncommitted and unpushed** pending owner approval;
+no new preview was triggered and no hosted project, Auth, secrets, Cloudflare
+configuration, Shop source or legal/publication state was modified.
+
+### 2026-10-09 — Owner-confirmed preview controls and checkpoint authorization
+
+The owner has confirmed that Cloudflare preview access is restricted to
+authorized users and that `feature/production-bootstrap-hardening` is excluded
+from automatic preview deployment. This supersedes the earlier pending access/
+branch-control verification for the authorized Git follow-up. The owner has
+authorized committing the three reviewed P2 files and pushing only this feature
+branch to update draft PR #1; no merge or hosted deployment is authorized.
+
+These confirmed controls do **not** establish preview/production backend
+isolation. Matching variable names do not establish matching or isolated target
+values; no Cloudflare environment settings, built target or hosted backend were
+inspected or changed here. Previously reported preview success remains frontend
+evidence only. The follow-up reuses the completed local validation above;
+checkpoint checks cover the staged diff, whitespace, sensitive values, immutable
+files, PR base/draft/head and protected remote branches. Report any visible
+Cloudflare check/deployment on the new commit separately, without treating an
+empty GitHub result as proof of provider inactivity.

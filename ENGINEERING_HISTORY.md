@@ -510,3 +510,50 @@ label-verified and removed; existing Docker workloads were untouched.
 
 No commit, push, PR, merge, deployment, hosted connection, Shop/artifact,
 Auth/secrets/Cloudflare or legal/publication changes. Stop for owner review.
+
+## 2026-10-09 — Bootstrap PR checkpoint and P2 SQL runner follow-up
+
+Branch: `feature/production-bootstrap-hardening`. Owner-authorized checkpoint
+`ba1b770e5ef79b07c4202eaa4c7a56dc0a2b354d` committed/pushed exactly 22 files;
+draft PR #1 targets `development` and remains unmerged. Earlier local-only entries
+describe their historical checkpoints. Cloudflare reported a successful automatic
+frontend preview after the push, per the owner; this does not prove migrations,
+Edge Functions, production deployment or hosted tests. Protected development/
+deployment/main heads remain unchanged.
+
+Resolved two P2 findings locally. The legacy psql-stdin runner now applies each
+migration without top-level authored boundaries inside one BEGIN/COMMIT, preserving
+authored transactions and ignoring procedural BEGIN within quoted bodies. Every
+fresh/upgrade migration path uses the helper. Added Platform-only execution to
+respect the no-Shop boundary, and a late division-by-zero injection in a temporary
+new-migration copy. Actual PG17 assertions preserve configuration, committed
+approval/audit, authority, ACLs/defaults/constraints and absence of new binding
+objects; clean retry retains the existing synthetic UUID. Production/historical
+SQL and the dedicated actual CLI history harness are unchanged.
+
+Affected Platform runner fresh/rollback/upgrade PASS on disposable PostgreSQL 17.6
+with its existing synthetic Auth/Vault fixtures. Focused security regressions:
+49 PASS, zero FAIL/SKIP, existing Auth/Management mocks. Syntax/whitespace and
+immutable-file checks PASS. Shop execution and hosted/preview-isolation validation
+SKIP by scope. Owned local test container removed; existing workloads untouched.
+
+Preview isolation is not established: normal frontend clients use build-time
+Platform URL/key, with no guaranteed preview-only backend. Require approved
+isolated/inert preview configuration and access verification before another push
+or use; no preview/backend was contacted or Cloudflare setting changed here.
+Only runner/review/history changed. No new commit/push/PR mutation/merge/deployment,
+hosted Auth/secrets operation or Shop/legal/publication change; await approval.
+
+## 2026-10-09 — Owner-approved P2 checkpoint and preview controls
+
+The owner confirmed restricted access for Cloudflare previews and exclusion of
+`feature/production-bootstrap-hardening` from automatic preview deployment, then
+authorized committing/pushing only the three reviewed P2 files to update draft
+PR #1 targeting development. Recorded that confirmation in the review report;
+prior pending-control notes remain historical. Backend isolation is still
+unverified and cannot be inferred from variable names or preview access controls.
+
+No runner behavior changed after its successful local validation. This checkpoint
+reviews staged source, whitespace/sensitive values, immutable migrations/artifact,
+PR state and protected branches. No Cloudflare settings, hosted Supabase, Auth,
+secrets, Edge Functions or production deployment operations are authorized.
