@@ -1,5 +1,5 @@
 // Verified-session doubles plus REAL PostgreSQL canonical RPC and RLS boundaries.
-// Import also runs the explicitly mocked 40 handler/frontend cases. No hosted proof.
+// Import also runs the explicitly mocked handler/frontend cases. No hosted proof.
 import {fixture} from './platform-team.test.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -31,17 +31,35 @@ for(const cutover of [false,true])test('real canonical identity, Manager/Billing
   sql(`insert into auth.users(id,email,email_confirmed_at) values('${manager}','manager@example.test',now()),('${billing}','billing@example.test',now()),('${pending}','pending@example.test',now());
    insert into public.platform_users(auth_user_id,name,email,role,status) values('${manager}','Manager','manager@example.test','portfolio_manager','Active'),('${billing}','Billing','billing@example.test','billing_person','Active'),('${pending}','Pending','pending@example.test','billing_person','Pending');`,db);
   if(cutover){sql(read('supabase/bootstrap/approve-staging-master.sql'),db,'postgres',['-v','master_uuid='+master,'-v','reason=Reviewed disposable team cutover']);sql('begin;'+read('supabase/migrations/'+files.at(-1))+'commit;',db);}
+  // Auth transport remains a double; confirmation state comes from real Auth rows.
+  const authUser=id=>JSON.parse(sql(`select json_build_object('id',id,'email',email,'email_confirmed_at',email_confirmed_at) from auth.users where id='${id}'`,db));
+  const masterIdentity=()=>{try{return {data:JSON.parse(sql(asUser(master,'select public.platform_operator_identity()::text'),db).split('\n').at(-1))};}catch{return {error:{}};}};
   for(const [id,role] of [[master,'master_admin'],[manager,'portfolio_manager'],[billing,'billing_person']]){
    const identity=()=>{try{return {data:JSON.parse(sql(asUser(id,'select public.platform_operator_identity()::text'),db).split('\n').at(-1))};}catch{return {error:{}};}};
    assert.equal(identity().data.role,role);
    assert.equal(sql(asUser(id,'select count(*) from public.platform_users'),db).split('\n').at(-1),'3');
    for(const action of ['create','update','delete']){
-    const f=fixture({user:{id,email:id===master?'existing-master@example.test':'operator@example.test'},identityRpc:identity});
+    const f=fixture({user:authUser(id),identityRpc:identity});
     const response=await f.invoke(action,action==='create'?{name:'New Team',email:'new@example.test',role:'billing_person'}:action==='update'?{id:'94000000-0000-4000-8000-000000000003',name:'Edited'}:{id:'94000000-0000-4000-8000-000000000003'});
     assert.equal(response.status,id===master?200:403);
     if(id!==master)assert.equal(f.calls.filter(c=>c[0]==='client').length,1);
    }
   }
+  sql(`update auth.users set email_confirmed_at=null where id='${master}'`,db);
+  assert.equal(authUser(master).email_confirmed_at,null);
+  if(cutover)assert.ok(masterIdentity().error);
+  else assert.equal(masterIdentity().data.role,'master_admin'); // Prove the old RPC alone permits this account.
+  for(const action of ['create','update','delete']){
+   const f=fixture({user:authUser(master),identityRpc:masterIdentity});
+   const response=await f.invoke(action,action==='create'?{name:'New Team',email:'new@example.test',role:'billing_person'}:action==='update'?{id:'94000000-0000-4000-8000-000000000003',name:'Edited'}:{id:'94000000-0000-4000-8000-000000000003'});
+   assert.equal(response.status,401);assert.equal(f.calls.filter(c=>c[0]==='client').length,1);
+   assert.ok(!f.calls.some(c=>['identity','invite','auth-update','auth-delete','db-insert','db-update'].includes(c[0])));
+   assert.deepEqual(f.audit,[]);
+  }
+  sql(`update auth.users set email_confirmed_at=now() where id='${master}'`,db);
+  assert.equal(masterIdentity().data.role,'master_admin');
+  const restored=fixture({user:authUser(master),identityRpc:masterIdentity});
+  assert.equal((await restored.invoke('update',{id:'94000000-0000-4000-8000-000000000003',name:'Edited'})).status,200);
   // Real RLS prevents ordinary team assignment: UPDATE completes with zero rows.
   // Finance roles pass authorization to the RPC's input validator; managers do not.
   for(const id of [master,billing])assert.throws(()=>sql(asUser(id,'select public.platform_generate_invoice(123,null)'),db),/Request ID required/);

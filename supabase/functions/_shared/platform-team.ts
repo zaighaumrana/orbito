@@ -47,7 +47,8 @@ export function platformTeamHandler(operation: "create" | "update" | "delete", c
       const authorize = async () => {
         const { data, error } = await caller.auth.getUser(bearer.slice(7));
         const user: any = data?.user;
-        if (error || !user || !uuid.test(user.id) || user.is_anonymous || user.deleted_at ||
+        // Match the UUID migration's verified-email prerequisite even before cutover.
+        if (error || !user || !uuid.test(user.id) || !user.email_confirmed_at || user.is_anonymous || user.deleted_at ||
             (user.banned_until && new Date(user.banned_until).getTime() > Date.now())) deny(401, "Verified Auth session required.");
         const identity = await caller.rpc("platform_operator_identity");
         if (identity.error || identity.data?.role !== "master_admin" || identity.data?.auth_user_id !== user.id)

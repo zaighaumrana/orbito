@@ -596,3 +596,24 @@ claiming deployed replacements. Future deployment promotion/Singapore fresh
 bootstrap remains separate. All twelve migrations, CLI atomicity harness and
 managed Shop artifact are unchanged. No commits, pushes, PR merge, deployment,
 backup, Shop access, protected branch or Cloudflare/legal change; await approval.
+
+## 2026-10-09 — Require confirmed master email before UUID cutover
+
+The shared team handler now requires email_confirmed_at from verified Auth
+getUser on every authorization check, matching the UUID migration prerequisite.
+An unconfirmed/missing email confirmation denies access before canonical RPC or
+service-client construction; phone/general confirmation is not a substitute.
+No migration, database permission or hosted configuration changed.
+
+Focused tests use real disposable Auth rows and canonical PostgreSQL RPCs before
+and after cutover: the legacy UUID RPC still grants an unconfirmed master role,
+but the handler denies create/update/delete without privileged calls. After
+cutover the database denies that identity too. Restoring confirmation preserves
+existing master access; confirmed Manager/Billing denials remain unchanged.
+Auth HTTP/REST transports remain explicit doubles, not hosted validation.
+
+PASS: 41 handler cases, two PG17 before/after groups, six existing bootstrap DB
+groups, three native Deno checks, syntax/whitespace and immutable-file checks.
+No local FAIL/SKIP; hosted validation not run by scope. Owned Docker fixtures
+removed. Changes remain unstaged/uncommitted on the feature branch for review;
+no push, protected-branch, hosted Supabase, Cloudflare or Shop operation performed.

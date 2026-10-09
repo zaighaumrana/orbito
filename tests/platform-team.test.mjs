@@ -7,9 +7,10 @@ import {stripTypeScriptTypes} from 'node:module';
 import {webcrypto} from 'node:crypto';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const master='94000000-0000-4000-8000-000000000001',target='94000000-0000-4000-8000-000000000002',rowId='94000000-0000-4000-8000-000000000003';
+const confirmedAt='2026-10-09T00:00:00Z';
 export function fixture(options={}) {
  const calls=[],audit=[],rows=options.rows || [{id:rowId,auth_user_id:target,name:'Team',email:'team@example.test',role:'portfolio_manager',status:'Active'}];
- const user=options.user===null?null:options.user || {id:master,email:'master@example.test'};
+ const user=options.user===null?null:options.user || {id:master,email:'master@example.test',email_confirmed_at:confirmedAt};
  const authUsers=options.authUsers || [{id:target,email:'team@example.test'},{id:master,email:'master@example.test'}];
  const caller={auth:{getUser:async()=>({data:{user},error:options.invalid?{}:null})},rpc:async()=>{
   calls.push(['identity']);
@@ -52,8 +53,16 @@ for(const role of ['portfolio_manager','billing_person','ordinary','master_admin
  const f=fixture({role});const r=await f.invoke(action,action==='create'?createBody:{id:rowId,password:'NewPassword1!'});
  assert.equal(r.status,403);assert.equal(f.calls.filter(c=>c[0]==='client').length,1);assert.deepEqual(mutationCalls(f),[]);
 });
-for(const options of [{user:null},{invalid:true},{user:{id:master,email:'master@example.test',is_anonymous:true}},{user:{id:master,email:'master@example.test',deleted_at:'2026-01-01'}},{identity:{auth_user_id:target,role:'master_admin'}},{identityError:true}])test('invalid session/canonical identity denied '+JSON.stringify(Object.keys(options)),async()=>{
+for(const options of [{user:null},{invalid:true},{user:{id:master,email:'master@example.test',email_confirmed_at:confirmedAt,is_anonymous:true}},{user:{id:master,email:'master@example.test',email_confirmed_at:confirmedAt,deleted_at:'2026-01-01'}},{identity:{auth_user_id:target,role:'master_admin'}},{identityError:true}])test('invalid session/canonical identity denied '+JSON.stringify(Object.keys(options)),async()=>{
  const f=fixture(options);const r=await f.invoke('delete',{id:rowId});assert.ok([401,403].includes(r.status));assert.equal(f.calls.filter(c=>c[0]==='client').length,1);assert.deepEqual(mutationCalls(f),[]);
+});
+test('unconfirmed email cannot use canonical master authority or phone confirmation',async()=>{
+ for(const email_confirmed_at of [null,undefined])for(const action of ['create','update','delete']){
+  const f=fixture({user:{id:master,email:'master@example.test',email_confirmed_at,confirmed_at:confirmedAt,phone_confirmed_at:confirmedAt}});
+  const response=await f.invoke(action,action==='create'?createBody:action==='update'?{id:rowId,name:'Edited'}:{id:rowId});
+  assert.equal(response.status,401);assert.equal(f.calls.filter(c=>c[0]==='client').length,1);
+  assert.ok(!f.calls.some(c=>c[0]==='identity'));assert.deepEqual(mutationCalls(f),[]);assert.deepEqual(f.audit,[]);
+ }
 });
 test('absent bearer, forbidden Origin and invalid site fail closed',async()=>{
  for(const [options,headers] of [[{},{}],[{},{Authorization:'Bearer fixture',Origin:'https://attacker.example.test'}],[{site:'http://platform.example.test'},{Authorization:'Bearer fixture'}]]){
@@ -126,7 +135,7 @@ test('malformed JSON, weak passwords, conflicting mapping and email drift are de
  }
  const f=fixture({authUsers:[{id:target,email:'drift@example.test'}]});assert.equal((await f.invoke('delete',{id:rowId})).status,409);assert.deepEqual(mutationCalls(f),[]);
  for(const options of [{authUsers:[{id:target,email:'team@example.test',deleted_at:'2026-01-01'}]},{lookupError:true}]){const guarded=fixture(options);assert.equal((await guarded.invoke('update',{id:rowId,password:'NewPassword1!'})).status,409);assert.deepEqual(mutationCalls(guarded),[]);}
- const banned=fixture({user:{id:master,email:'master@example.test',banned_until:'2099-01-01'}});assert.equal((await banned.invoke('delete',{id:rowId})).status,401);assert.equal(banned.calls.filter(c=>c[0]==='client').length,1);assert.deepEqual(mutationCalls(banned),[]);
+ const banned=fixture({user:{id:master,email:'master@example.test',email_confirmed_at:confirmedAt,banned_until:'2099-01-01'}});assert.equal((await banned.invoke('delete',{id:rowId})).status,401);assert.equal(banned.calls.filter(c=>c[0]==='client').length,1);assert.deepEqual(mutationCalls(banned),[]);
 });
 test('gateway verification remains enabled and entrypoints use the same reviewed handler',()=>{
  for(const action of ['create','update','delete']){
