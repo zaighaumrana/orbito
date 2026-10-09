@@ -1,10 +1,12 @@
 import { pState, PCFG } from "../state.js";
 import { tit } from "../helpers.js";
+import { esc } from '../operations.js';
 
 export function pageSettings() {
   const role          = pState.currentUser.role;
   const isMaster      = role === "master_admin";
   const platformUsers = pState.data.platformUsers || [];
+  const accountField = `<label class="field"><span>Account</span><input name="username" type="text" autocomplete="username" readonly value="${esc(pState.currentUser.email || pState.currentUser.username || '')}"></label>`;
 
   /* Non-master roles: password change only */
   if (!isMaster) {
@@ -13,7 +15,8 @@ export function pageSettings() {
       <div style="max-width:420px">
         <div class="card" style="display:grid;gap:14px">
           <h2>Change Password</h2>
-          <form data-p-form="change-own-password" style="display:grid;gap:10px">
+          <form data-p-form="change-own-password" method="post" style="display:grid;gap:10px">
+            ${accountField}
             <label class="field">
               <span>Current Password</span>
               <input name="current" type="password" autocomplete="current-password">
@@ -40,14 +43,15 @@ export function pageSettings() {
 
       <div class="card" style="display:grid;gap:14px">
         <h2>Change Username</h2>
-        <form data-p-form="change-username" style="display:grid;gap:10px">
+        <form data-p-form="change-username" method="post" style="display:grid;gap:10px">
+          ${accountField}
           <label class="field">
             <span>Current Password (to confirm)</span>
             <input name="current" type="password" autocomplete="current-password">
           </label>
           <label class="field">
             <span>New Username</span>
-            <input name="new_username" type="text" value="${PCFG.admin_username || ""}">
+            <input name="new_username" type="text" autocomplete="off" value="${esc(PCFG.admin_username || '')}">
           </label>
           <button class="primary-button">Update Username</button>
         </form>
@@ -55,7 +59,8 @@ export function pageSettings() {
 
       <div class="card" style="display:grid;gap:14px">
         <h2>Change Password</h2>
-        <form data-p-form="change-password" style="display:grid;gap:10px">
+        <form data-p-form="change-password" method="post" style="display:grid;gap:10px">
+          ${accountField}
           <label class="field">
             <span>Current Password</span>
             <input name="current" type="password" autocomplete="current-password">

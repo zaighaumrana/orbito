@@ -1,7 +1,7 @@
 import { resetTurnstile, mountTurnstile, captchaBusy } from './turnstile.js';
 import { pState }                          from "./state.js";
 import { pb, PLATFORM_AUTH_EMAIL,
-         loadPlatform, loadClientData, loadOperatorIdentity,
+         loadConfig, loadPlatform, loadClientData, loadOperatorIdentity,
          updateClientConfig }              from "./supabase.js";
 import { render }                          from "./render.js";
 import { generateInvoice, printClientInvoices } from "./billing.js";
@@ -13,6 +13,8 @@ export function initEvents() {
 
   /* ── Click delegation ── */
   document.addEventListener("click", event => {
+    // Auth buttons use the existing action handler; prevent a second native submit.
+    if (event.target.closest('[data-auth-form] button[type="submit"]')) event.preventDefault();
     (async () => {
     const el = event.target.closest(
       "button,a,[data-p-page],[data-p-action],[data-p-modal],[data-p-close]"
@@ -182,7 +184,6 @@ export function initEvents() {
         if (!isEmail && (identity.role !== 'master_admin' || username.toLowerCase() !== String(identity.username || '').toLowerCase()))
           throw new Error('Access not authorised for this account.');
         pState.currentUser = { ...identity,sessionToken:crypto.randomUUID() };
-        const { loadConfig } = await import('./supabase.js');
         await loadConfig();await loadPlatform();
         pState.authenticated = true;pState.loginLoading = false;pState.page = 'overview';render();
       } catch (error) {
@@ -383,11 +384,12 @@ export function initEvents() {
     }
   });
 
-  /* ── Enter key on login ── */
-  document.addEventListener("keydown", event => {
-    if (event.key === "Enter" && !pState.authenticated) {
-      document.querySelector("[data-p-action='do-login']")?.click();
-    }
+  /* Native Enter/assistive-technology submission follows the same Auth action. */
+  document.addEventListener("submit", event => {
+    if (event.target.dataset.authForm === undefined) return;
+    event.preventDefault();
+    const button = event.submitter || event.target.querySelector('button[type="submit"]');
+    if (button && !button.disabled) button.click();
   });
 
   /* ── Online / offline ── */
@@ -395,7 +397,7 @@ export function initEvents() {
   window.addEventListener("offline", () => { pState.online = false; if (pState.authenticated) render(); });
 
   /* ── Session check every 60s ── */
-  setInterval(validateSession, 60 * 1000);
+  setInterval(() => validateSession(render), 60 * 1000);
 }
 
 /* ── Login failure helper ── */

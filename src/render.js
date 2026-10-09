@@ -6,6 +6,7 @@ import { pageClients, pageClientDetail } from "./pages/clients.js";
 import { pageBilling }   from "./pages/billing.js";
 import { pageSupport }   from "./pages/support.js";
 import { pageSettings }  from "./pages/settings.js";
+import { esc } from './operations.js';
 
 const verification = () => `<div id="verification-widget"></div><p id="verification-status" class="muted" role="status" aria-live="polite"></p><button type="button" class="secondary-button" data-p-action="retry-verification">Retry verification</button>`;
 
@@ -40,7 +41,7 @@ function platformPage() {
 function loginPage() {
   return `
     <div style="min-height:100vh;display:grid;place-items:center;background:#0d1714">
-      <div class="card" style="width:min(400px,92vw);display:grid;gap:18px;padding:36px;
+      <form data-auth-form="login" method="post" class="card" style="width:min(400px,92vw);display:grid;gap:18px;padding:36px;
                                background:#151f1c;border-color:#1e3830">
         <div style="text-align:center">
           <div class="platform-logo" style="margin:0 auto 16px;width:56px;height:56px;font-size:18px">
@@ -51,23 +52,23 @@ function loginPage() {
         </div>
         <label class="field">
           <span style="color:#7aada0;font-size:13px">Username</span>
-          <input id="platform-username" type="text" class="search" autocomplete="username"
+          <input id="platform-username" name="username" type="text" class="search" autocomplete="username"
             placeholder="Enter username"
             style="background:#0d1714;border-color:#1e3830;color:#f3f7fa;font-size:15px">
         </label>
         <label class="field">
           <span style="color:#7aada0;font-size:13px">Password</span>
-          <input id="platform-pin" type="password" class="search" autocomplete="current-password"
+          <input id="platform-pin" name="password" type="password" class="search" autocomplete="current-password" aria-describedby="platform-pin-error"
             placeholder="Enter password"
             style="background:#0d1714;border-color:#1e3830;color:#f3f7fa;font-size:15px">
         </label>
         ${verification()}
-        <div id="platform-pin-error" class="hidden"
+        <div id="platform-pin-error" class="hidden" role="alert"
           style="color:#c24132;text-align:center;font-size:13px;
                  background:rgba(194,65,50,0.1);padding:10px;border-radius:8px">
           Invalid username or password.
         </div>
-        <button class="primary-button" data-p-action="do-login" data-captcha-submit disabled
+        <button type="submit" class="primary-button" data-p-action="do-login" data-captcha-submit disabled
           style="min-height:48px;font-size:16px;
                  ${pState.loginLoading ? "opacity:0.6;pointer-events:none" : ""}">
           ${pState.loginLoading ? "Signing in…" : "Login"}
@@ -82,7 +83,7 @@ function loginPage() {
         <p style="text-align:center;font-size:12px;color:#3d6659;margin:0">
           Protected by Cloudflare Turnstile
         </p>
-      </div>
+      </form>
     </div>`;
 }
 
@@ -127,7 +128,7 @@ function forgotPasswordPage() {
 function resetPasswordPage() {
   return `
     <div style="min-height:100vh;display:grid;place-items:center;background:#0d1714">
-      <div class="card" style="width:min(400px,92vw);display:grid;gap:18px;padding:36px;
+      <form data-auth-form="reset-password" method="post" class="card" style="width:min(400px,92vw);display:grid;gap:18px;padding:36px;
                                background:#151f1c;border-color:#1e3830">
         <div style="text-align:center">
           <h2 style="color:#f3f7fa;font-size:20px">Set New Password</h2>
@@ -137,26 +138,31 @@ function resetPasswordPage() {
         </div>
 
         <label class="field">
+          <span style="color:#7aada0;font-size:13px">Account email</span>
+          <input name="username" type="email" class="search" autocomplete="username" readonly value="${esc(pState.recoveryEmail || '')}"
+            style="background:#0d1714;border-color:#1e3830;color:#f3f7fa;font-size:15px">
+        </label>
+        <label class="field">
           <span style="color:#7aada0;font-size:13px">New Password</span>
-          <input id="reset-newpass" type="password" class="search" autocomplete="new-password"
+          <input id="reset-newpass" name="newpass" type="password" class="search" autocomplete="new-password"
             placeholder="Min 8 chars, letter + number + symbol"
             style="background:#0d1714;border-color:#1e3830;color:#f3f7fa;font-size:15px">
         </label>
 
         <label class="field">
           <span style="color:#7aada0;font-size:13px">Confirm Password</span>
-          <input id="reset-confirm" type="password" class="search" autocomplete="new-password"
+          <input id="reset-confirm" name="confirm" type="password" class="search" autocomplete="new-password"
             style="background:#0d1714;border-color:#1e3830;color:#f3f7fa;font-size:15px">
         </label>
 
         <div id="reset-status" class="hidden"
           style="text-align:center;font-size:13px;padding:10px;border-radius:8px"></div>
 
-        <button class="primary-button" data-p-action="confirm-reset-password"
+        <button type="submit" class="primary-button" data-p-action="confirm-reset-password"
           style="min-height:48px;font-size:16px">
           Update Password
         </button>
-      </div>
+      </form>
     </div>`;
 }
 
