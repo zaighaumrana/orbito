@@ -349,15 +349,8 @@ export function initEvents() {
       }
       if (!confirm("Remove this user? They will lose all access immediately.")) return;
       const userId = el.dataset.pId;
-      const user   = pState.data.platformUsers.find(u => u.id === userId);
-      if (user?.auth_user_id) {
-        const { error: fnErr } = await pb.functions.invoke("delete-platform-user", {
-          body: { auth_user_id: user.auth_user_id },
-        });
-        if (fnErr) { alert("Error removing auth account: " + fnErr.message); return; }
-      }
-      const { error: removeError } = await pb.from("platform_users").update({ status: "Inactive" }).eq("id", userId);
-      if (removeError) throw removeError;
+      const { error: fnErr } = await pb.functions.invoke("delete-platform-user", { body: { id: userId } });
+      if (fnErr) { alert("Team removal failed. Review the server audit before retrying: " + fnErr.message); return; }
       await loadPlatform(); render(); return;
     }
 

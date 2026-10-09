@@ -29,35 +29,37 @@ temporarily creates permissive historical policies/defaults; later files replace
 them. Do not expose an installation that stopped partway through this chain.
 Do not create the first Auth administrator until the full chain has completed.
 
-**Source completeness gate:** the UI calls `create-platform-user`,
-`update-platform-user`, and `delete-platform-user`, but their implementation is
-absent from this repository and its function configuration. Obtain and review
-their authoritative source, require verified Auth UUID/canonical master checks,
-and test it before enabling team-account administration. Production may proceed
-with that feature unavailable only after the server endpoint gate below is
-proved and the owner approves that scope. Do not copy an unknown hosted handler or infer its safety
-from the four checked-in functions. Hosted source was not inspected by this task.
-Before any production bootstrap or Auth administrator creation, satisfy the
-server endpoint gate below; disabled frontend controls are insufficient.
+**Team endpoint release gate (updated 2026-10-09):** owner-approved read-only
+staging retrieval found all three team handlers active and vulnerable to
+unauthorized privileged Auth operations. Repository replacements now verify
+Auth and canonical master UUID before using a service client, resolve team
+targets server-side, protect the master and restrict roles. They have not been
+deployed. Follow [STAGING_TEAM_CUTOVER.md](STAGING_TEAM_CUTOVER.md) for source
+provenance, contracts, local evidence, backup and separately approved cutover.
+Before production bootstrap/Auth creation, inventory every privileged endpoint
+and require reviewed secured code or verified server-side absence/blocking.
+Disabled frontend controls are insufficient. No production inventory occurred.
 
-## Missing team endpoints: server release gate
+## Team endpoints: server release gate
 
-Local searches found only the three UI invocations in `src/forms.js` and
+The earlier bootstrap checkpoint found only the three UI invocations in `src/forms.js` and
 `src/events.js`: no handlers in the function tree, no function configuration,
 no matching file history across locally available Git refs, and no implementation
 in available local Platform schema/handoff sources. Shop and other release
-checkouts were excluded. Only four checked-in files call Deno.serve. This local
-finding does **not** prove any hosted endpoint is absent.
+checkouts were excluded. That historical four-function source gap is now resolved
+locally by three secured entrypoints and shared implementation; it did **not**
+prove any hosted endpoint was absent. Staging's retrieved versions must be replaced
+only in a separately approved deployment. Source presence alone is not hosted security.
 
 After separate approval for hosted inventory, a trusted operator must:
 
 1. Verify the exact production project/org and inventory its deployed functions
    with the Dashboard or reviewed CLI `functions list --project-ref
-   mincersddxuaqojczcih`. Record slugs/versions and the approved four-function
+   mincersddxuaqojczcih`. Record slugs/versions and the approved seven-function
    allowlist; inspect any deployment integration, gateway or custom-route alias
-   that could install or route to team handlers. No inventory occurred here.
+   that could install or route to team handlers. No production inventory occurred here.
 2. Prove `create-platform-user`, `update-platform-user`, `delete-platform-user`
-   and all equivalent aliases are absent, or blocked by a verified server-side
+   and all equivalent aliases run the reviewed secure code, are absent, or blocked by a verified server-side
    rule **before handler execution**. A frontend flag, missing local config,
    CORS, ordinary JWT gateway verification, an anonymous 401, or malformed-body
    400 does not establish that a privileged endpoint is disabled.
@@ -67,7 +69,7 @@ After separate approval for hosted inventory, a trusted operator must:
    --project-ref mincersddxuaqojczcih` one name at a time. Do not use --prune or
    delete any other function. This task authorizes no hosted deletion/disablement.
 4. Re-inventory after approved removal/disablement and again after deploying the
-   four named functions. For absence, corroborate provider routing's missing-
+   seven named functions. For absence, corroborate provider routing's missing-
    function response on the direct Supabase `/functions/v1/<slug>` routes. For
    disablement, corroborate that the provider rule rejects requests before
    invocation, including valid master/operator/service credentials, through
@@ -76,9 +78,9 @@ After separate approval for hosted inventory, a trusted operator must:
    do not POST speculative payloads to an unknown live Auth-admin handler.
 5. Retain sanitized inventory/rule/routing evidence in the release record. Never
    log bearer tokens. Keep these server endpoints absent/disabled until reviewed
-   implementations and negative Auth-boundary tests are available. Production
+   implementations and actual negative Auth-boundary tests are verified. Production
    release remains blocked until server state is proved; team management remains
-   unavailable even if an approved deployment proceeds with those endpoints absent.
+   unavailable if an approved deployment proceeds with those endpoints absent.
 
 Before restoring the feature, each handler must verify the requesting Auth user
 and matching canonical master UUID, deny unauthenticated/ordinary operators,
@@ -87,7 +89,8 @@ ordinary manager/billing roles, and refuse reset/delete/soft-delete/reassignment
 of the bound administrator. Browser-supplied Auth IDs or metadata cannot be
 authority. Audit/idempotency and actual Auth-side negative checks are required:
 private UUID binding alone cannot prevent an unsafe Auth-admin endpoint from
-resetting that account's credentials. No unknown handler was copied or invented.
+resetting that account's credentials. The authoritative staging audit and local
+replacements are documented in the cutover runbook; hosted verification remains pending.
 
 ## Prerequisites and controlled baseline preparation
 
@@ -337,11 +340,11 @@ Shop projects only as required by the reviewed provisioning flow. Shop bridge
 secret names are installed per client by that flow; do not prepopulate them in
 fresh Platform config or repackage its Shop artifact during bootstrap.
 
-Migrations/binding precede function deployment. The four checked-in functions
+For fresh production, migrations/binding precede function deployment. The seven checked-in functions
 and shared files are deployed explicitly, only after separate deployment approval:
 
 ```powershell
-supabase functions deploy platform-bridge platform-config platform-provision platform-support --project-ref mincersddxuaqojczcih
+supabase functions deploy platform-bridge platform-config platform-provision platform-support create-platform-user update-platform-user delete-platform-user --project-ref mincersddxuaqojczcih
 ```
 
 Use the checked-in config: platform-config verifies JWT at the gateway; bridge,
@@ -349,8 +352,11 @@ provision and support disable gateway JWT verification because they validate
 source credentials, scheduler credentials or verified Auth/canonical identity
 inside the handler. Do not add a blanket `--no-verify-jwt`, `--prune` or a Shop
 function deployment. The new migration changes canonical authority, so the four
-unchanged functions inherit it without an authorization fork. Missing team
-functions remain the source-review gate described above.
+unchanged functions inherit it without an authorization fork. The three team
+functions retain gateway JWT verification and additionally verify Auth/canonical
+master in code. Set server-only `PLATFORM_TEAM_SITE_URL` to the reviewed HTTPS
+frontend origin; invitations use its `/?reset=true` redirect. Verify SMTP and
+Auth redirect allowlists. Local presence does not satisfy hosted release gates.
 
 Before installing the existing scheduler, enable actual `pg_cron` and `pg_net`
 using supported provider tooling. Store the two named Vault secrets securely;
@@ -372,7 +378,7 @@ invite and password-reset redirect URLs in Supabase Auth. Configure working SMTP
 and verify delivery/recovery before opening access. Configure server Turnstile
 with its secret and the matching public site key/allowed production domain;
 preserve CAPTCHA for login/recovery. Keep public/anonymous signup disabled; team
-invitations require the reviewed missing handlers. Review token/session settings
+invitations require the reviewed secure handlers. Review token/session settings
 and provider MFA options for the administrator. Existing Shop manual owner/Auth
 activation remains a separate per-customer flow, not Platform bootstrap.
 
@@ -418,7 +424,7 @@ Only then re-enable the Data API, deploy the approved frontend with real public
 configuration, and perform an authenticated CAPTCHA login, session restore,
 alias edit, recovery, master-only rejection and support/provisioning smoke on an
 explicitly approved disposable customer. Those hosted checks remain pending;
-local fixtures cannot claim them. Keep team server endpoints verified absent or
+local fixtures cannot claim them. Keep team server endpoints secured and verified, absent or
 disabled until their source/security gate passes. Publication/legal status is unchanged.
 
 ## Existing staging upgrade and identity continuity
@@ -459,9 +465,10 @@ intentionally scrubbed and cannot be restored as an authentication mechanism.
 Verify the original master with their existing authenticated session, confirm
 the real UUID remains bound and the alias/record counts are retained, and verify
 the historical placeholder account cannot gain access. The four checked-in Edge
-functions need no redeployment for this DB-only cutover. Unknown team functions
-still require separate source review; staging upgrade is not a claim that their
-unavailable code is secure.
+functions need no redeployment for the DB authority change itself. The vulnerable
+deployed team functions must be replaced and verified **before** that cutover;
+follow STAGING_TEAM_CUTOVER.md. Deploy the secure backend before merging the new
+frontend payloads to development. Staging upgrade alone cannot secure Auth-admin code.
 
 ## Partial failure, recovery and rollback limits
 

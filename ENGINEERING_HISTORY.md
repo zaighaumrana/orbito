@@ -557,3 +557,42 @@ No runner behavior changed after its successful local validation. This checkpoin
 reviews staged source, whitespace/sensitive values, immutable migrations/artifact,
 PR state and protected branches. No Cloudflare settings, hosted Supabase, Auth,
 secrets, Edge Functions or production deployment operations are authorized.
+
+## 2026-10-09 — Secure team-management source and controlled staging plan
+
+On feature/production-bootstrap-hardening, continuing from 4535515, retrieved
+the owner-authorized read-only staging source of create-platform-user v10,
+update-platform-user v8 and delete-platform-user v8. All three active handlers
+use privileged Auth without verifying canonical master authority, despite gateway
+JWT checks. A seven-function read-only inventory is recorded; no hosted DB,
+Auth user, configuration, secret or production inspection/mutation was performed.
+
+Added repository-owned replacements with pinned shared SDK handler. Caller Auth
+getUser and matching canonical master UUID/RPC precede service-role construction;
+ordinary roles cannot perform team Auth operations. Retained portfolio_manager
+and billing_person, constrained request fields, verified server team/Auth mapping,
+protected master mutation/deletion/reset, trusted server invitation origin, audit
+and sanitized uncertain-outcome handling. Frontend edit/removal now use secured
+handlers for complete workflows; legacy selectors support backend-first rollout.
+No SQL roles/permissions or migration changed. Auth and DB operations remain
+separate transactions; partial outcomes require audited review, and trusted
+identity/team changes must be frozen and drained during cutover/rebinding.
+
+Added disposable local runner, real canonical-RPC/RLS compatibility regressions
+and handler/frontend cases. PASS: 40 explicit-double security cases, two actual
+PG17 before/after UUID-cutover groups, six existing PG17/Auth-schema/Vault groups,
+49 existing focused regressions, three native Deno 2.4.5 checks, syntax/whitespace,
+immutable-file and sensitive review. Initial Deno type narrowing errors were
+corrected and rechecked; zero unresolved local FAIL. Hosted Auth HTTP/gateway,
+SMTP/CAPTCHA/browser, live identity/schema drift and real staging backup/restore
+SKIP by approval boundary. Local mocks are not hosted security evidence.
+
+STAGING_TEAM_CUTOVER.md documents role matrix/source bundle hashes, secure backend
+verification before UUID cutover, approved encrypted-backup destination/tooling/
+key custody and provider recovery/restore limits, single new-migration CLI cutover,
+data preservation and later development integration/Cloudflare smoke. Updated
+production runbook/review to resolve historical missing-source notes without
+claiming deployed replacements. Future deployment promotion/Singapore fresh
+bootstrap remains separate. All twelve migrations, CLI atomicity harness and
+managed Shop artifact are unchanged. No commits, pushes, PR merge, deployment,
+backup, Shop access, protected branch or Cloudflare/legal change; await approval.

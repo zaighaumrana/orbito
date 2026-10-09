@@ -427,3 +427,12 @@ verify_jwt = false
 [functions.platform-support]
 # Issuance verifies the master JWT; exchange verifies the Shop source credential.
 verify_jwt = false
+
+[functions.create-platform-user]
+verify_jwt = true
+
+[functions.update-platform-user]
+verify_jwt = true
+
+[functions.delete-platform-user]
+verify_jwt = true

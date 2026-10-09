@@ -334,3 +334,71 @@ checkpoint checks cover the staged diff, whitespace, sensitive values, immutable
 files, PR base/draft/head and protected remote branches. Report any visible
 Cloudflare check/deployment on the new commit separately, without treating an
 empty GitHub result as proof of provider inactivity.
+
+## 2026-10-09 — Secure team handlers and staging cutover preparation
+
+Continue on feature/production-bootstrap-hardening at
+4535515ba774eee33efde189acd96825425839ee; these follow-up edits are uncommitted,
+not pushed and do not update/merge draft PR #1. Earlier Git/local/preview notes
+above remain historical checkpoints. Preview access/exclusion owner confirmation
+does not establish backend isolation; no Cloudflare configuration was inspected
+or changed during this follow-up.
+
+Explicit owner-approved read-only staging source retrieval now resolves the
+earlier source-completeness blocker. Active create v10, update v8 and delete v8
+all have gateway JWT verification but lack caller/master authorization. Update
+and delete directly trust request Auth UUIDs. Seven active functions were listed;
+this is not proof that equivalent aliases or other privileged routes are absent.
+No production connection, hosted DB/user/secret inspection or hosted write occurred.
+
+Three local repository entrypoints use the shared pinned-SDK team handler:
+verified Auth getUser plus matching canonical master RPC precede service client
+construction, both existing ordinary roles are retained, server team mappings
+resolve targets and the master is protected. Start/completion/failure audit does
+not store credentials or personal fields. Canonical authority is rechecked before
+writes. Frontend edit/delete no longer split direct DB/Auth changes; legacy
+Auth-ID payloads remain constrained lookup selectors for backend-first rollout.
+Gateway JWT checks remain true. No migration, grant, policy or role was changed.
+
+See [STAGING_TEAM_CUTOVER.md](STAGING_TEAM_CUTOVER.md) for bundle provenance,
+role matrix, API contracts, partial-operation recovery, reviewed-origin server
+configuration, backup approval/storage/encryption/key-custody requirements,
+provider recovery limitations and exact separately approved maintenance order.
+Secure endpoints must be deployed/verified before the UUID migration; the backend
+must precede the new frontend. Unknown routes, real UUID/schema drift, complete
+backup/recovery evidence and hosted negative/Auth/browser tests remain gates.
+Trusted identity changes and team operations must be frozen/drained during
+cutover; Auth HTTP and database writes cannot share the migration's transaction.
+
+Validation: 40 handler/frontend security cases PASS (explicit Auth/REST doubles);
+two real PostgreSQL canonical-RPC/RLS groups PASS before/after approved synthetic
+UUID cutover, including ordinary-role denials, finance role gates, reads and invite
+acceptance; all six existing real PG17/Auth-schema/Vault bootstrap groups PASS;
+49 existing focused identity/support/scheduler regressions PASS. Native Deno
+2.4.5 checks PASS for all three entrypoints using SDK 2.108.2. Two initial type
+narrowing errors were fixed and rechecked; no unresolved local FAIL. Local syntax,
+whitespace, immutable-file and sensitive-value review PASS. No mocks are claimed
+as hosted proof. Hosted Auth admin HTTP/gateway/SMTP/CAPTCHA/browser and real
+staging backup/restore/identity drift validation SKIP pending separate approval.
+The existing actual-CLI harness and all twelve SQL migrations remain unchanged;
+its earlier history-atomicity proof is not rerun or relabeled as new evidence.
+
+Owned test containers/networks were removed. Deno tooling and cache are ignored,
+not release artifacts. No commit/push/deployment, Auth/secrets/Cloudflare changes,
+Shop access, protected-branch update or legal/publication change was performed.
+
+## 2026-10-09 — Owner-authorized independent-review checkpoint
+
+The owner now authorizes staging the fourteen team-management source/test/document
+files, committing them and pushing only feature/production-bootstrap-hardening to
+draft PR #1 targeting development. Earlier uncommitted/no-push statements above
+describe their respective historical checkpoints, not this new authorization.
+There is still no authorization to merge or perform any hosted deployment,
+migration, Auth, backup, role, production Supabase or Cloudflare-setting operation.
+
+Final Vite 5.4.21 build PASS using the authored configuration in an isolated
+temporary frontend copy, mode synthetic-review, with only dummy public settings.
+No environment files were copied. The emitted bundle was checked for the
+synthetic URL/key and absence of both hosted project references or credentials.
+The owned output was removed; normal dist was untouched. This proves build
+compatibility, not a deployable release or hosted/preview backend isolation.
