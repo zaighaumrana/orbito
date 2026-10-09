@@ -4,7 +4,9 @@ create function pg_temp.assert(ok boolean,message text) returns void language pl
 begin if ok is distinct from true then raise exception 'ASSERT: %',message; end if; end $$;
 select pg_temp.assert(not has_function_privilege('service_role','platform_private.provision_step_legacy(uuid,text,jsonb)','EXECUTE'),'retired direct writer inaccessible to service role');
 select pg_temp.assert(not has_function_privilege('service_role','public.platform_shop_credential(integer)','EXECUTE'),'retired privileged resolver inaccessible');
-insert into auth.users(id,email) values('31000000-0000-4000-8000-000000000001','platformadmin@retailos.internal');
+insert into auth.users(id,email,email_confirmed_at) values('31000000-0000-4000-8000-000000000001','fixture-master@example.test',now());
+select platform_private.initialize_config('Fixture master','Disposable owner activation fixture');
+select platform_private.bind_master('31000000-0000-4000-8000-000000000001',null,'Disposable owner activation fixture');
 select set_config('request.jwt.claim.sub','31000000-0000-4000-8000-000000000001',true);
 do $$
 declare c integer; blocked boolean; r jsonb; old_health jsonb; n integer;

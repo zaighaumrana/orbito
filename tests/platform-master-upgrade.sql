@@ -1,10 +1,10 @@
--- After applying only new checkpoint migrations to the pre-existing UUID master.
+-- After reviewed approval and forward hardening of the pre-existing UUID master.
 begin;
 create function pg_temp.assert(ok boolean,message text) returns void language plpgsql as $$ begin if ok is distinct from true then raise exception 'ASSERT: %',message;end if;end $$;
 select pg_temp.assert((select identities=(select jsonb_agg(to_jsonb(u) order by u.id) from auth.users u)
  and alias=(select admin_username from public.platform_config where id=1)
- and role_definition=pg_get_functiondef('platform_private.operator_role()'::regprocedure)
- from platform_private.identity_upgrade_before),'checkpoint preserves Auth users, existing alias and deployed UUID authorization');
+ and exists(select 1 from platform_private.master_identity where auth_user_id='92000000-0000-4000-8000-000000000001')
+ from platform_private.identity_upgrade_before),'hardening preserves Auth users, existing alias and master UUID');
 select set_config('request.jwt.claim.sub','92000000-0000-4000-8000-000000000001',true);
 set local role authenticated;
 select pg_temp.assert(public.platform_operator_identity()->>'role'='master_admin'

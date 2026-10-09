@@ -375,3 +375,245 @@ Status and lifecycle Archived; infrastructure destroyed; archived_at populated; 
 ### Impact / Git
 
 Concise detailed evidence is retained in the hosted-smoke-tests-13-32.md task checkpoint. No Shop recreation, replacement UUIDs, direct table repairs, code changes, migrations, deployment, commit, push or merge during this continuation. Prior failure/pending notes remain historical; this entry records the completed hosted gate. Broader security audit and deferred remote deletion automation are not implied.
+
+## 2026-10-09 — Production Platform bootstrap hardening
+
+Branch: `feature/production-bootstrap-hardening`, from clean/current `development`
+at `a43db6a`. Local and remote development/deployment heads matched at task start;
+deployment ancestry verified. The user explicitly superseded older integration
+branch guidance; main remains frozen.
+
+### Purpose / changed
+
+Make a genuinely new Platform install fail closed without breaking staging's
+existing real UUID master. Read the complete eleven-file historical migration
+chain and audited canonical RLS/RPC/Edge authority. Added CLI-generated forward
+migration `20261008191709`: private singleton verified Auth UUID binding, audited
+postgres-only SECURITY INVOKER configuration/binding functions, locked idempotent
+retries and explicit compare-and-swap rebinding. No browser/API/service-role
+binding access. Email/alias/metadata never assign master. Confirmed non-anonymous,
+enabled caller and bound administrator plus config id=1 are required; disabling
+the master closes ordinary operator access until trusted recovery.
+
+Fresh installs remain unbound/unconfigured after migrations. Initialization creates
+no Auth account/password or customer/history data. Removed legacy config defaults,
+cleared unused plaintext password and constrained it to NULL. Staging requires
+trusted audited approval of its independently verified current master UUID before
+the migration; cutover binds that same UUID and consumes approval atomically.
+No actual administrator UUID was invented or retrieved.
+
+Added general/fresh/post-bootstrap SQL checks, staging approval procedure,
+production runbook and implementation review report. Preflight addresses PG17
+MAINTAIN, provider roles, Auth fields, pgcrypto schema, real Vault, Realtime
+publication, baseline collisions and actual event-trigger permission. Historical
+migrations remain unchanged. Documented quarantined full-chain execution and
+commit/history ambiguity; never fabricate migration history. Existing Platform
+fixtures now use verified explicit binding instead of email/role-function mocks;
+the old harness upgrade prepares reviewed fixture approval.
+
+### Validation
+
+Docker Linux engine available. Six database groups PASS on real Supabase PG17.6,
+pgcrypto 1.3, Vault 0.3.1 and 75 actual GoTrue v2.197.0 Auth migrations; affected
+groups rerun after fixture changes. Fresh/upgrade, identity/data continuity,
+email/role spoofing, unauthorized/unauthenticated privileged calls, verification,
+missing config/prerequisites, retries/rebinding/concurrency, onboarding/manual
+activation, billing/control plane, lifecycle/recovery and support SQL passed.
+Forty-nine existing identity/support/scheduler regressions PASS with mocked
+Auth/Management boundaries. Neither result claims hosted validation.
+
+Actual CLI 2.120.0 independently applied all twelve files/history to a separate
+loopback-only PG17 fixture. Unapproved staging cutover rolled back, approved
+cutover preserved UUID, retry was a no-op, and a deliberately failed temporary
+baseline copy rolled back objects/history then recovered through the full chain.
+Setup errors were resolved; a test initially assuming a forgeable master-role
+row was corrected to assert its existing schema rejection and passed. No
+unresolved test FAIL; relevant executed groups have zero SKIP. Syntax/diff and
+immutable migration/artifact checks passed. Hosted checks and whole Shop-related
+harness/frontend build are SKIP by scope; relevant Platform SQL was run separately.
+
+### Deployment / deferred / Git
+
+No hosted project was connected, linked or modified; no function/migration/frontend
+deployment, scheduler install, Shop change/artifact packaging or legal/publication
+change. Source is missing for three UI-referenced team-account handlers; their
+authorization is unverified and blocks enabling that feature/full release until
+reviewed source is obtained. Actual production target/provider prerequisites,
+intended Auth UUID, secrets/Auth settings and hosted smoke remain release gates.
+No local test dependency blocker remains. Trusted DB-owner governance and
+historical multi-file commit limitations remain explicit operational boundaries.
+No commit, push, PR or remote branch modification; stop for user review.
+
+## 2026-10-09 — Production bootstrap final transaction/security hardening
+
+Branch: `feature/production-bootstrap-hardening`; HEAD remains `a43db6a`.
+Continued the 21 uncommitted changes without altering historical migrations or
+other branches. Added one local CLI regression driver; fifteen prior files are
+unchanged byte-for-byte in this continuation.
+
+### Correction / evidence
+
+Reviewed CLI 2.120.0's native TypeScript transaction parser, migration executor
+and extended-protocol batch implementation. The draft migration's explicit
+BEGIN/COMMIT selected sequential execution, leaving its genuine history INSERT
+outside its transaction. Removed only those top-level controls from new version
+`20261008191709`. The exact file has no nontransactional directive or pipeline
+flush statement; its SQL and the CLI's own history INSERT now share one batch
+and final Sync. Eleven historical migrations remain immutable and the full
+chain remains file-by-file, with historical commit/history recovery limitations.
+No manual history insertion/repair was introduced.
+
+Added `tests/production-bootstrap-cli.test.mjs`: pinned executable/version/hash,
+unique label-verified Docker resources, random local credentials, loopback port,
+real PG17/Auth/Vault prerequisites, schema-only template and actual CLI-applied
+history. Rejects hosted/arbitrary targets. A history trigger proves migration
+SQL/grants and staging binding/password scrub/approval consumption executed,
+then rejects the CLI INSERT. Fresh and approved staging both fail with unchanged
+catalog/ACL/data, no version/new objects, and preserved staging approval/old
+authority. Fault removal permits genuine retry, exactly one new history row and
+a no-op repeat. Backend termination at the same post-SQL gate also rolls back
+both scenarios and retries cleanly. A temporary VACUUM copy proves pipeline
+flushes can commit SQL before rejected history; it never changes release source.
+
+### Security / validation
+
+Expanded validator coverage to every relevant table/column privilege, including
+TRUNCATE, REFERENCES, TRIGGER and PG17 MAINTAIN, ownership, private schema creation,
+postgres membership, bootstrap EXECUTE/security mode and secure search_path.
+Actual database regressions deny soft-deleted Auth callers/master, managers when
+the master is deleted/disabled, bound-account hard deletion, API initialization/
+assignment/TRUNCATE and outstanding old support grants after master rebinding.
+Replacement-master issuance/consumption and retained lifecycle/provisioning pass.
+
+Five actual-CLI scenarios and six expanded database groups PASS; 49 existing
+identity/support/scheduler regressions PASS with their existing Auth/Management
+mocks. Initial harness failures (82 total Auth versions versus 75 additions,
+temporary init-server readiness, inherited nested Node context) were corrected
+and rerun. Final combined CLI harness: six top-level PASS (five CLI scenarios and
+the child suite), zero FAIL/SKIP; child independently reports six PASS and zero
+FAIL/SKIP. Preservation, historical immutability, whitespace and syntax checks
+PASS. Seven image baseline Auth versions plus 75 GoTrue additions give 82
+genuine infrastructure history rows. SQL claim fixtures are not hosted login.
+Acknowledgment loss after commit, provider failover/power loss/pooler and hosted
+validation remain SKIP; sequence counters/server logs need not roll back.
+
+### Release / scope
+
+No authoritative create/update/delete-platform-user handlers were found in
+repository/configuration/history or inspected available local Platform sources.
+Documented a server release gate: verify the exact production endpoints and
+aliases absent or provider-disabled, or obtain/review/test authoritative source;
+hidden controls/anonymous denial alone are insufficient. No hosted absence is
+claimed. Runbook/review describe safe inspection/retry, endpoint inventory,
+local harness cleanup and rollback limits. An interrupted runner's orphan was
+label-verified and removed; existing Docker workloads were untouched.
+
+No commit, push, PR, merge, deployment, hosted connection, Shop/artifact,
+Auth/secrets/Cloudflare or legal/publication changes. Stop for owner review.
+
+## 2026-10-09 — Bootstrap PR checkpoint and P2 SQL runner follow-up
+
+Branch: `feature/production-bootstrap-hardening`. Owner-authorized checkpoint
+`ba1b770e5ef79b07c4202eaa4c7a56dc0a2b354d` committed/pushed exactly 22 files;
+draft PR #1 targets `development` and remains unmerged. Earlier local-only entries
+describe their historical checkpoints. Cloudflare reported a successful automatic
+frontend preview after the push, per the owner; this does not prove migrations,
+Edge Functions, production deployment or hosted tests. Protected development/
+deployment/main heads remain unchanged.
+
+Resolved two P2 findings locally. The legacy psql-stdin runner now applies each
+migration without top-level authored boundaries inside one BEGIN/COMMIT, preserving
+authored transactions and ignoring procedural BEGIN within quoted bodies. Every
+fresh/upgrade migration path uses the helper. Added Platform-only execution to
+respect the no-Shop boundary, and a late division-by-zero injection in a temporary
+new-migration copy. Actual PG17 assertions preserve configuration, committed
+approval/audit, authority, ACLs/defaults/constraints and absence of new binding
+objects; clean retry retains the existing synthetic UUID. Production/historical
+SQL and the dedicated actual CLI history harness are unchanged.
+
+Affected Platform runner fresh/rollback/upgrade PASS on disposable PostgreSQL 17.6
+with its existing synthetic Auth/Vault fixtures. Focused security regressions:
+49 PASS, zero FAIL/SKIP, existing Auth/Management mocks. Syntax/whitespace and
+immutable-file checks PASS. Shop execution and hosted/preview-isolation validation
+SKIP by scope. Owned local test container removed; existing workloads untouched.
+
+Preview isolation is not established: normal frontend clients use build-time
+Platform URL/key, with no guaranteed preview-only backend. Require approved
+isolated/inert preview configuration and access verification before another push
+or use; no preview/backend was contacted or Cloudflare setting changed here.
+Only runner/review/history changed. No new commit/push/PR mutation/merge/deployment,
+hosted Auth/secrets operation or Shop/legal/publication change; await approval.
+
+## 2026-10-09 — Owner-approved P2 checkpoint and preview controls
+
+The owner confirmed restricted access for Cloudflare previews and exclusion of
+`feature/production-bootstrap-hardening` from automatic preview deployment, then
+authorized committing/pushing only the three reviewed P2 files to update draft
+PR #1 targeting development. Recorded that confirmation in the review report;
+prior pending-control notes remain historical. Backend isolation is still
+unverified and cannot be inferred from variable names or preview access controls.
+
+No runner behavior changed after its successful local validation. This checkpoint
+reviews staged source, whitespace/sensitive values, immutable migrations/artifact,
+PR state and protected branches. No Cloudflare settings, hosted Supabase, Auth,
+secrets, Edge Functions or production deployment operations are authorized.
+
+## 2026-10-09 — Secure team-management source and controlled staging plan
+
+On feature/production-bootstrap-hardening, continuing from 4535515, retrieved
+the owner-authorized read-only staging source of create-platform-user v10,
+update-platform-user v8 and delete-platform-user v8. All three active handlers
+use privileged Auth without verifying canonical master authority, despite gateway
+JWT checks. A seven-function read-only inventory is recorded; no hosted DB,
+Auth user, configuration, secret or production inspection/mutation was performed.
+
+Added repository-owned replacements with pinned shared SDK handler. Caller Auth
+getUser and matching canonical master UUID/RPC precede service-role construction;
+ordinary roles cannot perform team Auth operations. Retained portfolio_manager
+and billing_person, constrained request fields, verified server team/Auth mapping,
+protected master mutation/deletion/reset, trusted server invitation origin, audit
+and sanitized uncertain-outcome handling. Frontend edit/removal now use secured
+handlers for complete workflows; legacy selectors support backend-first rollout.
+No SQL roles/permissions or migration changed. Auth and DB operations remain
+separate transactions; partial outcomes require audited review, and trusted
+identity/team changes must be frozen and drained during cutover/rebinding.
+
+Added disposable local runner, real canonical-RPC/RLS compatibility regressions
+and handler/frontend cases. PASS: 40 explicit-double security cases, two actual
+PG17 before/after UUID-cutover groups, six existing PG17/Auth-schema/Vault groups,
+49 existing focused regressions, three native Deno 2.4.5 checks, syntax/whitespace,
+immutable-file and sensitive review. Initial Deno type narrowing errors were
+corrected and rechecked; zero unresolved local FAIL. Hosted Auth HTTP/gateway,
+SMTP/CAPTCHA/browser, live identity/schema drift and real staging backup/restore
+SKIP by approval boundary. Local mocks are not hosted security evidence.
+
+STAGING_TEAM_CUTOVER.md documents role matrix/source bundle hashes, secure backend
+verification before UUID cutover, approved encrypted-backup destination/tooling/
+key custody and provider recovery/restore limits, single new-migration CLI cutover,
+data preservation and later development integration/Cloudflare smoke. Updated
+production runbook/review to resolve historical missing-source notes without
+claiming deployed replacements. Future deployment promotion/Singapore fresh
+bootstrap remains separate. All twelve migrations, CLI atomicity harness and
+managed Shop artifact are unchanged. No commits, pushes, PR merge, deployment,
+backup, Shop access, protected branch or Cloudflare/legal change; await approval.
+
+## 2026-10-09 — Require confirmed master email before UUID cutover
+
+The shared team handler now requires email_confirmed_at from verified Auth
+getUser on every authorization check, matching the UUID migration prerequisite.
+An unconfirmed/missing email confirmation denies access before canonical RPC or
+service-client construction; phone/general confirmation is not a substitute.
+No migration, database permission or hosted configuration changed.
+
+Focused tests use real disposable Auth rows and canonical PostgreSQL RPCs before
+and after cutover: the legacy UUID RPC still grants an unconfirmed master role,
+but the handler denies create/update/delete without privileged calls. After
+cutover the database denies that identity too. Restoring confirmation preserves
+existing master access; confirmed Manager/Billing denials remain unchanged.
+Auth HTTP/REST transports remain explicit doubles, not hosted validation.
+
+PASS: 41 handler cases, two PG17 before/after groups, six existing bootstrap DB
+groups, three native Deno checks, syntax/whitespace and immutable-file checks.
+No local FAIL/SKIP; hosted validation not run by scope. Owned Docker fixtures
+removed. Changes remain unstaged/uncommitted on the feature branch for review;
+no push, protected-branch, hosted Supabase, Cloudflare or Shop operation performed.

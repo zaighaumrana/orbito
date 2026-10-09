@@ -1,6 +1,8 @@
 -- Disposable local fixture; no hosted credentials or connections.
-insert into auth.users(id,email) values('99000000-0000-4000-8000-000000000001','canonical-master@example.test'),('99000000-0000-4000-8000-000000000002','manager@example.test');
-create or replace function platform_private.operator_role() returns text language sql stable security definer set search_path='' as $$select case auth.uid() when '99000000-0000-4000-8000-000000000001'::uuid then 'master_admin' when '99000000-0000-4000-8000-000000000002'::uuid then 'portfolio_manager' end$$;
+insert into auth.users(id,email,email_confirmed_at) values('99000000-0000-4000-8000-000000000001','canonical-master@example.test',now()),('99000000-0000-4000-8000-000000000002','manager@example.test',now());
+insert into public.platform_users(auth_user_id,name,email,role,status) values('99000000-0000-4000-8000-000000000002','Manager','manager@example.test','portfolio_manager','Active');
+select platform_private.initialize_config('Fixture master','Disposable handoff fixture');
+select platform_private.bind_master('99000000-0000-4000-8000-000000000001',null,'Disposable handoff fixture');
 select set_config('request.jwt.claim.sub','99000000-0000-4000-8000-000000000001',false);
 insert into public.clients(id,name,plan,onboarding_version,owner_name,owner_email,supabase_url,supabase_anon,shop_url,currency,billing_policy,pairing_mode)
 values(9900,'Support handoff','Basic',2,'Reserved owner','owner@example.test','https://dexzxxqkbwnpetbsuxxv.supabase.co','','https://shop.example.test','PKR','usage-v1','managed'),

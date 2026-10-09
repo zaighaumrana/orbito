@@ -2,11 +2,13 @@
 begin;
 create function pg_temp.assert(ok boolean,message text) returns void language plpgsql as $$ begin if ok is distinct from true then raise exception 'ASSERT: %',message;end if;end $$;
 select pg_temp.assert(has_table_privilege('authenticated','public.clients','SELECT,INSERT,UPDATE') and not has_table_privilege('authenticated','public.clients','DELETE'),'client browser write grants, no DELETE');
-insert into auth.users(id,email) values
- ('91000000-0000-4000-8000-000000000001','platformadmin@retailos.internal'),
- ('91000000-0000-4000-8000-000000000002','manager@example.test'),
- ('91000000-0000-4000-8000-000000000003','billing@example.test'),
- ('91000000-0000-4000-8000-000000000004','unknown@example.test');
+insert into auth.users(id,email,email_confirmed_at) values
+ ('91000000-0000-4000-8000-000000000001','fixture-master@example.test',now()),
+ ('91000000-0000-4000-8000-000000000002','manager@example.test',now()),
+ ('91000000-0000-4000-8000-000000000003','billing@example.test',now()),
+ ('91000000-0000-4000-8000-000000000004','unknown@example.test',now());
+select platform_private.initialize_config('Fixture master','Disposable stabilization fixture');
+select platform_private.bind_master('91000000-0000-4000-8000-000000000001',null,'Disposable stabilization fixture');
 insert into public.platform_users(auth_user_id,name,email,role,status) values
  ('91000000-0000-4000-8000-000000000002','Manager','manager@example.test','portfolio_manager','Active'),
  ('91000000-0000-4000-8000-000000000003','Billing','billing@example.test','billing_person','Active');

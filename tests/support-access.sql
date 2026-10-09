@@ -1,8 +1,10 @@
 -- Disposable local fixtures only. UUID-authorized master with a real Auth email.
 begin;
 create function pg_temp.support_assert(ok boolean,msg text) returns void language plpgsql as $$begin if ok is distinct from true then raise exception 'ASSERT: %',msg;end if;end$$;
-insert into auth.users(id,email) values('98000000-0000-4000-8000-000000000001','canonical-master@example.test'),('98000000-0000-4000-8000-000000000002','manager@example.test');
-create or replace function platform_private.operator_role() returns text language sql stable security definer set search_path='' as $$select case auth.uid() when '98000000-0000-4000-8000-000000000001'::uuid then 'master_admin' when '98000000-0000-4000-8000-000000000002'::uuid then 'portfolio_manager' end$$;
+insert into auth.users(id,email,email_confirmed_at) values('98000000-0000-4000-8000-000000000001','canonical-master@example.test',now()),('98000000-0000-4000-8000-000000000002','manager@example.test',now());
+insert into public.platform_users(auth_user_id,name,email,role,status) values('98000000-0000-4000-8000-000000000002','Manager','manager@example.test','portfolio_manager','Active');
+select platform_private.initialize_config('Fixture master','Disposable support fixture');
+select platform_private.bind_master('98000000-0000-4000-8000-000000000001',null,'Disposable support fixture');
 select set_config('request.jwt.claim.sub','98000000-0000-4000-8000-000000000001',true);
 select pg_temp.support_assert(public.platform_operator_identity()->>'email'='canonical-master@example.test','existing identity RPC returns canonical Auth email for UUID-authorized master');
 insert into public.clients(id,name,plan,onboarding_version,owner_name,owner_email,supabase_url,supabase_anon,shop_url,currency,billing_policy,pairing_mode)

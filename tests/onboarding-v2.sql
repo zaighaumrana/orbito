@@ -27,7 +27,9 @@ begin
   end loop;
  end loop;
 end $$;
-insert into auth.users(id,email) values('30000000-0000-4000-8000-000000000001','platformadmin@retailos.internal');
+insert into auth.users(id,email,email_confirmed_at) values('30000000-0000-4000-8000-000000000001','fixture-master@example.test',now());
+select platform_private.initialize_config('Fixture master','Disposable onboarding fixture');
+select platform_private.bind_master('30000000-0000-4000-8000-000000000001',null,'Disposable onboarding fixture');
 select set_config('request.jwt.claim.sub','30000000-0000-4000-8000-000000000001',true);
 do $$
 declare c integer; r jsonb; first_payload jsonb; blocked boolean; call_key text; source_key text;

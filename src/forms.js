@@ -153,19 +153,10 @@ export async function handleFormSubmit(event) {
       const pwErr = validatePassword(data.password);
       if (pwErr) { alert(pwErr); return; }
     }
-    const { error: dbErr } = await pb.from("platform_users").update({
-      name: data.name, email: data.email, role: data.role,
-    }).eq("id", data.id);
-    if (dbErr) { alert("Error: " + dbErr.message); return; }
-
-    if (data.email !== data.old_email || data.password) {
-      const user = pState.data.platformUsers.find(u => u.id === data.id);
-      const payload = { auth_user_id: user?.auth_user_id };
-      if (data.email !== data.old_email) payload.email    = data.email;
-      if (data.password)                 payload.password = data.password;
-      const { error: fnErr } = await pb.functions.invoke("update-platform-user", { body: payload });
-      if (fnErr) { alert("DB updated but auth error: " + fnErr.message); }
-    }
+    const payload = { id: data.id, name: data.name, email: data.email, role: data.role };
+    if (data.password) payload.password = data.password;
+    const { error: fnErr } = await pb.functions.invoke("update-platform-user", { body: payload });
+    if (fnErr) { alert("Team update failed. Review the server audit before retrying: " + fnErr.message); return; }
     pState.modal = null;
     await loadPlatform(); render(); return;
   }

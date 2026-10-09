@@ -1,7 +1,9 @@
 -- Run against a disposable baseline + modernization database only. No live data.
 \set ON_ERROR_STOP on
 begin;
-insert into auth.users(id,email) values ('00000000-0000-4000-8000-000000000001','platformadmin@retailos.internal'),('00000000-0000-4000-8000-000000000002','not-an-operator@example.test');
+insert into auth.users(id,email,email_confirmed_at) values ('00000000-0000-4000-8000-000000000001','fixture-master@example.test',now()),('00000000-0000-4000-8000-000000000002','not-an-operator@example.test',now());
+select platform_private.initialize_config('Fixture master','Disposable control plane fixture');
+select platform_private.bind_master('00000000-0000-4000-8000-000000000001',null,'Disposable control plane fixture');
 insert into public.clients(id,name,supabase_url,supabase_anon,currency,billing_policy,event_rate,inventory_rate,inventory_billable)
  values (9001,'Fixture','https://example.invalid','public','PKR','usage-v1',5,2,true);
 insert into public.bridge_sources(source_id,client_id,client_binding,enabled,usage_from_sequence,cutover_note)
