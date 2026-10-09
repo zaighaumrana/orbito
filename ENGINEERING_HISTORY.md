@@ -617,3 +617,40 @@ groups, three native Deno checks, syntax/whitespace and immutable-file checks.
 No local FAIL/SKIP; hosted validation not run by scope. Owned Docker fixtures
 removed. Changes remain unstaged/uncommitted on the feature branch for review;
 no push, protected-branch, hosted Supabase, Cloudflare or Shop operation performed.
+
+## 2026-10-10 — Staging frontend warning and password-form cleanup
+
+Branch: `fix/staging-ui-warnings`, from synchronized development merge
+`32747038bd6609c9b5253832fa6d1329b7e4e308`. The owner reports that its staging
+deployment, master login and read-only Clients/Team/Billing smoke passed.
+
+Removed the redundant catch-all `_redirects` rewrite. Cloudflare Pages provides
+SPA fallback without a top-level 404; no custom 404, route or Auth redirect change.
+Imported loadConfig through the existing static Supabase import. Session validation
+now receives the caller's render callback, preserving periodic expiry rendering
+without adding a helpers/render dependency cycle.
+
+Login/PIN and recovery passwords now belong to labelled POST forms, with account
+associations and explicit autocomplete. Click and native Enter submission retain
+the existing Auth/CAPTCHA handler once; the business-form dispatcher excludes Auth
+forms. Recovery email is transient session display metadata, never authority.
+Settings adds escaped, read-only account associations; team editing distinguishes
+account email from a new password. Existing authorization and password validators
+are unchanged. POST fallback avoids credential-bearing query strings.
+
+PASS: 174 relevant local regressions (including six new markup/handler cases),
+52 focused cases rerun after POST markup completion, synthetic npm build without
+the mixed-import warnings, syntax, whitespace, unchanged-cycle comparison and
+real ES-module initialization with a synthetic SDK. An initial ESM fixture lacked
+window; corrected fixture passes. Existing deployed root/Clients/Billing/Settings/
+reset routes return the app shell with HTTP 200. These are not changed-frontend
+hosted tests. SKIP: live browser/password-manager/accessibility and desktop/mobile
+layout checks because browser automation fails initialization. Database/Shop suites
+are outside this frontend change. Vite's existing CJS Node API deprecation remains.
+
+No database, Edge, Auth configuration, environment-secret, production, Shop or
+Cloudflare settings change. Use the documented `[CF-Pages-Skip]` commit prefix for
+the authorized branch push; open the development PR without merging. A future
+approved merge must omit that prefix to permit the intended staging deployment.
+References: https://developers.cloudflare.com/pages/configuration/serving-pages/
+and https://developers.cloudflare.com/pages/configuration/git-integration/github-integration/.

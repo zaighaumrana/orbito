@@ -13,10 +13,10 @@ test('existing real-email master login and alias login use Auth credentials then
   const ctx={action:'do-login',PLATFORM_AUTH_EMAIL:aliasEmail,navigator:{onLine:true},crypto:{randomUUID:()=> 'session'},
    pState:{turnstileToken:'public-test-token',loginLoading:false},captchaBusy(){},render(){},_loginFail(){},
    document:{getElementById:id=>id==='platform-username'?{value:name}:id==='platform-pin'?{value:'Auth-only-password'}:errorEl},
-   loadOperatorIdentity:async()=>identity,configuredLoader:async()=>{},loadPlatform:async()=>{},
+   loadOperatorIdentity:async()=>identity,loadConfig:async()=>{},loadPlatform:async()=>{},
    pb:{auth:{signOut:async()=>{},signInWithPassword:async input=>{attempts.push(input);return {data:{session:{user:{id:identity.auth_user_id}}}};}}}};
   vm.createContext(ctx);
-  const block=clickBlock('do-login').replace("await import('./supabase.js')",'({loadConfig:configuredLoader})');
+  const block=clickBlock('do-login');
   await vm.runInContext('async function login(){'+block+'\nlogin()',ctx);
   assert.equal(attempts[0].email,identity.email);assert.equal(Boolean(ctx.pState.authenticated),success);
   if(success){assert.equal(ctx.pState.currentUser.auth_user_id,identity.auth_user_id);assert.equal(ctx.pState.currentUser.role,'master_admin');}

@@ -7,6 +7,7 @@ import { validateSession }               from "./helpers.js";
 
 /* ── Form submissions ── */
 document.addEventListener("submit", async event => {
+  if (event.target.dataset.authForm !== undefined) return;
   event.preventDefault();
   const form = event.target;
   if (form.dataset.busy) return;
@@ -50,6 +51,8 @@ const hasResetParam = new URLSearchParams(window.location.search).has("reset");
 // way to detect the recovery flow in v2.
 pb.auth.onAuthStateChange((event, session) => {
   if (event === "PASSWORD_RECOVERY") {
+    // Account association for password managers only; never authorization.
+    pState.recoveryEmail = session?.user?.email || '';
     // Show the set-password form — do not proceed with normal boot
     pState.page = "reset-password";
     pState.authenticated = false;
@@ -97,7 +100,7 @@ render();
     pState.authenticated = true;
     pState.page = restoredPage;
     await loadPlatform();
-    await validateSession();
+    await validateSession(render);
 
     // Render after all data loaded — this was the white screen bug
     render();

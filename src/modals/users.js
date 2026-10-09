@@ -40,7 +40,7 @@ export function userModals(type, md) {
             <h2>Edit Team Member</h2>
             <button class="icon-button" data-p-close>✕</button>
           </div>
-          <form data-p-form="edit-platform-user">
+          <form data-p-form="edit-platform-user" method="post">
             <input type="hidden" name="id"        value="${md.id}">
             <input type="hidden" name="old_email" value="${md.email}">
             <div class="form-grid">
@@ -54,12 +54,12 @@ export function userModals(type, md) {
                     ${md.role === "portfolio_manager" ? "selected" : ""}>Portfolio Manager</option>
                 </select></label>
               <label class="field" style="grid-column:1/-1"><span>Email</span>
-                <input name="email" type="email" required value="${md.email}"></label>
+                <input name="email" type="email" autocomplete="username" required value="${md.email}"></label>
               <label class="field" style="grid-column:1/-1">
                 <span>New Password
                   <span style="color:var(--muted);font-size:12px">(leave blank to keep current)</span>
                 </span>
-                <input name="password" type="password" minlength="8"
+                <input name="password" type="password" autocomplete="new-password" minlength="8"
                   placeholder="Min 8 chars, letter + number + symbol">
               </label>
             </div>

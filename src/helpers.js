@@ -26,11 +26,12 @@ export function moduleToggleRow(label, sub, enabled, action) {
 }
 
 // Supabase Auth owns sessions. Backend role checks remain authoritative.
-export async function validateSession() {
+export async function validateSession(onInvalid) {
   if (!pState.authenticated) return;
   const { data, error } = await pb.auth.getUser();
   if (error || !data.user) {
     await pb.auth.signOut(); pState.authenticated = false; pState.page = 'login';
-    const { render } = await import('./render.js'); render();
+    // The caller already imports render. Avoid a helpers → render → pages cycle.
+    onInvalid();
   }
 }
