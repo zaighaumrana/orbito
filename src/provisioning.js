@@ -1,3 +1,4 @@
+import { notify, confirmDialog } from './dialogs.js';
 import { renderClientSetup } from './client-setup.js';
 import { pb, loadClientData } from './supabase.js';
 import { pState } from './state.js';
@@ -28,7 +29,15 @@ async function submitOnboarding(form, requestedAction) {
       };
       const data = await invoke(action, requestedAction === 'resume' ? job.request_id : crypto.randomUUID());
       publicEnv=data.public_env;
-      if (data.message) alert(data.message);
+      if (data.message) {
+        const notices = {
+          sent: 'Optional invitation sent; inbox delivery is not confirmed.',
+          pending: 'Invitation outcome pending. Wait two minutes and check Shop Auth before retrying. Manual activation remains available.',
+          failed: 'Optional invitation unavailable. Manual activation remains available.',
+        };
+        if (data.invitation === 'pending') notify.warning(notices.pending);
+        else notify.info(notices[data.invitation] || 'Review the recorded operation status. No new invitation email is confirmed.');
+      }
       if (data.setup_file) {
         const url = URL.createObjectURL(new Blob([data.setup_file],{type:'text/plain'}));
         delete data.setup_file;
@@ -38,7 +47,7 @@ async function submitOnboarding(form, requestedAction) {
         await invoke('bootstrap-shop',crypto.randomUUID());
       }
     }
-  } catch (error) { alert(error.message); }
+  } catch (error) { notify.error(error); }
   finally { pState.modal=null;await loadClientData(client);if(publicEnv)pState.clientData.publicEnv=publicEnv; render(); }
 }
 
@@ -111,12 +120,12 @@ export async function submitProvisioning(form, requestedAction) {
       let params = requestedAction === 'resume' ? job.params : {};
       if (['provision','replace'].includes(action) && requestedAction !== 'resume') params = { project_ref:form.elements.project_ref.value.trim(),client_binding:form.elements.client_binding.value.trim() };
       if (action === 'activate') {
-        if (!form.elements.confirmed.checked) throw new Error('Confirm the paused Shop and reconciled legacy accounting before activation.');
+        if (!form.elements.confirmed.checked) { notify.error('Confirm the paused Shop and reconciled legacy accounting before activation.'); return; }
         if (requestedAction !== 'resume') params = { confirmed:true,note:form.elements.note.value.trim() };
-        if (!params.note || params.note.length < 5) throw new Error('Add a cutover note.');
-        if (!confirm('Activate bridge billing for this client at the exact Shop sequence captured by the server? Keep Shop writes paused until success.')) return;
+        if (!params.note || params.note.length < 5) { notify.error('Add a cutover note.'); return; }
+        if (!await confirmDialog({title:'Activate bridge billing?',message:'Activate this client at the exact Shop sequence captured by the server? Keep Shop writes paused until success.',confirmLabel:'Activate bridge'})) return;
       }
-      if (action === 'rotate' && !confirm('Rotate the bridge secret server-side? Delivery may pause until this operation completes.')) return;
+      if (action === 'rotate' && !await confirmDialog({title:'Rotate bridge secret?',message:'Rotate the secret server-side? Delivery may pause until this operation completes.',confirmLabel:'Rotate secret',danger:true})) return;
       const body = { client_id:client.id,request_id:requestedAction === 'resume' ? job.request_id : crypto.randomUUID(),action,params };
       const result = await pb.functions.invoke('platform-provision',{ body });
       if (result.error || result.data?.error) {
@@ -129,7 +138,7 @@ export async function submitProvisioning(form, requestedAction) {
   } catch (error) {
     // Status is server-owned and survives reload; never persist request bodies containing credentials.
     try { await loadClientData(client); render(); } catch {}
-    alert(error.message);
+    notify.error(error);
   } finally {
     buttons.forEach((button,index) => { if (button.isConnected) button.disabled = disabled[index]; });
   }

@@ -31,7 +31,7 @@ test('outer submit dispatcher owns busy state while special forms execute and re
   const ctx=load('src/forms.js',{
    pState:{selectedClient:{id:42,supabase_url:'https://abcdefghijklmnopqrst.supabase.co'},clientData:{config:{}},modal:'open'},
    rpc:operation,pb:{functions:{invoke:operation}},publicEnvironment:ui.publicEnvironment,
-   navigator:{clipboard:{writeText:operation}},alert:message=>alerts.push(message),
+   navigator:{clipboard:{writeText:operation}},notify:{error:value=>alerts.push(value?.userMessage || 'The operation could not be completed. Refresh its status before retrying.')},
    loadPlatform:async()=>{refreshes++;assert.equal(form.dataset.busy,'true');},loadClientData:async()=>{},render:()=>renders++,
    document:{addEventListener:(name,listener)=>{assert.equal(name,'submit');submit=listener;}}
   });
@@ -49,7 +49,7 @@ test('outer submit dispatcher owns busy state while special forms execute and re
   // A rejected operation retains error/refresh behavior and releases the outer guard.
   if(type==='config-recovery'){
    ctx.pb.functions.invoke=async()=>{throw Error('fixture failure');};
-   await submit(event);assert.deepEqual(alerts,['fixture failure']);
+   await submit(event);assert.deepEqual(alerts,['The operation could not be completed. Refresh its status before retrying.']);
    assert.equal(form.dataset.busy,undefined);assert.equal(refreshes,2);assert.equal(renders,2);
   }
  }

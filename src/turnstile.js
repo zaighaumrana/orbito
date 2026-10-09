@@ -3,7 +3,7 @@ let widget = null, container = null, generation = 0, scriptPromise = null;
 const unavailable = 'Verification service unavailable. Check your connection and try again.';
 function update(message = '') {
   const button = document.querySelector('[data-captcha-submit]');
-  if (button) button.disabled = !pState.turnstileToken || !navigator.onLine || pState.loginLoading || pState.resetLoading;
+  if (button) button.disabled = !pState.turnstileToken || !navigator.onLine || pState.loginLoading || pState.resetLoading || pState.reauthLoading;
   const status = document.getElementById('verification-status');
   if (status) status.textContent = message;
 }
@@ -44,7 +44,7 @@ export async function mountTurnstile() {
     await loadScript();
     if (!valid()) return;
     widget = window.turnstile.render(target, {
-      sitekey, theme: 'dark',
+      sitekey, theme: pState.theme === 'light' ? 'light' : 'dark',
       callback: token => { if (valid()) { pState.turnstileToken = token; update(); } },
       'expired-callback': () => { if (valid()) resetTurnstile(); },
       'timeout-callback': () => { if (valid()) resetTurnstile(); },

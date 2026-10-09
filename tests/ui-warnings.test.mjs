@@ -55,7 +55,7 @@ test('mouse and native Auth submit each invoke the existing login once; disabled
    setInterval(){},render(){},captchaBusy(){},resetTurnstile(){},mountTurnstile(){},alert:message=>{throw Error(message)},
    loadConfig:async()=>{},loadPlatform:async()=>{},loadOperatorIdentity:async()=>({role:'master_admin',auth_user_id:'master',email:'master@example.test'}),
    pb:{auth:{signOut:async()=>{},signInWithPassword:async input=>{attempts.push(input);return {data:{session:{}}};}}}};
-  vm.createContext(ctx);vm.runInContext(strip(read('src/events.js')),ctx);ctx.initEvents();
+  ctx.cancelDialogs ||= ()=>{}; ctx.notify ||= {error:message=>assert.fail(String(message)),success:()=>{},info:()=>{}}; vm.createContext(ctx);vm.runInContext(strip(read('src/events.js')),ctx);ctx.initEvents();
   if(mode==='click')button.click();else listeners.submit({target:form,submitter:button,preventDefault(){prevented++;}});
   await new Promise(resolve=>setImmediate(resolve));assert.equal(attempts.length,1);assert.equal(attempts[0].options.captchaToken,'synthetic-captcha');assert.equal(ctx.pState.authenticated,true);assert.ok(prevented>0);
   assert.equal(listeners.keydown,undefined,'Native form behavior replaces global Enter interception');
@@ -68,7 +68,7 @@ test('main dispatcher leaves Auth submission to its dedicated handler and recove
  let submit,authChange,calls=0;
  const ctx={URLSearchParams,window:{location:{search:'',pathname:'/'},addEventListener(){}},document:{addEventListener:(_type,fn)=>submit=fn},pState:{},render(){},initEvents(){},handleFormSubmit:async()=>{calls++;},
   pb:{auth:{onAuthStateChange:fn=>authChange=fn,getSession:async()=>({data:{session:null}})}},alert:message=>{throw Error(message)}};
- vm.createContext(ctx);await vm.runInContext(strip(read('src/main.js')),ctx);
+ ctx.cancelDialogs ||= ()=>{}; ctx.notify ||= {error:message=>assert.fail(String(message)),success:()=>{},info:()=>{}}; vm.createContext(ctx);await vm.runInContext(strip(read('src/main.js')),ctx);
  await submit({target:{dataset:{authForm:'login'}},preventDefault(){throw Error('Main intercepted Auth form');}});assert.equal(calls,0);
  await submit({target:{dataset:{pForm:'change-password'}},preventDefault(){}});assert.equal(calls,1);
  authChange('PASSWORD_RECOVERY',{user:{email:'recovery@example.test'}});assert.equal(ctx.pState.recoveryEmail,'recovery@example.test');assert.equal(ctx.pState.authenticated,false);
@@ -77,7 +77,7 @@ test('expired-session timer signs out and renders login using its injected callb
  let timer,renders=0,signouts=0;
  const ctx={pState:{authenticated:true,page:'clients'},PCFG:{},pb:{auth:{getUser:async()=>({data:{user:null}}),signOut:async()=>{signouts++;}}},render(){renders++;},
   document:{addEventListener(){}},window:{addEventListener(){}},setInterval:fn=>timer=fn};
- vm.createContext(ctx);vm.runInContext(strip(read('src/helpers.js')),ctx);vm.runInContext(strip(read('src/events.js')),ctx);ctx.initEvents();await timer();
+ ctx.cancelDialogs ||= ()=>{}; ctx.notify ||= {error:message=>assert.fail(String(message)),success:()=>{},info:()=>{}}; vm.createContext(ctx);vm.runInContext(strip(read('src/helpers.js')),ctx);vm.runInContext(strip(read('src/events.js')),ctx);ctx.initEvents();await timer();
  assert.equal(signouts,1);assert.equal(renders,1);assert.equal(ctx.pState.page,'login');assert.equal(ctx.pState.authenticated,false);
  await timer();assert.equal(signouts,1);assert.equal(renders,1);
 });

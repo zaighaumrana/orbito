@@ -236,6 +236,34 @@ th { color: var(--muted); font-size: 12px; font-weight: 700; text-transform: upp
 }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
 
+/* Notifications and blocking dialogs share the Platform's theme and form styles. */
+.platform-notifications {
+  position: fixed; z-index: 10030; top: 16px; right: 16px;
+  width: min(390px, calc(100vw - 32px)); max-height: 50dvh;
+  overflow: auto; display: grid; gap: 10px; pointer-events: none;
+}
+.platform-toast {
+  position: relative; pointer-events: auto; padding: 14px 48px 14px 16px;
+  background: var(--surface); color: var(--text); border: 1px solid var(--border);
+  border-left: 4px solid var(--primary); border-radius: 8px; box-shadow: var(--shadow);
+  overflow-wrap: anywhere; animation: platform-notice-enter 160ms ease-out;
+}
+.platform-toast p { margin: 6px 0 0; font-size: 13px; }
+.platform-toast .icon-button { position: absolute; right: 6px; top: 6px; }
+.platform-toast-success { border-left-color: var(--success); }
+.platform-toast-error { border-left-color: var(--danger); }
+.platform-toast-warning { border-left-color: var(--warning); }
+.platform-dialog-backdrop { z-index: 10020; }
+.platform-dialog { width: min(480px, 100%); overflow-wrap: anywhere; animation: platform-notice-enter 160ms ease-out; }
+.platform-dialog form { display: grid; gap: 14px; }
+.platform-dialog p { margin: 0; }
+.dialog-validation { color: var(--danger); }
+.platform-dialog button:focus-visible, .platform-toast button:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
+@keyframes platform-notice-enter { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .platform-toast, .platform-dialog { animation: none; }
+}
+
 /* ── Tenant cards ── */
 .tenant-card {
   background: var(--surface);

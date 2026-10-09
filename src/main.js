@@ -1,3 +1,4 @@
+import { notify } from './dialogs.js';
 import { pb, loadConfig, loadPlatform, loadOperatorIdentity } from "./supabase.js";
 import { pState }                        from "./state.js";
 import { render }                        from "./render.js";
@@ -12,7 +13,7 @@ document.addEventListener("submit", async event => {
   const form = event.target;
   if (form.dataset.busy) return;
   form.dataset.busy = 'true';
-  try { await handleFormSubmit(event); } catch (error) { alert(error.message); }
+  try { await handleFormSubmit(event); } catch (error) { notify.error(error); }
   finally { delete form.dataset.busy; }
 });
 
@@ -109,4 +110,4 @@ render();
     render();
   }
   // If hasResetParam but no session yet: onAuthStateChange will handle it
-})().catch(error => { pState.authenticated = false; pState.page = "login"; render(); alert(error.message); });
+})().catch(error => { pState.authenticated = false; pState.page = "login"; render(); notify.error(error); });

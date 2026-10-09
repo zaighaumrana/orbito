@@ -269,6 +269,7 @@ export function render() {
     ${pModal()}
   `;
 
+  if (document.getElementById("verification-widget")) void mountTurnstile();
   const menuBtn = document.getElementById("p-menu-btn");
   if (menuBtn && window.innerWidth <= 1180) menuBtn.style.display = "inline-flex";
 }

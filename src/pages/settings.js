@@ -53,7 +53,10 @@ export function pageSettings() {
             <span>New Username</span>
             <input name="new_username" type="text" autocomplete="off" value="${esc(PCFG.admin_username || '')}">
           </label>
-          <button class="primary-button">Update Username</button>
+          <div id="verification-widget" class="verification-widget"></div>
+          <p id="verification-status" class="muted" role="status">Complete fresh verification to confirm your password.</p>
+          <button type="button" class="secondary-button" data-p-action="retry-verification">Retry verification</button>
+          <button type="submit" class="primary-button" data-captcha-submit disabled>Update Username</button>
         </form>
       </div>
 

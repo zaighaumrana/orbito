@@ -45,7 +45,8 @@ test('missing, false or outdated runtime attestations cannot claim infrastructur
 test('operator identity is verified by server UUID/role independently of optional username email alias',async()=>{
  let user={id:'verified-id'},identity={auth_user_id:'verified-id',role:'master_admin',email:'canonical@example.test',username:'Alias'};
  const ctx={pb:{auth:{getUser:async()=>({data:{user}})},rpc:async()=>({data:identity})}};vm.createContext(ctx);
- const fn=read('src/supabase.js').split('export async function loadOperatorIdentity()')[1].split('export async function loadConfig')[0];vm.runInContext('async function loadOperatorIdentity()'+fn,ctx);
+ const source=read('src/supabase.js');
+ vm.runInContext(source.slice(source.indexOf('export class PlatformAuthError'),source.indexOf('export async function reauthenticateMaster')).replace(/^export /gm,''),ctx);
  assert.equal((await ctx.loadOperatorIdentity()).role,'master_admin');identity={...identity,auth_user_id:'wrong-id'};await assert.rejects(ctx.loadOperatorIdentity());
  identity={...identity,auth_user_id:'verified-id',role:'unapproved'};await assert.rejects(ctx.loadOperatorIdentity());user=null;await assert.rejects(ctx.loadOperatorIdentity());
  assert.doesNotMatch(read('src/main.js'),/VITE_PLATFORM_AUTH_EMAIL/);assert.match(read('src/events.js'),/const identity = await loadOperatorIdentity/);

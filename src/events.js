@@ -1,3 +1,4 @@
+import { notify, confirmDialog, cancelDialogs } from './dialogs.js';
 import { resetTurnstile, mountTurnstile, captchaBusy } from './turnstile.js';
 import { pState }                          from "./state.js";
 import { pb, PLATFORM_AUTH_EMAIL,
@@ -45,12 +46,12 @@ export function initEvents() {
     if(action==='open-shop-support'){
       if(!pState.authenticated || pState.currentUser?.role!=='master_admin' || !pState.selectedClient)return;
       el.disabled=true;
-      try {await openShopSupport(pState.selectedClient);} catch(error){alert(error.message);} finally{if(el.isConnected)el.disabled=false;}
+      try {await openShopSupport(pState.selectedClient);} catch(error){notify.error(error);} finally{if(el.isConnected)el.disabled=false;}
       return;
     }
     if (action === 'copy-setup') {
       try { await navigator.clipboard.writeText(el.dataset.copyValue || '');el.textContent='Copied'; }
-      catch { alert('Copy is unavailable. Select the displayed value to copy it.'); }
+      catch { notify.error('Copy is unavailable. Select the displayed value to copy it.'); }
       return;
     }
     if (action === 'retry-verification') { void mountTurnstile(); return; }
@@ -194,6 +195,7 @@ export function initEvents() {
 
     /* ── LOGOUT ── */
     if (action === "logout") {
+      cancelDialogs();
       await pb.auth.signOut();
       pState.authenticated = false;
       pState.currentUser   = { role: "master_admin", username: "admin" };
@@ -346,13 +348,18 @@ export function initEvents() {
     /* ── Remove platform user ── */
     if (action === "remove-platform-user") {
       if (pState.currentUser.role !== "master_admin") {
-        alert("Only Master Admin can remove users."); return;
+        notify.error("Only Master Admin can remove users."); return;
       }
-      if (!confirm("Remove this user? They will lose all access immediately.")) return;
-      const userId = el.dataset.pId;
-      const { error: fnErr } = await pb.functions.invoke("delete-platform-user", { body: { id: userId } });
-      if (fnErr) { alert("Team removal failed. Review the server audit before retrying: " + fnErr.message); return; }
-      await loadPlatform(); render(); return;
+      const userId = el.dataset.pId; el.disabled = true;
+      try {
+        if (!await confirmDialog({title:'Remove team member?',message:'This user will lose all access immediately.',confirmLabel:'Remove user',danger:true})) return;
+        const identity = await loadOperatorIdentity();
+        if (identity.role !== 'master_admin') { notify.error('Only Master Admin can remove users.'); return; }
+        const { error: fnErr } = await pb.functions.invoke("delete-platform-user", { body: { id: userId } });
+        if (fnErr) { notify.error('Team removal could not be confirmed. Review the server audit before retrying.'); return; }
+        await loadPlatform(); render();
+      } finally { if (el.isConnected) el.disabled = false; }
+      return;
     }
 
     /* ── Resolve support ticket ── */
@@ -360,13 +367,13 @@ export function initEvents() {
       const { error } = await pb.from("support_tickets")
         .update({ status: "Resolved", resolved_at: new Date().toISOString() })
         .eq("id", el.dataset.pId);
-      if (error) { alert(error.message); return; }
+      if (error) { notify.error(error); return; }
       await loadPlatform(); render(); return;
     }
     })().catch(error => {
       if (pState.loginLoading) { pState.authenticated = false; pState.page = 'login'; pState.loginLoading = false; render(); }
       if (pState.resetLoading) { pState.resetLoading = false; resetTurnstile(); }
-      alert(error.message);
+      notify.error(error);
     });
   });
 
