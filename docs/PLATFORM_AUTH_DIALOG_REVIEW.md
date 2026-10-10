@@ -169,3 +169,72 @@ References: [Supabase CAPTCHA](https://supabase.com/docs/guides/auth/auth-captch
 [Supabase signout scopes](https://supabase.com/docs/guides/auth/signout),
 [WAI modal dialog pattern](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/),
 [Cloudflare Git skip prefixes](https://developers.cloudflare.com/pages/configuration/git-integration/github-integration/).
+
+
+## PR #3 follow-up — 2026-10-11
+
+Reviewed base be40a0e37ad64d31be5629127a3e48842da18959; same feature branch.
+A confirmed alias update now replaces only currentUser.username as well as
+PCFG.admin_username before rendering. UUID, Auth email, role and session metadata
+are preserved. Failed Auth/cleanup/database or zero-row updates leave both aliases
+unchanged. Sidebar output escapes the alias; Settings already escapes its value.
+Login and restored-session fixtures confirm the new alias is loaded from canonical
+server identity. No alias is treated as authorization.
+
+PASS: 74 focused local regressions, including original-client sign-in/signout spies
+that remain unused on success/failure, returned/thrown verifier cleanup failures,
+identity preservation, alias display, refresh/login fixtures and existing team/security
+cases. This proves mock/client wiring, not actual Supabase refresh semantics.
+
+PASS: six REAL headless Chrome/Playwright groups (320, 768, 1440px, light/dark),
+executing actual dialogs.js, styles.css and delegated events.js with a synthetic
+Auth logout handler. Verified initial/restored focus, Tab/Shift+Tab containment,
+Escape/Cancel/backdrop false decisions, repeated Enter confirming once, body/app
+blocking, rerender survival, disconnected-opener fallback, programmatic logout with
+an open dialog, restored scrolling, and viewport bounds. Zero external requests and
+page errors. This supersedes the initial checkpoint's browser-tool SKIP for these
+specific dialog checks; full Platform visual/accessibility certification and hosted
+Auth remain unverified. No browser tool was installed or repaired. A sandbox launcher
+was blocked by an unrelated BitLocker-locked drive; authorized local tests ran outside
+that launcher without touching the drive.
+
+Reproduce with an existing Playwright module and Chromium executable using
+PLAYWRIGHT_MODULE_PATH and CHROMIUM_EXECUTABLE_PATH, then run
+node tests/dialogs-browser.mjs. Missing module/browser reports SKIP (exit 2),
+failed assertions report FAIL (exit 1), successful groups report PASS (exit 0).
+The harness serves only loopback source/fixtures and blocks external requests.
+
+PASS: synthetic npm build, syntax, whitespace and staged sensitive-value review.
+Existing Vite CJS warning remains. No migration, Edge, RLS, Auth/provider configuration,
+Shop, production or Cloudflare change. Feature push uses [CF-Pages-Skip]; PR stays draft.
+
+### Minimal staging validation — not executed, separate authorization required
+
+1. Obtain separate deployment AND reversible alias-test authorization; verify staging
+   frontend/project and approved commit. Owner records the original alias privately
+   and confirms the unchanged real Auth email/password can authenticate. Keep the
+   original signed-in administrator tab open; do not change passwords or users.
+2. Approve an exact temporary alias and restoration to the original alias. First try
+   a wrong password and an expired/missing challenge: expect safe denial, unchanged
+   sidebar/Settings, no successful configuration update and no success toast.
+3. With the existing master password and fresh CAPTCHA, change only the approved
+   alias. Confirm sidebar and Settings agree immediately. Confirm the same master
+   identity/role/email; reload and verify the alias persists. Confirm login using the
+   unchanged Auth email in a separate private browser context without signing out
+   the original tab. Do not test team deletion/invitation or other hosted writes.
+4. Observe automatic token refresh, or have the authorized tester trigger the existing
+   SDK's refreshSession once without printing its response/tokens. Record only the
+   sanitized refresh HTTP status and identity-equality result. Original tab must retain
+   master access to read-only Clients/Team/Billing before and after refresh. A mock
+   cannot establish this behavior or provider single-session-policy compatibility.
+5. Using fresh CAPTCHA/password verification, restore the original approved alias.
+   Verify immediate display, reload, canonical identity and subsequent refresh/read
+   access again. Record both alias-update confirmations and refresh outcomes without
+   credentials/tokens. If access/refresh is uncertain, stop unrelated writes and ask
+   the owner for recovery direction; do not reset Auth or blindly retry.
+
+Manual supplementary checklist: at 320/768/1440px in both themes, Tab/Shift+Tab stays
+inside each dialog; Escape/Cancel/backdrop never executes an action; Enter confirms
+once; rerenders preserve the dialog and restore focus on close; simulated logout/
+session expiry cancels pending decisions; buttons remain visible without horizontal
+scroll. Check actual screen-reader announcements and full Platform layouts separately.

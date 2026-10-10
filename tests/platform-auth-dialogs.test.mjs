@@ -8,12 +8,12 @@ const strip=s=>s.replace(/^import[\s\S]*?;\s*/gm,'').replace(/^export /gm,'').re
 const identity={auth_user_id:'master-uuid',email:'actual-auth@example.test',role:'master_admin'};
 function authFixture({failure,stale,role='master_admin',afterRole=role,mismatch=false,cleanupError=false}={}) {
  const calls=[],options=[],messages=[],writes=[];let verified=0;
- const original={auth:{getUser:async()=>{verified++;return stale?{error:{status:401},data:{}}:{data:{user:{id:identity.auth_user_id}}};}},rpc:async()=>({data:{...identity,role:verified>1?afterRole:role}}),
+ const original={auth:{signInWithPassword:async()=>{calls.push(['original-signin']);throw Error('Original session must not be replaced');},signOut:async()=>{calls.push(['original-signout']);throw Error('Original session must not be revoked');},getUser:async()=>{verified++;return stale?{error:{status:401},data:{}}:{data:{user:{id:identity.auth_user_id}}};}},rpc:async()=>({data:{...identity,role:verified>1?afterRole:role}}),
   from:table=>({update:value=>({eq:()=>({select:()=>({maybeSingle:async()=>{writes.push({table,value});return {data:{id:1,...value}};}})})})})};
- const verifier={auth:{signInWithPassword:async input=>{calls.push(['verify',input]);if(failure==='network')throw new TypeError('offline');return failure?{error:{code:failure},data:{}}:{data:{session:{},user:{id:mismatch?'other-uuid':identity.auth_user_id}}};},signOut:async options=>{calls.push(['cleanup',options]);return cleanupError?{error:{}}:{};}}};
+ const verifier={auth:{signInWithPassword:async input=>{calls.push(['verify',input]);if(failure==='network')throw new TypeError('offline');return failure?{error:{code:failure},data:{}}:{data:{session:{},user:{id:mismatch?'other-uuid':identity.auth_user_id}}};},signOut:async options=>{calls.push(['cleanup',options]);if(cleanupError==='throw')throw Error('Synthetic cleanup failure');return cleanupError?{error:{}}:{};}}};
  let clients=0;
  const ctx={TypeError,testEnv:{VITE_PLATFORM_URL:'https://example.invalid',VITE_PLATFORM_ANON:'synthetic-public'},createClient:(...args)=>{options.push(args);return clients++?verifier:original;},
-  pState:{turnstileToken:'fresh-captcha',currentUser:identity},PCFG:{admin_username:'original'},captchaBusy(){},resetTurnstile(){ctx.pState.turnstileToken=null;calls.push(['reset']);},render(){},
+  pState:{turnstileToken:'fresh-captcha',currentUser:{...identity,username:'original',sessionToken:'original-session-marker'}},PCFG:{admin_username:'original'},captchaBusy(){},resetTurnstile(){ctx.pState.turnstileToken=null;calls.push(['reset']);},render(){},
   notify:Object.fromEntries(['error','success','info'].map(t=>[t,v=>messages.push([t,v?.userMessage || v])])),cancelDialogs(){},FormData:class{constructor(f){this.f=f;}entries(){return Object.entries(this.f.values);}}};
  vm.createContext(ctx);vm.runInContext(strip(read('src/supabase.js')),ctx);vm.runInContext(strip(read('src/forms.js')),ctx);
  const form={dataset:{pForm:'change-username'},values:{current:'synthetic-password',new_username:'new-alias'},reset(){calls.push(['form-reset']);}};
@@ -21,22 +21,23 @@ function authFixture({failure,stale,role='master_admin',afterRole=role,mismatch=
 }
 test('fresh CAPTCHA, actual Auth email, stable master and memory-only local verification preserve original session',async()=>{
  const f=authFixture();await f.submit();assert.equal(f.writes.length,1);assert.equal(f.ctx.PCFG.admin_username,'new-alias');
+ assert.equal(f.ctx.pState.currentUser.username,'new-alias');assert.equal(f.ctx.pState.currentUser.auth_user_id,identity.auth_user_id);assert.equal(f.ctx.pState.currentUser.email,identity.email);assert.equal(f.ctx.pState.currentUser.sessionToken,'original-session-marker');
  assert.deepEqual(JSON.parse(JSON.stringify(f.calls[0][1])),{email:identity.email,password:'synthetic-password',options:{captchaToken:'fresh-captcha'}});
  assert.equal(f.options[1][2].auth.persistSession,false);assert.equal(f.options[1][2].auth.autoRefreshToken,false);assert.equal(f.options[1][2].auth.detectSessionInUrl,false);
  assert.equal(f.options[1][2].auth.storageKey,'platform-password-verification');assert.equal(f.calls[1][1].scope,'local');
- assert.equal(f.original.auth.signInWithPassword,undefined);assert.equal(f.original.auth.signOut,undefined);assert.equal(f.messages[0][0],'success');assert.equal(f.ctx.pState.turnstileToken,null);
+ assert.equal(f.calls.filter(c=>c[0].startsWith('original-')).length,0);assert.equal(f.messages[0][0],'success');assert.equal(f.ctx.pState.turnstileToken,null);
  await f.ctx.reauthenticateMaster('synthetic-password','another-fresh-captcha');assert.equal(f.options.length,2,'reuse the isolated client without duplicate SDK listeners/storage-key warnings');
 });
 test('wrong password, expired CAPTCHA, network, stale session, ordinary roles and authority changes never write or report success',async()=>{
- for(const [config,match] of [[{failure:'invalid_credentials'},/password is incorrect/],[{failure:'captcha_failed'},/fresh verification/],[{failure:'network'},/connection/],[{stale:true},/session has expired/],[{role:'portfolio_manager'},/Only the verified master/],[{role:'billing_person'},/Only the verified master/],[{afterRole:'billing_person'},/not authorized/],[{mismatch:true},/not authorized/],[{cleanupError:true},/verification could not be completed/]]){
-  const f=authFixture(config);await f.submit();assert.equal(f.writes.length,0);assert.equal(f.ctx.PCFG.admin_username,'original');assert.equal(f.messages.length,1);assert.equal(f.messages[0][0],'error');assert.match(f.messages[0][1],match);assert.equal(f.ctx.pState.reauthLoading,false);
+ for(const [config,match] of [[{failure:'invalid_credentials'},/password is incorrect/],[{failure:'captcha_failed'},/fresh verification/],[{failure:'network'},/connection/],[{stale:true},/session has expired/],[{role:'portfolio_manager'},/Only the verified master/],[{role:'billing_person'},/Only the verified master/],[{afterRole:'billing_person'},/not authorized/],[{mismatch:true},/not authorized/],[{cleanupError:true},/verification could not be completed/],[{cleanupError:'throw'},/verification could not be completed/]]){
+  const f=authFixture(config);await f.submit();assert.equal(f.writes.length,0);assert.equal(f.ctx.PCFG.admin_username,'original');assert.equal(f.ctx.pState.currentUser.username,'original');assert.equal(f.ctx.pState.currentUser.sessionToken,'original-session-marker');assert.equal(f.calls.filter(c=>c[0].startsWith('original-')).length,0);assert.ok(f.calls.filter(c=>c[0]==='cleanup').every(c=>c[1].scope==='local'));assert.equal(f.messages.length,1);assert.equal(f.messages[0][0],'error');assert.match(f.messages[0][1],match);assert.equal(f.ctx.pState.reauthLoading,false);
  }
  const missing=authFixture();missing.ctx.pState.turnstileToken=null;await missing.submit();assert.equal(missing.calls.filter(c=>c[0]==='verify').length,0);assert.equal(missing.writes.length,0);assert.match(missing.messages[0][1],/fresh verification/);
 });
 test('failed or zero-row username update never updates the cached alias or displays success',async()=>{
  for(const result of [{error:{message:'internal secret'}},{data:null},{data:{id:1,admin_username:'unexpected'}}]){
   const f=authFixture();f.original.from=()=>({update:()=>({eq:()=>({select:()=>({maybeSingle:async()=>result})})})});await f.submit();
-  assert.equal(f.ctx.PCFG.admin_username,'original');assert.equal(f.messages[0][0],'error');assert.match(f.messages[0][1],/could not be confirmed/);assert.doesNotMatch(f.messages[0][1],/internal secret/);
+  assert.equal(f.ctx.PCFG.admin_username,'original');assert.equal(f.ctx.pState.currentUser.username,'original');assert.equal(f.messages[0][0],'error');assert.match(f.messages[0][1],/could not be confirmed/);assert.doesNotMatch(f.messages[0][1],/internal secret/);
  }
 });
 test('overlapping username submission consumes the challenge once and does not duplicate the mutation',async()=>{

@@ -194,6 +194,7 @@ export async function handleFormSubmit(event) {
         notify.error('Username update could not be confirmed. Refresh Settings before retrying.'); return;
       }
       PCFG.admin_username = saved.admin_username;
+      pState.currentUser = { ...pState.currentUser, username: saved.admin_username };
       form.reset(); notify.success('Username updated.'); render();
     } catch (error) { notify.error(error); }
     finally { pState.reauthLoading = false; resetTurnstile(); }

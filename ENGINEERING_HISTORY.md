@@ -699,3 +699,28 @@ Use approved [CF-Pages-Skip] feature commit; push this branch and open a draft P
 development without merge/deployment. Current connectors cannot verify provider
 preview inventory. Future separately authorized deployment needs a merge message
 without the skip prefix and the documented hosted smoke gate.
+
+
+## 2026-10-11 — PR #3 alias display and real local dialog verification
+
+Follow-up to be40a0e on fix/platform-auth-and-dialogs. Confirmed username writes now
+update currentUser.username and PCFG.admin_username together before render; failure
+paths retain both prior aliases. Auth UUID/email/role/session metadata are preserved.
+Sidebar escapes the entered alias. Canonical login/restore fixtures cover continuity.
+
+PASS: 74 focused regressions, including original-session client spies and returned/
+thrown verification-session cleanup failures. PASS: six real local Chrome/Playwright
+viewport/theme groups with actual dialog/styles/events code, synthetic logout and no
+external requests: focus trap/restoration, keyboard/cancel/backdrop, one-shot confirmation,
+rerender, logout cancellation, scroll restoration and viewport containment. Existing
+bundled tooling was used; no install/repair. Reproducible optional harness:
+tests/dialogs-browser.mjs. The sandbox launcher encountered an unrelated locked drive;
+authorized local checks ran outside it without altering the drive.
+
+PASS: synthetic build, syntax, whitespace and sensitive-value checks. Vite's existing
+CJS deprecation remains. Real Supabase session-refresh behavior and full hosted Platform
+visual/accessibility checks remain unverified. The earlier browser SKIP is superseded
+only for the six specific local dialog groups. Minimal separately authorized reversible
+staging alias/refresh validation is documented, not executed. No hosted/database/Auth,
+Edge, production, Shop or Cloudflare changes. Same draft PR, skip-prefixed feature push,
+no merge or deployment.

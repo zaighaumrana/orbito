@@ -228,7 +228,7 @@ export function render() {
           <div style="color:#4a7a6e;font-size:12px;padding:6px 12px">
             Signed in as
             <strong style="color:#7aada0">
-              ${pState.currentUser.username || PCFG.admin_username || "admin"}
+              ${esc(pState.currentUser.username || PCFG.admin_username || "admin")}
             </strong>
             ${pState.currentUser.role !== "master_admin" ? `
             <span style="display:block;font-size:11px;margin-top:2px;color:#3d6659">

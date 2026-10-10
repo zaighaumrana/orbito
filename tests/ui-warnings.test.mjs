@@ -45,6 +45,15 @@ test('master and ordinary Settings password forms associate the actual account w
   else assert.match(html,/data-p-form="change-own-password"/);
  }
 });
+
+test('confirmed alias state renders consistently in sidebar and Settings as safe text',()=>{
+ const alias='<new-alias>';
+ const {ctx,app}=renderContext({authenticated:true,page:'settings',currentUser:{role:'master_admin',email:'master@example.test',username:alias}});
+ ctx.PCFG.admin_username=alias;ctx.render();
+ assert.match(app.innerHTML,/Signed in as[\s\S]*?<strong[^>]*>\s*&lt;new-alias&gt;\s*<\/strong>/);
+ assert.match(app.innerHTML,/name="new_username"[^>]*value="&lt;new-alias&gt;"/);
+ assert.doesNotMatch(app.innerHTML,/<new-alias>/);
+});
 test('mouse and native Auth submit each invoke the existing login once; disabled and unrelated forms do not invoke login',async()=>{
  for(const mode of ['click','submit']){
   const listeners={},attempts=[],errorEl={classList:{add(){},remove(){}},textContent:''};let prevented=0;

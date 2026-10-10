@@ -8,18 +8,18 @@ const strip=s=>s.replace(/^import .*$/gm,'').replace(/^export /gm,'');
 const clickBlock=action=>read('src/events.js').split(`if (action === "${action}") {`)[1].split('\n    /*')[0];
 
 test('existing real-email master login and alias login use Auth credentials then server identity',async()=>{
- for(const [name,aliasEmail,success] of [[identity.email,undefined,true],['existing-alias',identity.email,true],['wrong-alias',identity.email,false]]){
+ for(const [name,aliasEmail,success] of [[identity.email,undefined,true],['existing-alias',identity.email,true],['new-alias',identity.email,true],['wrong-alias',identity.email,false]]){
   const attempts=[],errorEl={classList:{add(){},remove(){}},textContent:''};
   const ctx={action:'do-login',PLATFORM_AUTH_EMAIL:aliasEmail,navigator:{onLine:true},crypto:{randomUUID:()=> 'session'},
    pState:{turnstileToken:'public-test-token',loginLoading:false},captchaBusy(){},render(){},_loginFail(){},
    document:{getElementById:id=>id==='platform-username'?{value:name}:id==='platform-pin'?{value:'Auth-only-password'}:errorEl},
-   loadOperatorIdentity:async()=>identity,loadConfig:async()=>{},loadPlatform:async()=>{},
+   loadOperatorIdentity:async()=>name==='new-alias'?{...identity,username:'new-alias'}:identity,loadConfig:async()=>{},loadPlatform:async()=>{},
    pb:{auth:{signOut:async()=>{},signInWithPassword:async input=>{attempts.push(input);return {data:{session:{user:{id:identity.auth_user_id}}}};}}}};
   ctx.cancelDialogs ||= ()=>{}; ctx.notify ||= {error:message=>assert.fail(String(message)),success:()=>{},info:()=>{}}; vm.createContext(ctx);
   const block=clickBlock('do-login');
   await vm.runInContext('async function login(){'+block+'\nlogin()',ctx);
   assert.equal(attempts[0].email,identity.email);assert.equal(Boolean(ctx.pState.authenticated),success);
-  if(success){assert.equal(ctx.pState.currentUser.auth_user_id,identity.auth_user_id);assert.equal(ctx.pState.currentUser.role,'master_admin');}
+  if(success){assert.equal(ctx.pState.currentUser.auth_user_id,identity.auth_user_id);assert.equal(ctx.pState.currentUser.role,'master_admin');if(name==='new-alias')assert.equal(ctx.pState.currentUser.username,'new-alias');}
  }
 });
 
@@ -27,10 +27,11 @@ test('restored real-email master session uses verified identity without VITE ali
  let checked=0;
  const ctx={URLSearchParams,window:{location:{search:'',pathname:'/settings'},addEventListener(){}},document:{addEventListener(){}},
   pState:{page:'login',authenticated:false},render(){},initEvents(){},validateSession:async()=>{},loadConfig:async()=>{},loadPlatform:async()=>{},
-  loadOperatorIdentity:async()=>{checked++;return identity;},alert:message=>{throw Error(message)},
+  loadOperatorIdentity:async()=>{checked++;return {...identity,username:'new-alias'};},alert:message=>{throw Error(message)},
   pb:{auth:{onAuthStateChange(){},getSession:async()=>({data:{session:{user:{id:identity.auth_user_id,email:identity.email}}}}),signOut:async()=>{}}}};
  ctx.cancelDialogs ||= ()=>{}; ctx.notify ||= {error:message=>assert.fail(String(message)),success:()=>{},info:()=>{}}; vm.createContext(ctx);await vm.runInContext(strip(read('src/main.js')),ctx);
  assert.equal(checked,1);assert.equal(ctx.pState.authenticated,true);assert.equal(ctx.pState.currentUser.auth_user_id,identity.auth_user_id);assert.equal(ctx.pState.page,'settings');
+ assert.equal(ctx.pState.currentUser.username,'new-alias');
 });
 
 test('alias edit reauthenticates actual Auth email; password changes only use Auth',async()=>{
