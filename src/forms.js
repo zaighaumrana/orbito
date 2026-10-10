@@ -3,7 +3,9 @@ import { publicEnvironment } from './lifecycle.js';
 import { validateOwner } from './onboarding.js';
 import { rpc, recordPayment, retryOperation } from "./operations.js";
 import { pState, PCFG } from "./state.js";
-import { pb, loadOperatorIdentity, loadPlatform, loadClientData, updateClientConfig } from "./supabase.js";
+import { pb, reauthenticateMaster, loadPlatform, loadClientData, updateClientConfig } from "./supabase.js";
+import { resetTurnstile, captchaBusy } from './turnstile.js';
+import { notify, showMessage, cancelDialogs } from './dialogs.js';
 import { render } from "./render.js";
 
 function validatePassword(pw) {
@@ -32,10 +34,10 @@ export async function handleFormSubmit(event) {
         const {data,error}=await pb.functions.invoke('platform-config',{body:{client_id:client.id,request_id:value('request_id'),action:'recover',recovery_action:action,reason:value('reason')}});
         if(error || data?.error){let body=data;try{body ||= await error.context.clone().json();}catch{}throw Error(body?.error || 'Recovery response unavailable. Refresh server status.');}
         if(data.config)pState.clientData.config={...client,...data.config};
-        if(data.state==='unresolved')alert('Read-back has not confirmed the intended change. The operation remains unresolved.');
+        if(data.state==='unresolved')await showMessage({title:'Operation unresolved',message:'Read-back has not confirmed the intended change. The operation remains unresolved. Refresh server status before retrying.'});
       }
       pState.modal=null;await loadPlatform();await loadClientData(pState.selectedClient);render();
-    }catch(error){alert(error.message);await loadPlatform();await loadClientData(pState.selectedClient);render();}
+    }catch(error){notify.error(error);await loadPlatform();await loadClientData(pState.selectedClient);render();}
     return;
   }
   if (type === 'client-provisioning') { await submitProvisioning(form, event.submitter?.value); return; }
@@ -53,8 +55,8 @@ export async function handleFormSubmit(event) {
   /* ── Add Client ── */
   if (type === "add-client") {
     let owner;
-    try { owner = validateOwner(data.owner_name, data.owner_email); } catch (error) { alert(error.message); return; }
-    if (data.ems_track_breaks === 'true' && data.plan !== 'Pro Plus') { alert('Break Tracking requires Pro Plus / EMS.'); return; }
+    try { owner = validateOwner(data.owner_name, data.owner_email); } catch (error) { notify.error(error.message); return; }
+    if (data.ems_track_breaks === 'true' && data.plan !== 'Pro Plus') { notify.error('Break Tracking requires Pro Plus / EMS.'); return; }
     const { data: savedClient, error } = await pb.from("clients").insert({
       ...owner,
       onboarding_version: 2,
@@ -75,7 +77,7 @@ export async function handleFormSubmit(event) {
       supabase_anon:      "",
       shop_url:           data.shop_url || "",
     }).select().single();
-    if (error) { alert("Error: " + error.message); return; }
+    if (error) { notify.error(error); return; }
 
     pState.selectedClient = savedClient;
     pState.page = 'client-detail';
@@ -96,7 +98,7 @@ export async function handleFormSubmit(event) {
       ...(pState.selectedClient.onboarding_version === 2 ? { pairing_mode:data.pairing_mode } : {}),
 
     }).eq("id", pState.selectedClient.id);
-    if (error) { alert("Error: " + error.message); return; }
+    if (error) { notify.error(error); return; }
     pState.selectedClient = { ...pState.selectedClient, ...data };
     if (pState.selectedClient.onboarding_version === 2 && pState.clientData.provisioning?.connection?.verified_at) {
       const modules = await rpc('platform_plan_entitlements',{p_plan:data.plan,p_inventory:pState.selectedClient.inventory_billable,p_breaks:pState.selectedClient.ems_track_breaks});
@@ -133,13 +135,14 @@ export async function handleFormSubmit(event) {
   /* ── Add Platform User (invite flow) ── */
   if (type === "add-platform-user") {
     if (pState.currentUser.role !== "master_admin") {
-      alert("Only Master Admin can add users."); return;
+      notify.error("Only Master Admin can add users."); return;
     }
-    const { error: fnErr } = await pb.functions.invoke("create-platform-user", {
+    const { data: invitation, error: fnErr } = await pb.functions.invoke("create-platform-user", {
       body: { email: data.email, name: data.name, role: data.role },
     });
-    if (fnErr) { alert("Error sending invite: " + fnErr.message); return; }
-    alert("Invite sent. They'll receive an email to set up their account.");
+    if (fnErr) { notify.error('Invitation could not be confirmed. Review the server audit before retrying.'); return; }
+    if (invitation?.already_invited) notify.info('This invitation was already recorded. No new invitation email was sent.');
+    else notify.success("Invite sent. They'll receive an email to set up their account.");
     pState.modal = null;
     await loadPlatform(); render(); return;
   }
@@ -147,28 +150,29 @@ export async function handleFormSubmit(event) {
   /* ── Edit Platform User ── */
   if (type === "edit-platform-user") {
     if (pState.currentUser.role !== "master_admin") {
-      alert("Only Master Admin can edit users."); return;
+      notify.error("Only Master Admin can edit users."); return;
     }
     if (data.password) {
       const pwErr = validatePassword(data.password);
-      if (pwErr) { alert(pwErr); return; }
+      if (pwErr) { notify.error(pwErr); return; }
     }
     const payload = { id: data.id, name: data.name, email: data.email, role: data.role };
     if (data.password) payload.password = data.password;
     const { error: fnErr } = await pb.functions.invoke("update-platform-user", { body: payload });
-    if (fnErr) { alert("Team update failed. Review the server audit before retrying: " + fnErr.message); return; }
+    if (fnErr) { notify.error('Team update could not be confirmed. Review the server audit before retrying.'); return; }
     pState.modal = null;
     await loadPlatform(); render(); return;
   }
 
   /* ── Change Own Password (non-admin roles) ── */
   if (type === "change-own-password") {
-    if (data.newpass !== data.confirm) { alert("Passwords don't match."); return; }
+    if (data.newpass !== data.confirm) { notify.error("Passwords don't match."); return; }
     const pwErr = validatePassword(data.newpass);
-    if (pwErr) { alert(pwErr); return; }
+    if (pwErr) { notify.error(pwErr); return; }
     const { error } = await pb.auth.updateUser({ password: data.newpass });
-    if (error) { alert("Error: " + error.message); return; }
-    alert("Password updated. Please log in again.");
+    if (error) { notify.error(error); return; }
+    notify.success("Password updated. Please log in again.");
+    cancelDialogs();
     await pb.auth.signOut();
     pState.authenticated = false;
     pState.page = "login";
@@ -177,26 +181,35 @@ export async function handleFormSubmit(event) {
 
   /* ── Change Master Admin Username ── */
   if (type === "change-username") {
-    const { error: authErr } = await pb.auth.signInWithPassword({
-      email: (await loadOperatorIdentity()).email, password: data.current,
-    });
-    if (authErr) { alert("Current password is wrong."); return; }
-    const { error } = await pb.from("platform_config")
-      .update({ admin_username: data.new_username }).eq("id", 1);
-    if (error) { alert("Error: " + error.message); return; }
-    PCFG.admin_username = data.new_username;
-    alert("Username updated.");
-    render(); return;
+    if (pState.reauthLoading) return;
+    const username = data.new_username?.trim();
+    if (!username || username.length > 100) { notify.error('Enter a username of 1–100 characters.'); return; }
+    const token = pState.turnstileToken;
+    pState.turnstileToken = null; pState.reauthLoading = true; captchaBusy();
+    try {
+      await reauthenticateMaster(data.current, token);
+      const { data: saved, error } = await pb.from("platform_config")
+        .update({ admin_username: username }).eq("id", 1).select('id,admin_username').maybeSingle();
+      if (error || saved?.id !== 1 || saved.admin_username !== username) {
+        notify.error('Username update could not be confirmed. Refresh Settings before retrying.'); return;
+      }
+      PCFG.admin_username = saved.admin_username;
+      pState.currentUser = { ...pState.currentUser, username: saved.admin_username };
+      form.reset(); notify.success('Username updated.'); render();
+    } catch (error) { notify.error(error); }
+    finally { pState.reauthLoading = false; resetTurnstile(); }
+    return;
   }
 
   /* ── Change Master Admin Password ── */
   if (type === "change-password") {
-    if (data.newpass !== data.confirm) { alert("Passwords don't match."); return; }
+    if (data.newpass !== data.confirm) { notify.error("Passwords don't match."); return; }
     const pwErr = validatePassword(data.newpass);
-    if (pwErr) { alert(pwErr); return; }
+    if (pwErr) { notify.error(pwErr); return; }
     const { error } = await pb.auth.updateUser({ password: data.newpass });
-    if (error) { alert("Error: " + error.message); return; }
-    alert("Password updated. Please log in again.");
+    if (error) { notify.error(error); return; }
+    notify.success("Password updated. Please log in again.");
+    cancelDialogs();
     await pb.auth.signOut();
     pState.authenticated = false;
     pState.page = "login";

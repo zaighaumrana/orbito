@@ -24,7 +24,7 @@ for (const action of ['bootstrap-shop','onboarding-status','repair-support-acces
    render:()=>assert.equal(form.dataset.busy,'true'),
    alert:message=>assert.fail(message),
   };
-  vm.createContext(ctx);
+  ctx.cancelDialogs ||= ()=>{}; ctx.notify ||= {error:message=>assert.fail(String(message)),success:()=>{},info:()=>{}}; vm.createContext(ctx);
   for(const path of ['src/provisioning.js','src/forms.js'])vm.runInContext(read(path).replace(/^import .*$/gm,'').replace(/^export /gm,''),ctx);
   vm.runInContext(read('src/main.js').split('initEvents();')[0].replace(/^import .*$/gm,''),ctx);
   const pending=submit(event);

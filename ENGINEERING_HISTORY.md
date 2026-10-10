@@ -654,3 +654,73 @@ the authorized branch push; open the development PR without merging. A future
 approved merge must omit that prefix to permit the intended staging deployment.
 References: https://developers.cloudflare.com/pages/configuration/serving-pages/
 and https://developers.cloudflare.com/pages/configuration/git-integration/github-integration/.
+
+
+## 2026-10-10 — CAPTCHA-aware username confirmation and in-app dialogs
+
+Frontend branch fix/platform-auth-and-dialogs starts from synchronized development
+cdf94107201382dbd95e741d59e1923f819973d9. The owner supplied the actual failing Auth
+response captcha_failed / no captcha_token found. Change Username omitted the token
+and mislabeled all failures as an incorrect password; normal login already included
+CAPTCHA. No hosted configuration or real credential change was made for diagnosis.
+
+Settings now uses fresh Turnstile verification. Password confirmation uses the
+canonical Auth email through a separate reused memory-only client, preserving the
+original client's persisted session and excluding cross-client broadcasts. Master
+UUID/role/email are rechecked; verifier-only local signout cleanup is required before
+the alias update. Database-returned id/alias must confirm success; failures and
+zero-row updates never update local alias or display success. Auth email is unchanged.
+Distinct safe errors and consumed/reset tokens preserve password/CAPTCHA controls.
+Provider single-session enforcement and original-session refresh continuity still
+need owner-authorized hosted verification; no deployed fix is claimed.
+
+A reusable body-level toast/confirm/input/acknowledgment layer replaces all 39 native
+calls (36 alerts, three confirms, no prompts). Persistent errors, explicit destructive
+confirmation, cancellation, focus trapping/restoration, inert/scroll restoration,
+queue cleanup, text-only rendering, theme variables and reduced-motion styling are
+included. Team removal rechecks canonical identity after confirmation; provisioning
+keeps original request IDs, retries and busy guards. Unresolved recovery blocks for
+acknowledgment. Optional invitation notices preserve uncertain-outcome guidance.
+Printing, permissions, password managers, CAPTCHA and file download UI remain native.
+Shop styling was inspected read-only; no Shop changes. Complete inventory, tests,
+limitations and follow-up smoke checklist: docs/PLATFORM_AUTH_DIALOG_REVIEW.md.
+
+PASS: 193 relevant local cases including 19 new focused cases, synthetic frontend
+build, syntax, whitespace and unchanged circular-import components. Existing
+fixtures were adapted to asynchronous dialogs; initial fixture failures were fixed.
+An attempted opt-in bootstrap database suite failed its unset disposable-container
+prerequisite before executing groups; no database validation is claimed. Browser
+automation fails initialization (os error 3): live browser/layout/accessibility and
+hosted credential/write tests are SKIP. Vite's CJS deprecation remains.
+
+No database/migration/RLS, deployed function, Auth config, secret, production,
+Cloudflare, public routing, package, protected branch or release-artifact change.
+Use approved [CF-Pages-Skip] feature commit; push this branch and open a draft PR to
+development without merge/deployment. Current connectors cannot verify provider
+preview inventory. Future separately authorized deployment needs a merge message
+without the skip prefix and the documented hosted smoke gate.
+
+
+## 2026-10-11 — PR #3 alias display and real local dialog verification
+
+Follow-up to be40a0e on fix/platform-auth-and-dialogs. Confirmed username writes now
+update currentUser.username and PCFG.admin_username together before render; failure
+paths retain both prior aliases. Auth UUID/email/role/session metadata are preserved.
+Sidebar escapes the entered alias. Canonical login/restore fixtures cover continuity.
+
+PASS: 74 focused regressions, including original-session client spies and returned/
+thrown verification-session cleanup failures. PASS: six real local Chrome/Playwright
+viewport/theme groups with actual dialog/styles/events code, synthetic logout and no
+external requests: focus trap/restoration, keyboard/cancel/backdrop, one-shot confirmation,
+rerender, logout cancellation, scroll restoration and viewport containment. Existing
+bundled tooling was used; no install/repair. Reproducible optional harness:
+tests/dialogs-browser.mjs. The sandbox launcher encountered an unrelated locked drive;
+authorized local checks ran outside it without altering the drive.
+
+PASS: synthetic build, syntax, whitespace and sensitive-value checks. Vite's existing
+CJS deprecation remains. Real Supabase session-refresh behavior and full hosted Platform
+visual/accessibility checks remain unverified. The earlier browser SKIP is superseded
+only for the six specific local dialog groups. Minimal separately authorized reversible
+staging alias/refresh validation is documented, not executed. No hosted/database/Auth,
+Edge, production, Shop or Cloudflare changes. Same draft PR, skip-prefixed feature push,
+no merge or deployment.

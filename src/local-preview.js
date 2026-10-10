@@ -1,3 +1,4 @@
+import { notify } from './dialogs.js';
 // Development-only, read-only preview of production renderers. Not part of index.html/build.
 import './styles.css';
 import { pState } from './state.js';
@@ -35,6 +36,6 @@ document.addEventListener('click',e=>{
  if(button.dataset.preview){page=button.dataset.preview;show();return;}
  if(button.dataset.pAction==='open-client'){selectClient(Number(button.dataset.pId));page='detail';show();return;}
  if(button.dataset.pPage==='clients'){page='clients';show();return;}
- e.preventDefault();alert('Read-only sample preview. This action becomes available against the deployed Platform backend.');
+ e.preventDefault();notify.info('Read-only sample preview. This action becomes available against the deployed Platform backend.');
 });
 show();

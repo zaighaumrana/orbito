@@ -1,3 +1,4 @@
+import { notify } from './dialogs.js';
 import { retryOperation, rpc, esc } from "./operations.js";
 import { pState } from "./state.js";
 import { pb } from "./supabase.js";
@@ -244,7 +245,7 @@ function buildInvoiceHTML(client, invoice, payments, totalPaid, usageLogs, inclu
 function printInNewWindow(htmlContent) {
   const printWindow = window.open("", "_blank", "width=900,height=700");
   if (!printWindow) {
-    alert("Pop-up blocked. Please allow pop-ups for this site and try again.");
+    notify.error("Pop-up blocked. Please allow pop-ups for this site and try again.");
     return;
   }
   printWindow.document.write(`<!DOCTYPE html>

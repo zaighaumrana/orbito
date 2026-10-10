@@ -1,3 +1,4 @@
+import { cancelDialogs } from './dialogs.js';
 import { pState, PCFG } from "./state.js";
 import { pb } from "./supabase.js";
 
@@ -30,6 +31,7 @@ export async function validateSession(onInvalid) {
   if (!pState.authenticated) return;
   const { data, error } = await pb.auth.getUser();
   if (error || !data.user) {
+    cancelDialogs();
     await pb.auth.signOut(); pState.authenticated = false; pState.page = 'login';
     // The caller already imports render. Avoid a helpers → render → pages cycle.
     onInvalid();

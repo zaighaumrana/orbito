@@ -149,6 +149,6 @@ test('frontend edit and removal never split team/Auth writes or trust cached Aut
  await ctx.handleFormSubmit({preventDefault(){},target:{dataset:{pForm:'edit-platform-user'},values:{id:rowId,name:'Team',email:'team@example.test',role:'billing_person'}}});
  assert.equal(ctx.calls[0][0],'update-platform-user');assert.equal(ctx.calls[0][1].body.id,rowId);assert.ok(!('auth_user_id' in ctx.calls[0][1].body));
  const block=read('src/events.js').split('if (action === "remove-platform-user") {')[1].split('\n    /*')[0];
- ctx.confirm=()=>true;ctx.el={dataset:{pId:rowId}};
+ ctx.confirmDialog=async()=>true;ctx.loadOperatorIdentity=async()=>({role:'master_admin'});ctx.el={dataset:{pId:rowId},isConnected:true};
  await vm.runInContext('async function remove(){'+block+'\nremove()',ctx);assert.equal(ctx.calls[1][0],'delete-platform-user');assert.equal(ctx.calls[1][1].body.id,rowId);
 });
