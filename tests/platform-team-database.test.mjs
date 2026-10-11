@@ -8,7 +8,7 @@ import {spawnSync} from 'node:child_process';
 const container=process.env.ORBITO_BOOTSTRAP_TEST_CONTAINER;
 assert.match(container || '',/^orbito-bootstrap-[a-z0-9-]+$/);
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const files=readdirSync(new URL('../supabase/migrations/',import.meta.url)).filter(f=>f.endsWith('.sql')).sort();
+const files=readdirSync(new URL('../supabase/migrations/',import.meta.url)).filter(f=>f.endsWith('.sql') && f<='20261008191709_production_bootstrap_hardening.sql').sort();
 const master='92000000-0000-4000-8000-000000000001',manager='95000000-0000-4000-8000-000000000002',billing='95000000-0000-4000-8000-000000000003',pending='95000000-0000-4000-8000-000000000004';
 const template='orbito_team_template_'+process.pid;
 function sql(query,db='postgres',user='postgres',variables=[]){

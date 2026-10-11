@@ -724,3 +724,71 @@ only for the six specific local dialog groups. Minimal separately authorized rev
 staging alias/refresh validation is documented, not executed. No hosted/database/Auth,
 Edge, production, Shop or Cloudflare changes. Same draft PR, skip-prefixed feature push,
 no merge or deployment.
+
+## 2026-10-11 — Invitation onboarding and secure team lifecycle V2 (local)
+
+Branch: `feature/platform-team-lifecycle-v2`, based on verified clean `development`
+at `0dbde676ca57ed1599a295e221d274ef080cac41`.
+
+### Purpose / changes
+
+Corrected invitation callback routing and unchecked acceptance; replaced ambiguous
+Remove with distinct Active/Pending/Inactive/Archived management. Pending sessions
+enter verified setup on SIGNED_IN/INITIAL_SESSION; existing Master sessions are
+not activated by reset query hints. Logout/finish clears hints and queued callbacks.
+Server verifies password saving before checked acceptance and supports a saved-
+password activation retry without another provider password write.
+
+Reactivate now initiates Supabase recovery for the original Auth UUID and keeps
+Inactive until verified new-password setup; no separate reset button or new Auth
+account. Deactivation retains role/identity, cancels setup and denies old JWT
+operator authority. Permanent deletion requires canonical confirmed Master,
+current password, fresh CAPTCHA, isolated verification-session cleanup and repeat
+authorization. Durable request tracking revokes access before Auth dispatch, then
+archives/removes the live row only on database-proven absence with required audit.
+Uncertain deletion only reconciles absence; it never dispatches another deletion.
+
+CLI-generated forward migration `20261010233446` adds immutable archives, private
+operations, mapping constraints, trusted transitions and narrowly granted RPCs;
+closes browser/service direct team mutation and historical JWT-only acceptance.
+All 12 historical migrations and the Shop release artifact remain unchanged.
+The existing immutable audit trigger is preserved after local SQL caught a collision.
+Legacy Inactive origins stay unknown; missing/unlinked identities are never adopted,
+recreated or deleted by email. Ambiguous Auth links, Storage ownership and custom
+references fail closed. Older synthetic SQL fixtures now seed only as their owner
+with the guard flag narrowly scoped; ordinary authorization checks remain intact.
+
+### Decisions / release gates
+
+Native recovery requires a signed Supabase Send Email Hook; UI checks are not a
+claim of provider enforcement. The new hook replaces all SMTP and explicitly uses
+Resend, requiring owner-approved transport/sender/templates before enablement.
+The readiness secret is an operator attestation, not proof of hook configuration.
+Unsupported enabled notification types fail closed. Inactive's requested message
+deliberately discloses account status after CAPTCHA; unknown accounts stay generic.
+Active delivery is background/best effort with sanitized request/outcome auditing.
+Previously issued links cannot activate Inactive without the approved operation.
+
+Recovery proofs are memory-only in the browser and hash-only in private database
+state, with a 30-minute operation deadline plus native OTP expiry. Reload after
+scrubbing may require Master cancellation/new recovery; uncertain password writes
+remain restricted. Native provider session refresh/single-session behavior during
+destructive reauthentication still needs approved staging verification.
+
+### Validation / Git / deployment
+
+PASS: 221 broad local regressions, six PG17 bootstrap groups, two canonical pre/post
+UUID groups, six new PG17 lifecycle groups (including audit failure, stale JWT,
+Storage, tombstones and real concurrency), actual pinned CLI fresh/staging history-
+insertion rejection/full rollback/retry with 13 genuine rows, two actual signature
+tests, eight native Deno entrypoint checks, six real Chrome viewport/theme groups
+and synthetic Vite build. Auth/mail/CAPTCHA doubles and synthetic Storage fixture
+are explicit. Development failures in duplicate-trigger/fixture/assertion setup
+were corrected; final reruns pass. Existing Vite CJS warning remains.
+
+SKIP: hosted Auth/OTP/JWT gateway/email delivery, original refresh-session continuity,
+real employee writes/deletion and hosted visual smoke. No hosted connection, SQL,
+Auth/config, functions, frontend, Cloudflare, production or Shop changes. Source,
+tests, dependency integrity lock and rollout documentation only; authorized feature
+commit/push uses `[CF-Pages-Skip]` and a draft PR to development, no merge. Recovery
+limitations and ordered separate-approval gates: `docs/PLATFORM_TEAM_LIFECYCLE_REVIEW.md`.

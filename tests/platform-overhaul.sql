@@ -4,7 +4,10 @@ create function pg_temp.assert(ok boolean,msg text) returns void language plpgsq
 insert into auth.users(id,email,email_confirmed_at) values('99000000-0000-4000-8000-000000000001','fixture-master@example.test',now()),('99000000-0000-4000-8000-000000000002','overhaul-manager@example.test',now());
 select platform_private.initialize_config('Fixture master','Disposable lifecycle fixture');
 select platform_private.bind_master('99000000-0000-4000-8000-000000000001',null,'Disposable lifecycle fixture');
+-- Fixture seeding as database owner only; production mutations use audited RPCs.
+select set_config('platform.team_transition','trusted',true);
 insert into public.platform_users(auth_user_id,name,email,role,status) values('99000000-0000-4000-8000-000000000002','Synthetic manager','overhaul-manager@example.test','portfolio_manager','Active');
+select set_config('platform.team_transition','',true);
 select set_config('request.jwt.claim.sub','99000000-0000-4000-8000-000000000001',true);
 insert into public.clients(id,name,status,supabase_url,supabase_anon) values(9100,'Synthetic lifecycle','Active','https://cdefghijklmnopqrstuv.supabase.co',''),(9101,'Synthetic gone','Suspended','https://abcdefghijklmnopqrst.supabase.co','');
 select public.platform_begin_config(9100,'99000000-0000-4000-8000-000000000010','{"suspended":true}');

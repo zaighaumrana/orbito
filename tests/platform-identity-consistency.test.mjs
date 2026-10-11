@@ -14,7 +14,7 @@ test('existing real-email master login and alias login use Auth credentials then
    pState:{turnstileToken:'public-test-token',loginLoading:false},captchaBusy(){},render(){},_loginFail(){},
    document:{getElementById:id=>id==='platform-username'?{value:name}:id==='platform-pin'?{value:'Auth-only-password'}:errorEl},
    loadOperatorIdentity:async()=>name==='new-alias'?{...identity,username:'new-alias'}:identity,loadConfig:async()=>{},loadPlatform:async()=>{},
-   pb:{auth:{signOut:async()=>{},signInWithPassword:async input=>{attempts.push(input);return {data:{session:{user:{id:identity.auth_user_id}}}};}}}};
+   pb:{rpc:async()=>({data:{kind:'active'}}),auth:{signOut:async()=>{},signInWithPassword:async input=>{attempts.push(input);return {data:{session:{user:{id:identity.auth_user_id}}}};}}}};
   ctx.cancelDialogs ||= ()=>{}; ctx.notify ||= {error:message=>assert.fail(String(message)),success:()=>{},info:()=>{}}; vm.createContext(ctx);
   const block=clickBlock('do-login');
   await vm.runInContext('async function login(){'+block+'\nlogin()',ctx);
@@ -26,7 +26,7 @@ test('existing real-email master login and alias login use Auth credentials then
 test('restored real-email master session uses verified identity without VITE alias inference',async()=>{
  let checked=0;
  const ctx={URLSearchParams,window:{location:{search:'',pathname:'/settings'},addEventListener(){}},document:{addEventListener(){}},
-  pState:{page:'login',authenticated:false},render(){},initEvents(){},validateSession:async()=>{},loadConfig:async()=>{},loadPlatform:async()=>{},
+  createSetupRouter:()=>({boot:async()=>false,event(){}}),pState:{page:'login',authenticated:false},render(){},initEvents(){},validateSession:async()=>{},loadConfig:async()=>{},loadPlatform:async()=>{},
   loadOperatorIdentity:async()=>{checked++;return {...identity,username:'new-alias'};},alert:message=>{throw Error(message)},
   pb:{auth:{onAuthStateChange(){},getSession:async()=>({data:{session:{user:{id:identity.auth_user_id,email:identity.email}}}}),signOut:async()=>{}}}};
  ctx.cancelDialogs ||= ()=>{}; ctx.notify ||= {error:message=>assert.fail(String(message)),success:()=>{},info:()=>{}}; vm.createContext(ctx);await vm.runInContext(strip(read('src/main.js')),ctx);
@@ -48,16 +48,14 @@ test('alias edit reauthenticates actual Auth email; password changes only use Au
  assert.equal(auth[1][0],'password');assert.equal(auth[1][1].password,'NewAuthPassword1!');assert.equal(writes.length,1);
 });
 
-test('recovery targets entered Auth email and establishes password only in Auth',async()=>{
+test('recovery and password setup use checked server boundaries, not direct browser recovery or activation',async()=>{
  const calls=[];const nodes=Object.fromEntries(['forgot-email','forgot-status','reset-newpass','reset-confirm','reset-status'].map(k=>[k,{value:k==='forgot-email'?identity.email:'NewAuthPassword1!',textContent:'',style:{cssText:''},classList:{remove(){}}}]));
- const ctx={navigator:{onLine:true},window:{location:{origin:'https://platform.example.test'}},pState:{turnstileToken:'public-test-token'},document:{getElementById:id=>nodes[id]},render(){},captchaBusy(){},setTimeout(){},
-  pb:{auth:{resetPasswordForEmail:async(...args)=>{calls.push(['reset',...args]);return{};},updateUser:async value=>{calls.push(['password',value]);return{};},getUser:async()=>({data:{user:{email:identity.email}}}),signOut:async()=>{}},rpc:async name=>calls.push(['rpc',name])}};
- ctx.cancelDialogs ||= ()=>{}; ctx.notify ||= {error:message=>assert.fail(String(message)),success:()=>{},info:()=>{}}; vm.createContext(ctx);
+ const ctx={el:{disabled:false,isConnected:true},navigator:{onLine:true},window:{location:{origin:'https://platform.example.test'}},pState:{turnstileToken:'public-test-token',passwordFlow:{requestId:'synthetic-request'}},document:{getElementById:id=>nodes[id]},render(){},captchaBusy(){},setTimeout(){},pb:{auth:{signOut:async()=>{}},functions:{invoke:async(name,{body})=>{calls.push([name,body]);return {data:{success:true}};}}}};
+ ctx.notify={error:message=>assert.fail(String(message))};vm.createContext(ctx);
  await vm.runInContext('async function reset(){'+clickBlock('send-reset-link')+'\nreset()',ctx);
  await vm.runInContext('async function confirm(){'+clickBlock('confirm-reset-password')+'\nconfirm()',ctx);
- assert.equal(calls[0][1],identity.email);assert.equal(calls[1][0],'password');assert.equal(calls[1][1].password,'NewAuthPassword1!');assert.equal(calls[2][1],'platform_accept_invite');
+ assert.equal(calls[0][0],'platform-password-recovery');assert.equal(calls[0][1].email,identity.email);assert.equal(calls[1][0],'platform-password-setup');assert.equal(calls[1][1].password,'NewAuthPassword1!');assert.equal(calls.length,2);
 });
-
 test('checkpoint preserves deployed operator_role rather than installing a placeholder master',()=>{
  for(const file of ['20261001100000_onboarding_v2_client_write_grants.sql','20261001120000_onboarding_stabilization.sql']){
   const source=read('supabase/migrations/'+file);assert.doesNotMatch(source,/create(?: or replace)? function platform_private\.operator_role|insert into auth\.users|platformadmin@retailos\.internal/);

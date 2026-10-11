@@ -189,6 +189,14 @@ export function render() {
   }
 
   if (!pState.authenticated) {
+    if (pState.authRouting) {
+      app.innerHTML='<main class="auth-wait" role="status" style="padding:32px">Verifying your account…</main>';
+      return;
+    }
+    if (pState.page === 'setup-error') {
+      app.innerHTML=`<main class="card" style="max-width:460px;margin:32px auto" role="alert"><h2>Account setup unavailable</h2><p>${esc(pState.setupMessage || 'Account verification failed.')}</p><button class="secondary-button" data-p-action="retry-setup">Retry verification</button><button class="secondary-button" data-p-action="back-to-login">Return to login</button></main>`;
+      return;
+    }
     if (pState.page === "forgot-password") {
       app.innerHTML = forgotPasswordPage();
       void mountTurnstile();

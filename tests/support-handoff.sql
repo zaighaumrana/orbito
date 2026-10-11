@@ -1,6 +1,9 @@
 -- Disposable local fixture; no hosted credentials or connections.
 insert into auth.users(id,email,email_confirmed_at) values('99000000-0000-4000-8000-000000000001','canonical-master@example.test',now()),('99000000-0000-4000-8000-000000000002','manager@example.test',now());
+-- Fixture seeding as database owner only; production mutations use audited RPCs.
+select set_config('platform.team_transition','trusted',false);
 insert into public.platform_users(auth_user_id,name,email,role,status) values('99000000-0000-4000-8000-000000000002','Manager','manager@example.test','portfolio_manager','Active');
+select set_config('platform.team_transition','',false);
 select platform_private.initialize_config('Fixture master','Disposable handoff fixture');
 select platform_private.bind_master('99000000-0000-4000-8000-000000000001',null,'Disposable handoff fixture');
 select set_config('request.jwt.claim.sub','99000000-0000-4000-8000-000000000001',false);

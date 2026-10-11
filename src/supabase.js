@@ -81,15 +81,18 @@ async function allRows(table, order, select = '*') {
   }
 }
 export async function loadPlatform() {
-  const [clients,support,usage,invoices,rateLog,payments,credits,platformUsers,summary] = await Promise.all([
+  const [clients,support,usage,invoices,rateLog,payments,credits,platformUsers,summary,teamArchive,teamHistory] = await Promise.all([
     allRows('clients','id'), allRows('support_tickets','id'),
     allRows('usage_logs','id'), allRows('billing_cycles','id'), allRows('pricing_rate_log','id'),
     allRows('payments','id'), allRows('client_credit','id'),
-    allRows('platform_users','id','id,auth_user_id,name,email,role,status,created_at'),
+    allRows('platform_users','id','id,auth_user_id,name,email,role,status,created_at,suspended_from'),
     pb.rpc('platform_usage_summary'),
+    pState.currentUser.role==='master_admin'?allRows('platform_team_archive','deleted_at'):[],
+    pState.currentUser.role==='master_admin'?pb.rpc('platform_team_history'):{data:{operations:[]}},
   ]);
   if (summary.error) throw summary.error;
-  Object.assign(pState.data, { clients,support,usage,invoices,rateLog,payments,credits,platformUsers,usageSummary: summary.data });
+  if(teamHistory.error)throw teamHistory.error;
+  Object.assign(pState.data, { clients,support,usage,invoices,rateLog,payments,credits,platformUsers,usageSummary: summary.data,teamArchive,teamOperations:teamHistory.data.operations });
   if (pState.selectedClient) pState.selectedClient = clients.find(c => c.id === pState.selectedClient.id) || null;
 }
 export async function loadClientData(client) {

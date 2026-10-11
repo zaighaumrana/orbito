@@ -9,9 +9,12 @@ insert into auth.users(id,email,email_confirmed_at) values
  ('91000000-0000-4000-8000-000000000004','unknown@example.test',now());
 select platform_private.initialize_config('Fixture master','Disposable stabilization fixture');
 select platform_private.bind_master('91000000-0000-4000-8000-000000000001',null,'Disposable stabilization fixture');
+-- Fixture seeding as database owner only; production mutations use audited RPCs.
+select set_config('platform.team_transition','trusted',true);
 insert into public.platform_users(auth_user_id,name,email,role,status) values
  ('91000000-0000-4000-8000-000000000002','Manager','manager@example.test','portfolio_manager','Active'),
  ('91000000-0000-4000-8000-000000000003','Billing','billing@example.test','billing_person','Active');
+select set_config('platform.team_transition','',true);
 select set_config('request.jwt.claim.sub','91000000-0000-4000-8000-000000000002',true);
 set local role authenticated;
 insert into public.clients(id,name,supabase_url,supabase_anon,shop_url,currency,onboarding_version,owner_name,owner_email,pairing_mode,plan)

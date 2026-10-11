@@ -239,3 +239,32 @@ test('rerun the six real database groups against the same owned PG17/Auth/Vault 
  successful(result);assert.match(result.stdout,/pass 6/);assert.match(result.stdout,/fail 0/);assert.match(result.stdout,/skipped 0/);
  t.diagnostic(redact(result.stdout));
 });
+
+// Forward feature coverage uses the same actual CLI, isolation and cleanup.
+// The six historical bootstrap/history tests above retain their original behavior.
+for(const scenario of ['fresh','staging'])test('team lifecycle CLI history rejection, full rollback and retry: '+scenario,()=>fixture(scenario,'team_forward',(db,dir)=>{
+ successful(push(db,dir));
+ if(scenario==='fresh')sql(`insert into auth.users(id,email,email_confirmed_at) values('${old}','fresh-master@example.test',now());select platform_private.initialize_config('Fresh fixture','Reviewed fixture');select platform_private.bind_master('${old}',null,'Reviewed fixture');`,db);
+ assert.equal(sql('select count(*) from supabase_migrations.schema_migrations',db),'12');
+ const teamVersion='20261010233446',teamFile=teamVersion+'_platform_team_lifecycle_v2.sql',before=snapshot(db);
+ copyFileSync(join(root,'supabase/migrations',teamFile),join(dir,'supabase/migrations',teamFile));
+ sql(`create function supabase_migrations.team_history_fault() returns trigger language plpgsql as $$declare s text;begin
+ if new.version='${teamVersion}' then
+  if to_regclass('public.platform_team_archive') is null or to_regprocedure('public.platform_team_password_step(uuid,uuid,text,text)') is null
+   or has_table_privilege('service_role','public.platform_users','INSERT,UPDATE,DELETE,TRUNCATE') then raise exception 'Team SQL did not complete';end if;
+  foreach s in array new.statements loop
+   s:=upper(regexp_replace(s,'^([[:space:]]|--[^\\n]*\\n)*','','g'));
+   if s !~ '^(CREATE (OR REPLACE )?(TABLE|FUNCTION|TRIGGER|POLICY|UNIQUE INDEX) |ALTER TABLE |DROP POLICY |REVOKE |GRANT |DO[[:space:]])' then raise exception 'Pipeline-incompatible team statement: %',left(s,70);end if;
+  end loop;
+  raise exception 'Injected team history rejection after completed SQL';
+ end if;return new;end$$;
+ create trigger team_history_fault before insert on supabase_migrations.schema_migrations for each row execute function supabase_migrations.team_history_fault();`,db);
+ const failed=push(db,dir);assert.notEqual(failed.status,0);assert.match(failed.stderr+failed.stdout,/Injected team history rejection after completed SQL/);
+ assert.equal(sql("select to_regclass('public.platform_team_archive') is null and to_regprocedure('public.platform_team_password_step(uuid,uuid,text,text)') is null",db),'t');
+ assert.equal(sql(`select count(*) from supabase_migrations.schema_migrations where version='${teamVersion}'`,db),'0');
+ assert.deepEqual(snapshot(db),before);assert.equal(canonical(db,old),'master_admin');
+ sql('drop trigger team_history_fault on supabase_migrations.schema_migrations;drop function supabase_migrations.team_history_fault();',db);
+ successful(push(db,dir));assert.equal(sql('select count(*) from supabase_migrations.schema_migrations',db),'13');
+ assert.equal(sql(`select count(*)=1 and bool_and(cardinality(statements)>0) from supabase_migrations.schema_migrations where version='${teamVersion}'`,db),'t');
+ assert.equal(canonical(db,old),'master_admin');const committed=snapshot(db);successful(push(db,dir));assert.deepEqual(snapshot(db),committed);
+}));

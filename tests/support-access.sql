@@ -2,7 +2,10 @@
 begin;
 create function pg_temp.support_assert(ok boolean,msg text) returns void language plpgsql as $$begin if ok is distinct from true then raise exception 'ASSERT: %',msg;end if;end$$;
 insert into auth.users(id,email,email_confirmed_at) values('98000000-0000-4000-8000-000000000001','canonical-master@example.test',now()),('98000000-0000-4000-8000-000000000002','manager@example.test',now());
+-- Fixture seeding as database owner only; production mutations use audited RPCs.
+select set_config('platform.team_transition','trusted',true);
 insert into public.platform_users(auth_user_id,name,email,role,status) values('98000000-0000-4000-8000-000000000002','Manager','manager@example.test','portfolio_manager','Active');
+select set_config('platform.team_transition','',true);
 select platform_private.initialize_config('Fixture master','Disposable support fixture');
 select platform_private.bind_master('98000000-0000-4000-8000-000000000001',null,'Disposable support fixture');
 select set_config('request.jwt.claim.sub','98000000-0000-4000-8000-000000000001',true);

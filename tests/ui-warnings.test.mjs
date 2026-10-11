@@ -63,7 +63,7 @@ test('mouse and native Auth submit each invoke the existing login once; disabled
    document:{addEventListener:(type,fn)=>listeners[type]=fn,getElementById:id=>id==='platform-username'?{value:'master@example.test'}:id==='platform-pin'?{value:'SyntheticPassword1!'}:errorEl},window:{addEventListener(){}},
    setInterval(){},render(){},captchaBusy(){},resetTurnstile(){},mountTurnstile(){},alert:message=>{throw Error(message)},
    loadConfig:async()=>{},loadPlatform:async()=>{},loadOperatorIdentity:async()=>({role:'master_admin',auth_user_id:'master',email:'master@example.test'}),
-   pb:{auth:{signOut:async()=>{},signInWithPassword:async input=>{attempts.push(input);return {data:{session:{}}};}}}};
+   pb:{rpc:async()=>({data:{kind:'active'}}),auth:{signOut:async()=>{},signInWithPassword:async input=>{attempts.push(input);return {data:{session:{}}};}}}};
   ctx.cancelDialogs ||= ()=>{}; ctx.notify ||= {error:message=>assert.fail(String(message)),success:()=>{},info:()=>{}}; vm.createContext(ctx);vm.runInContext(strip(read('src/events.js')),ctx);ctx.initEvents();
   if(mode==='click')button.click();else listeners.submit({target:form,submitter:button,preventDefault(){prevented++;}});
   await new Promise(resolve=>setImmediate(resolve));assert.equal(attempts.length,1);assert.equal(attempts[0].options.captchaToken,'synthetic-captcha');assert.equal(ctx.pState.authenticated,true);assert.ok(prevented>0);
@@ -74,8 +74,8 @@ test('mouse and native Auth submit each invoke the existing login once; disabled
  }
 });
 test('main dispatcher leaves Auth submission to its dedicated handler and recovery account comes from the recovery session',async()=>{
- let submit,authChange,calls=0;
- const ctx={URLSearchParams,window:{location:{search:'',pathname:'/'},addEventListener(){}},document:{addEventListener:(_type,fn)=>submit=fn},pState:{},render(){},initEvents(){},handleFormSubmit:async()=>{calls++;},
+ let submit,authChange,calls=0;const createSetupRouter=({state})=>({boot:async()=>false,event:(_event,session)=>{state.recoveryEmail=session.user.email;state.authenticated=false;}});
+ const ctx={createSetupRouter,URLSearchParams,window:{location:{search:'',pathname:'/'},addEventListener(){}},document:{addEventListener:(_type,fn)=>submit=fn},pState:{},render(){},initEvents(){},handleFormSubmit:async()=>{calls++;},
   pb:{auth:{onAuthStateChange:fn=>authChange=fn,getSession:async()=>({data:{session:null}})}},alert:message=>{throw Error(message)}};
  ctx.cancelDialogs ||= ()=>{}; ctx.notify ||= {error:message=>assert.fail(String(message)),success:()=>{},info:()=>{}}; vm.createContext(ctx);await vm.runInContext(strip(read('src/main.js')),ctx);
  await submit({target:{dataset:{authForm:'login'}},preventDefault(){throw Error('Main intercepted Auth form');}});assert.equal(calls,0);

@@ -138,9 +138,9 @@ export async function handleFormSubmit(event) {
       notify.error("Only Master Admin can add users."); return;
     }
     const { data: invitation, error: fnErr } = await pb.functions.invoke("create-platform-user", {
-      body: { email: data.email, name: data.name, role: data.role },
+      body: { email: data.email, name: data.name, role: data.role, request_id:pState.modal.data.requestId },
     });
-    if (fnErr) { notify.error('Invitation could not be confirmed. Review the server audit before retrying.'); return; }
+    if (fnErr || invitation?.success!==true) { notify.error('Invitation could not be confirmed. Review the server audit before retrying.'); return; }
     if (invitation?.already_invited) notify.info('This invitation was already recorded. No new invitation email was sent.');
     else notify.success("Invite sent. They'll receive an email to set up their account.");
     pState.modal = null;
@@ -152,14 +152,9 @@ export async function handleFormSubmit(event) {
     if (pState.currentUser.role !== "master_admin") {
       notify.error("Only Master Admin can edit users."); return;
     }
-    if (data.password) {
-      const pwErr = validatePassword(data.password);
-      if (pwErr) { notify.error(pwErr); return; }
-    }
-    const payload = { id: data.id, name: data.name, email: data.email, role: data.role };
-    if (data.password) payload.password = data.password;
-    const { error: fnErr } = await pb.functions.invoke("update-platform-user", { body: payload });
-    if (fnErr) { notify.error('Team update could not be confirmed. Review the server audit before retrying.'); return; }
+    const payload = { id: data.id, name: data.name, email: data.email, role: data.role, request_id:pState.modal.data.requestId };
+    const { data: updated, error: fnErr } = await pb.functions.invoke("update-platform-user", { body: payload });
+    if (fnErr || updated?.success!==true) { notify.error('Team update could not be confirmed. Review the server audit before retrying.'); return; }
     pState.modal = null;
     await loadPlatform(); render(); return;
   }

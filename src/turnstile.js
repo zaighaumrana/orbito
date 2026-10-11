@@ -1,10 +1,11 @@
 import { pState } from './state.js';
 let widget = null, container = null, generation = 0, scriptPromise = null;
+let targetOptions={};
 const unavailable = 'Verification service unavailable. Check your connection and try again.';
 function update(message = '') {
-  const button = document.querySelector('[data-captcha-submit]');
+  const button = document.querySelector(targetOptions.buttonSelector || '[data-captcha-submit]');
   if (button) button.disabled = !pState.turnstileToken || !navigator.onLine || pState.loginLoading || pState.resetLoading || pState.reauthLoading;
-  const status = document.getElementById('verification-status');
+  const status = document.getElementById(targetOptions.statusId || 'verification-status');
   if (status) status.textContent = message;
 }
 function loadScript() {
@@ -30,9 +31,10 @@ export function cleanupTurnstile() {
   }
   widget = null; container = null;
 }
-export async function mountTurnstile() {
+export async function mountTurnstile(options = {}) {
   cleanupTurnstile();
-  container = document.getElementById('verification-widget');
+  targetOptions=options;
+  container = document.getElementById(options.containerId || 'verification-widget');
   if (!container) return;
   const current = generation, target = container;
   const valid = () => current === generation && target.isConnected;
@@ -58,8 +60,8 @@ export function resetTurnstile() {
   if (widget !== null && container?.isConnected && window.turnstile) {
     try { window.turnstile.reset(widget); return; } catch { /* Remount safely. */ }
   }
-  void mountTurnstile();
+  void mountTurnstile(targetOptions);
 }
 export function captchaBusy() { update(); }
-window.addEventListener('online', () => { if (document.getElementById('verification-widget')) void mountTurnstile(); });
+window.addEventListener('online', () => { if (document.getElementById(targetOptions.containerId || 'verification-widget')) void mountTurnstile(targetOptions); });
 window.addEventListener('offline', () => { cleanupTurnstile(); update('Internet connection required to sign in.'); });

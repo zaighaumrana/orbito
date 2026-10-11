@@ -1,3 +1,4 @@
+import { esc } from '../operations.js';
 export function userModals(type, md) {
 
   if (type === "add-platform-user") {
@@ -41,11 +42,11 @@ export function userModals(type, md) {
             <button class="icon-button" data-p-close>✕</button>
           </div>
           <form data-p-form="edit-platform-user" method="post">
-            <input type="hidden" name="id"        value="${md.id}">
-            <input type="hidden" name="old_email" value="${md.email}">
+            <input type="hidden" name="id"        value="${esc(md.id)}">
+            <input type="hidden" name="old_email" value="${esc(md.email)}">
             <div class="form-grid">
               <label class="field"><span>Full Name</span>
-                <input name="name" required value="${md.name}"></label>
+                <input name="name" required value="${esc(md.name)}"></label>
               <label class="field"><span>Role</span>
                 <select name="role" required>
                   <option value="billing_person"
@@ -54,14 +55,8 @@ export function userModals(type, md) {
                     ${md.role === "portfolio_manager" ? "selected" : ""}>Portfolio Manager</option>
                 </select></label>
               <label class="field" style="grid-column:1/-1"><span>Email</span>
-                <input name="email" type="email" autocomplete="username" required value="${md.email}"></label>
-              <label class="field" style="grid-column:1/-1">
-                <span>New Password
-                  <span style="color:var(--muted);font-size:12px">(leave blank to keep current)</span>
-                </span>
-                <input name="password" type="password" autocomplete="new-password" minlength="8"
-                  placeholder="Min 8 chars, letter + number + symbol">
-              </label>
+                <input name="email" type="email" autocomplete="username" required value="${esc(md.email)}"></label>
+              <p class="muted">Employees set their own passwords. Reactivation uses an approved recovery link.</p>
             </div>
             <div class="modal-actions" style="margin-top:14px">
               <button type="button" class="secondary-button" data-p-close>Cancel</button>

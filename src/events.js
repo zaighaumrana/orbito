@@ -1,5 +1,5 @@
-import { notify, confirmDialog, cancelDialogs } from './dialogs.js';
-import { resetTurnstile, mountTurnstile, captchaBusy } from './turnstile.js';
+import { notify, confirmDialog, showMessage, deleteUserDialog, cancelDialogs } from './dialogs.js';
+import { resetTurnstile, mountTurnstile, cleanupTurnstile, captchaBusy } from './turnstile.js';
 import { pState }                          from "./state.js";
 import { pb, PLATFORM_AUTH_EMAIL,
          loadConfig, loadPlatform, loadClientData, loadOperatorIdentity,
@@ -38,7 +38,7 @@ export function initEvents() {
 
     /* Open modal */
     if (el.dataset.pModal) {
-      pState.modal = { type: el.dataset.pModal }; render(); return;
+      pState.modal = { type: el.dataset.pModal, data:{requestId:crypto.randomUUID()} }; render(); return;
     }
 
     const action = el.dataset.pAction;
@@ -55,6 +55,7 @@ export function initEvents() {
       return;
     }
     if (action === 'retry-verification') { void mountTurnstile(); return; }
+    if (action === 'retry-setup') { await pState.setupRouter.retry(); return; }
 
     /* Theme toggle */
     if (action === "theme") {
@@ -76,6 +77,7 @@ export function initEvents() {
 
     /* ── Back to login ── */
     if (action === "back-to-login") {
+      pState.setupRouter?.clear();
       pState.page = "login";
       render(); return;
     }
@@ -93,14 +95,12 @@ export function initEvents() {
       const captchaToken = pState.turnstileToken;
       pState.resetLoading = true; captchaBusy();
       pState.page = "forgot-password"; // keep on this page after render
-      const { error } = await pb.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/?reset=true`, captchaToken,
-      });
+      const { data, error } = await pb.functions.invoke('platform-password-recovery', { body: { email, captchaToken } });
       pState.resetLoading = false;
       render();
       const newStatusEl = document.getElementById("forgot-status");
       if (newStatusEl) {
-        newStatusEl.textContent = error ? "Reset request failed. Verify again and retry." : "If an account exists for that email, a reset link has been sent.";
+        newStatusEl.textContent = error ? "Reset request failed. Verify again and retry." : data?.message || "If an eligible account exists for that email, a reset link has been sent.";
         newStatusEl.style.cssText += "color:#7aada0;background:rgba(122,173,160,0.1)";
         newStatusEl.classList.remove("hidden");
       }
@@ -109,6 +109,7 @@ export function initEvents() {
 
     /* ── Confirm new password from reset link ── */
     if (action === "confirm-reset-password") {
+      if (pState.passwordSaving || !pState.passwordFlow) return;
       const newpass = document.getElementById("reset-newpass")?.value;
       const confirm = document.getElementById("reset-confirm")?.value;
       const statusEl = document.getElementById("reset-status");
@@ -124,24 +125,22 @@ export function initEvents() {
         statusEl.classList.remove("hidden"); return;
       }
 
-      const { error } = await pb.auth.updateUser({ password: newpass });
-      if (error) {
-        statusEl.textContent = "Error: " + error.message;
+      pState.passwordSaving=true;el.disabled=true;
+      let result;
+      try {
+        result=await pb.functions.invoke('platform-password-setup',{body:{password:newpass,request_id:pState.passwordFlow.requestId,...(pState.passwordFlow.proof?{proof:pState.passwordFlow.proof}:{})}});
+      } finally {pState.passwordSaving=false;if(el.isConnected)el.disabled=false;}
+      if (result.error || result.data?.success!==true) {
+        statusEl.textContent = "Password setup or activation could not be confirmed. Your account may remain restricted. Retry the same setup, or contact your administrator if the outcome is uncertain.";
         statusEl.style.cssText += "color:#c24132;background:rgba(194,65,50,0.1)";
         statusEl.classList.remove("hidden"); return;
-      }
-
-      /* Mark platform user as Active if they were Pending */
-      const { data: { user } } = await pb.auth.getUser();
-      if (user?.email) {
-        await pb.rpc('platform_accept_invite');
       }
 
       statusEl.textContent = "Password updated! Redirecting to login…";
       statusEl.style.cssText += "color:#7aada0;background:rgba(122,173,160,0.1)";
       statusEl.classList.remove("hidden");
 
-      await pb.auth.signOut();
+      pState.setupRouter?.clear();await pb.auth.signOut();
       setTimeout(() => {
         pState.page = "login";
         render();
@@ -181,6 +180,8 @@ export function initEvents() {
       });
       if (authError || !authData?.session) { _loginFail(errorEl);return; }
       try {
+        const setup=await pb.rpc('platform_team_setup_context');
+        if(!setup.error && setup.data?.kind==='pending') {pState.loginLoading=false;await pState.setupRouter.retry();return;}
         const identity = await loadOperatorIdentity();
         if (!isEmail && (identity.role !== 'master_admin' || username.toLowerCase() !== String(identity.username || '').toLowerCase()))
           throw new Error('Access not authorised for this account.');
@@ -196,6 +197,7 @@ export function initEvents() {
     /* ── LOGOUT ── */
     if (action === "logout") {
       cancelDialogs();
+      pState.setupRouter?.clear();
       await pb.auth.signOut();
       pState.authenticated = false;
       pState.currentUser   = { role: "master_admin", username: "admin" };
@@ -336,6 +338,7 @@ export function initEvents() {
       pState.modal = {
         type: "edit-platform-user",
         data: {
+          requestId:crypto.randomUUID(),
           id:    el.dataset.pId,
           name:  el.dataset.pName,
           email: el.dataset.pEmail,
@@ -345,20 +348,33 @@ export function initEvents() {
       render(); return;
     }
 
-    /* ── Remove platform user ── */
-    if (action === "remove-platform-user") {
+    if (action === 'invitation-status') {
+      const user=pState.data.platformUsers.find(u=>u.id===el.dataset.pId);if(!user)return;
+      await showMessage({title:'Invitation status',message:`${user.name}: ${user.status}. Pending means password setup has not completed; sending an email is not acceptance.`});return;
+    }
+    /* ── Audited team lifecycle; server independently verifies every request. ── */
+    if (['deactivate-platform-user','reactivate-platform-user','delete-platform-user','reconcile-platform-user'].includes(action)) {
       if (pState.currentUser.role !== "master_admin") {
-        notify.error("Only Master Admin can remove users."); return;
+        notify.error("Only Master Admin can manage team lifecycle."); return;
       }
-      const userId = el.dataset.pId; el.disabled = true;
+      const user=pState.data.platformUsers.find(u=>u.id===el.dataset.pId);if(!user)return;
+      const requestId=el.dataset.pRequest || crypto.randomUUID();el.disabled=true;
+      let confirmation;
       try {
-        if (!await confirmDialog({title:'Remove team member?',message:'This user will lose all access immediately.',confirmLabel:'Remove user',danger:true})) return;
         const identity = await loadOperatorIdentity();
-        if (identity.role !== 'master_admin') { notify.error('Only Master Admin can remove users.'); return; }
-        const { error: fnErr } = await pb.functions.invoke("delete-platform-user", { body: { id: userId } });
-        if (fnErr) { notify.error('Team removal could not be confirmed. Review the server audit before retrying.'); return; }
+        if(identity.role!=='master_admin')return;
+        const deletion=['delete-platform-user','reconcile-platform-user'].includes(action);
+        if(deletion){
+          confirmation=await deleteUserDialog({title:'Permanently Delete User',message:`${user.name} · ${user.email} · ${user.role}. This action permanently removes the user's Platform account and cannot be undone. Authorization is revoked first; an immutable archive is retained only after Auth absence is verified.`,accountEmail:identity.email,confirmLabel:action==='reconcile-platform-user'?'Verify deletion outcome':'Delete Permanently',captchaToken:()=>pState.turnstileToken,
+            afterMount:()=>{void mountTurnstile({containerId:'team-delete-verification',statusId:'team-delete-verification-status',buttonSelector:'.platform-dialog [data-captcha-submit]'});},onClose:()=>cleanupTurnstile()});
+          if(!confirmation)return;
+        }else if(!await confirmDialog({title:action==='reactivate-platform-user'?'Reactivate employee?':'Deactivate employee?',message:action==='reactivate-platform-user'?`${user.name} (${user.email}) will receive a Supabase recovery link. Access stays Inactive until verified password setup completes.`:`${user.name} (${user.email}) will lose Platform authorization. Their Auth identity is retained and outstanding setup is cancelled.`,confirmLabel:action==='reactivate-platform-user'?'Send reactivation recovery':'Deactivate',danger:action!=='reactivate-platform-user'}))return;
+        const {data,error}=await pb.functions.invoke(deletion?'delete-platform-user':action,{body:{id:user.id,request_id:requestId,...(confirmation || {}),...(action==='reconcile-platform-user'?{reconcile:true}:{})}});
+        if(error || data?.success!==true){notify.error(`Operation could not be confirmed. Review request ${requestId}; do not retry an uncertain Auth operation blindly.`);await loadPlatform();render();return;}
+        if(data.already_initiated)notify.info('Recovery was already initiated. No new email was sent. Verify delivery with the employee; access remains Inactive.');
+        else notify.success(data.awaiting_password?'Recovery email sent. Employee remains Inactive until password setup completes.':'Team operation verified.');
         await loadPlatform(); render();
-      } finally { if (el.isConnected) el.disabled = false; }
+      } finally {if(confirmation){confirmation.password='';confirmation.captchaToken='';}if(el.isConnected)el.disabled=false;if(document.getElementById('verification-widget'))void mountTurnstile();}
       return;
     }
 

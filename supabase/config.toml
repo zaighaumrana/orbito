@@ -436,3 +436,20 @@ verify_jwt = true
 
 [functions.delete-platform-user]
 verify_jwt = true
+
+[functions.deactivate-platform-user]
+verify_jwt = true
+
+[functions.reactivate-platform-user]
+verify_jwt = true
+
+[functions.platform-password-setup]
+verify_jwt = true
+
+[functions.platform-password-recovery]
+# Public recovery verifies single-use CAPTCHA on the server before lookup.
+verify_jwt = false
+
+[functions.platform-auth-email]
+# Auth-hook requests use Standard Webhooks signatures, not a browser JWT.
+verify_jwt = false

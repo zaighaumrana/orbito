@@ -57,21 +57,22 @@ test('team invitation/edit handlers retain server boundaries, role denial and id
  const f=authFixture();const invocations=[];f.original.functions={invoke:async(name,{body})=>{invocations.push({name,body});return {data:{success:true,already_invited:true}};}};f.ctx.loadPlatform=async()=>{};
  const submit=(type,values)=>f.ctx.handleFormSubmit({target:{dataset:{pForm:type},values},preventDefault(){}});
  for(const role of ['portfolio_manager','billing_person']){f.ctx.pState.currentUser={role};await submit('add-platform-user',{});await submit('edit-platform-user',{});}assert.equal(invocations.length,0);
- f.ctx.pState.currentUser=identity;await submit('add-platform-user',{email:'fixture@example.test',name:'Fixture',role:'billing_person'});assert.equal(invocations[0].name,'create-platform-user');assert.match(f.messages.at(-1)[1],/No new invitation email/);
- await submit('edit-platform-user',{id:'row-42',name:'Fixture',email:'fixture@example.test',role:'portfolio_manager'});assert.equal(invocations[1].name,'update-platform-user');assert.equal(invocations[1].body.id,'row-42');
+ f.ctx.pState.currentUser=identity;f.ctx.pState.modal={data:{requestId:'synthetic-request'}};await submit('add-platform-user',{email:'fixture@example.test',name:'Fixture',role:'billing_person'});assert.equal(invocations[0].name,'create-platform-user');assert.match(f.messages.at(-1)[1],/No new invitation email/);
+ f.ctx.pState.modal={data:{requestId:'synthetic-edit-request'}};await submit('edit-platform-user',{id:'row-42',name:'Fixture',email:'fixture@example.test',role:'portfolio_manager'});assert.equal(invocations[1].name,'update-platform-user');assert.equal(invocations[1].body.id,'row-42');
 });
 function removalFixture() {
- let click,resolve,calls=0;const element={dataset:{pAction:'remove-platform-user',pId:'row-42'},isConnected:true,disabled:false};
- const state={currentUser:identity};const ctx={pState:state,window:{addEventListener(){}},document:{addEventListener:(type,fn)=>{if(type==='click')click=fn;}},setInterval(){},notify:{error(){}},confirmDialog:()=>new Promise(r=>resolve=r),loadOperatorIdentity:async()=>identity,loadPlatform:async()=>{},render(){},pb:{functions:{invoke:async()=>{calls++;return{};}}}};
+ let click,resolve,calls=0;const element={dataset:{pAction:'delete-platform-user',pId:'row-42'},isConnected:true,disabled:false};
+ const state={currentUser:identity,data:{platformUsers:[{id:'row-42',name:'Fixture',email:'fixture@example.test',role:'billing_person'}]}};
+ const ctx={pState:state,crypto:{randomUUID:()=> 'synthetic-request'},window:{addEventListener(){}},document:{getElementById:()=>null,addEventListener:(type,fn)=>{if(type==='click')click=fn;}},setInterval(){},notify:{error(){},success(){}},deleteUserDialog:()=>new Promise(r=>resolve=r),loadOperatorIdentity:async()=>identity,loadPlatform:async()=>{},render(){},pb:{functions:{invoke:async()=>{calls++;return {data:{success:true}};}}}};
  vm.createContext(ctx);vm.runInContext(strip(read('src/events.js')),ctx);ctx.initEvents();
  const event={target:{closest:selector=>selector.includes('data-auth-form')?null:element},preventDefault(){}};
  return {ctx,element,click:()=>click(event),finish:value=>resolve(value),calls:()=>calls};
 }
-test('team removal waits for confirmation, blocks repeated clicks, cancels safely and rechecks authority',async()=>{
+test('permanent deletion waits for custom password/CAPTCHA dialog, blocks repeated clicks and cancels safely',async()=>{
  for(const accept of [false,true]){
-  const f=removalFixture();f.click();f.click();assert.equal(f.element.disabled,true);assert.equal(f.calls(),0);f.finish(accept);await new Promise(r=>setImmediate(r));assert.equal(f.calls(),accept?1:0);assert.equal(f.element.disabled,false);
+  const f=removalFixture();f.click();f.click();assert.equal(f.element.disabled,true);assert.equal(f.calls(),0);await new Promise(r=>setImmediate(r));f.finish(accept?{password:'Synthetic1!',captchaToken:'synthetic',acknowledged:true}:null);await new Promise(r=>setImmediate(r));assert.equal(f.calls(),accept?1:0);assert.equal(f.element.disabled,false);
  }
- const denied=removalFixture();denied.click();denied.ctx.loadOperatorIdentity=async()=>({role:'billing_person'});denied.finish(true);await new Promise(r=>setImmediate(r));assert.equal(denied.calls(),0);
+ const denied=removalFixture();denied.ctx.loadOperatorIdentity=async()=>({role:'billing_person'});denied.click();await new Promise(r=>setImmediate(r));assert.equal(denied.calls(),0);
 });
 test('activation and rotation await decisions without changing request identities or sending cancelled operations',async()=>{
  for(const [action,accepted] of [['activate',false],['rotate',false],['rotate',true],['resume',true]]){
