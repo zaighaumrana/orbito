@@ -19,6 +19,7 @@ export const pState = {
   clientRequestGeneration: 0,
   turnstileToken: null,
   loginLoading:   false,
+  loginAttempt:   null,
   resetLoading:   false,
 };
 
@@ -42,6 +43,7 @@ export function clearSensitiveState() {
   for(const key of Object.keys(pState.data))pState.data[key]=Array.isArray(pState.data[key])?[]:{};
   pState.turnstileToken=null;pState.passwordFlow=null;
   pState.reauthLoading=false;pState.passwordSaving=false;
+  pState.loginAttempt=null;pState.loginLoading=false;pState.authRouting=false;
   PCFG={admin_username:""};
 }
 

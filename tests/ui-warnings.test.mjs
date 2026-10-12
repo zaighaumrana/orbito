@@ -59,7 +59,7 @@ test('mouse and native Auth submit each invoke the existing login once; disabled
   const listeners={},attempts=[],errorEl={classList:{add(){},remove(){}},textContent:''};let prevented=0;
   const button={disabled:false,dataset:{pAction:'do-login'},closest(){return this;},click(){listeners.click({target:this,preventDefault(){prevented++;}});}};
   const form={dataset:{authForm:'login'},querySelector:()=>button};
-  const ctx={pState:{authenticated:false,turnstileToken:'synthetic-captcha'},navigator:{onLine:true},crypto:{randomUUID:()=> 'synthetic-session'},
+  const ctx={pState:{authenticated:false,authorityGeneration:0,turnstileToken:'synthetic-captcha'},navigator:{onLine:true},crypto:{randomUUID:()=> 'synthetic-session'},
    document:{addEventListener:(type,fn)=>listeners[type]=fn,getElementById:id=>id==='platform-username'?{value:'master@example.test'}:id==='platform-pin'?{value:'SyntheticPassword1!'}:errorEl},window:{addEventListener(){}},
    setInterval(){},render(){},captchaBusy(){},resetTurnstile(){},mountTurnstile(){},alert:message=>{throw Error(message)},
    loadConfig:async()=>{},loadPlatform:async()=>{},loadOperatorIdentity:async()=>({role:'master_admin',auth_user_id:'master',email:'master@example.test'}),

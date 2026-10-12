@@ -46,14 +46,16 @@ const setupRouter = createSetupRouter({pb,state:pState,render,notify});
 pState.setupRouter=setupRouter;
 pb.auth.onAuthStateChange((event,session)=>{
   setupRouter.event(event,session);
-  if(event==='SIGNED_OUT' && pState.authenticated){cancelDialogs();clearSensitiveState();pState.page='login';render();}
+  if(event==='SIGNED_OUT' && (pState.authenticated || (pState.loginLoading && pState.loginAttempt?.phase!=='signing-out'))){cancelDialogs();clearSensitiveState();pState.page='login';render();}
   if(event==='TOKEN_REFRESHED' || event==='SIGNED_IN')setTimeout(()=>void validateSession(render),0);
 });
 pState.authRouting=true;render();
 const bootGeneration=pState.authorityGeneration;
 (async()=>{
   const {data,error}=await pb.auth.getSession();if(error)throw error;
+  if(bootGeneration!==pState.authorityGeneration)return;
   if(await setupRouter.boot(data.session))return;
+  if(bootGeneration!==pState.authorityGeneration)return;
   pState.authRouting=false;
   if(!data.session){pState.page='login';render();return;}
   const identity=await loadOperatorIdentity();if(bootGeneration!==pState.authorityGeneration)return;

@@ -11,7 +11,7 @@ test('existing real-email master login and alias login use Auth credentials then
  for(const [name,aliasEmail,success] of [[identity.email,undefined,true],['existing-alias',identity.email,true],['new-alias',identity.email,true],['wrong-alias',identity.email,false]]){
   const attempts=[],errorEl={classList:{add(){},remove(){}},textContent:''};
   const ctx={action:'do-login',PLATFORM_AUTH_EMAIL:aliasEmail,navigator:{onLine:true},crypto:{randomUUID:()=> 'session'},
-   pState:{turnstileToken:'public-test-token',loginLoading:false},captchaBusy(){},render(){},_loginFail(){},
+   pState:{authorityGeneration:0,turnstileToken:'public-test-token',loginLoading:false},captchaBusy(){},render(){},_loginFail(){},
    document:{getElementById:id=>id==='platform-username'?{value:name}:id==='platform-pin'?{value:'Auth-only-password'}:errorEl},
    loadOperatorIdentity:async()=>name==='new-alias'?{...identity,username:'new-alias'}:identity,loadConfig:async()=>{},loadPlatform:async()=>{assert.equal(ctx.pState.authenticated,true,'Verified login must enable the guarded data loader');},
    pb:{rpc:async()=>({data:{kind:'active'}}),auth:{signOut:async()=>{},signInWithPassword:async input=>{attempts.push(input);return {data:{session:{user:{id:identity.auth_user_id}}}};}}}};

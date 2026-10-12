@@ -174,35 +174,51 @@ export function initEvents() {
       }
 
       const captchaToken = pState.turnstileToken;
-      pState.loginLoading = true; captchaBusy();
+      // A login owns its lock and continuations; clearing authority invalidates it.
+      const attempt={id:crypto.randomUUID(),generation:++pState.authorityGeneration,phase:'signing-out'};
+      const owns=()=>pState.loginAttempt===attempt && attempt.generation===pState.authorityGeneration;
+      pState.loginAttempt=attempt;pState.authRouting=false;
+      pState.loginLoading = true;
 
       const isEmail = username.includes("@");
-      await pb.auth.signOut({ scope: "local" });
-
-      if (!isEmail && !PLATFORM_AUTH_EMAIL) {
-        errorEl.textContent = 'Use your Platform Auth email. Username login needs the optional email alias configured.';
-        _loginFail(errorEl, true);return;
-      }
-      const { data: authData, error: authError } = await pb.auth.signInWithPassword({
-        email: isEmail ? username : PLATFORM_AUTH_EMAIL, password, options: { captchaToken },
-      });
-      if(eventGeneration!==pState.authorityGeneration)return;
-      if (authError || !authData?.session) { _loginFail(errorEl);return; }
-      const generation=pState.authorityGeneration;
       try {
+        captchaBusy();
+        await pb.auth.signOut({ scope: "local" });
+        if(!owns())return;
+        attempt.phase='authenticating';
+        if (!isEmail && !PLATFORM_AUTH_EMAIL) {
+          errorEl.textContent = 'Use your Platform Auth email. Username login needs the optional email alias configured.';
+          _loginFail(errorEl, true);return;
+        }
+        const { data: authData, error: authError } = await pb.auth.signInWithPassword({
+          email: isEmail ? username : PLATFORM_AUTH_EMAIL, password, options: { captchaToken },
+        });
+        if(!owns())return;
+        if (authError || !authData?.session) { _loginFail(errorEl);return; }
         const setup=await pb.rpc('platform_team_setup_context');
-        if(!setup.error && setup.data?.kind==='pending') {pState.loginLoading=false;await pState.setupRouter.retry();return;}
+        if(!owns())return;
+        if(!setup.error && setup.data?.kind==='pending') {await pState.setupRouter.retry();return;}
         const identity = await loadOperatorIdentity();
+        if(!owns())return;
         if (!isEmail && (identity.role !== 'master_admin' || username.toLowerCase() !== String(identity.username || '').toLowerCase()))
           throw new Error('Access not authorised for this account.');
-        if(generation!==pState.authorityGeneration)return;
+        attempt.phase='loading';
         pState.currentUser = { ...identity,sessionToken:crypto.randomUUID() };pState.authenticated=true;
-        await loadConfig();await loadPlatform();
-        if(generation!==pState.authorityGeneration || !pState.authenticated)return;
-        pState.loginLoading = false;pState.page = 'overview';render();
+        await loadConfig();if(!owns() || !pState.authenticated)return;
+        await loadPlatform();if(!owns() || !pState.authenticated)return;
+        pState.page = 'overview';pState.loginLoading=false;render();
       } catch (error) {
+        if(!owns())return;
         clearSensitiveState();
-        await pb.auth.signOut({ scope: "local" });errorEl.textContent = error.message;_loginFail(errorEl,true);
+        // Retain an owned cleanup lock until this local signout finishes. Its
+        // expected SIGNED_OUT is not a cancellation of another login attempt.
+        attempt.generation=pState.authorityGeneration;attempt.phase='signing-out';
+        pState.loginAttempt=attempt;pState.loginLoading=true;pState.page='login';
+        try{await pb.auth.signOut({ scope: "local" });}catch{/* Private state remains cleared offline. */}
+        if(!owns())return;
+        errorEl.textContent = error.message;_loginFail(errorEl,true);
+      } finally {
+        if(owns()){pState.loginAttempt=null;pState.loginLoading=false;}
       }
       return;
     }
@@ -256,13 +272,22 @@ export function initEvents() {
     if (action === 'read-shop-config') {
       if(!clientDataMatches())return;
       const client=pState.selectedClient,request=++pState.clientRequestGeneration;
-      pState.clientData={...pState.clientData,requestGeneration:request,loading:true};
-      const { data, error } = await pb.functions.invoke('platform-config', { body: { client_id: client.id, action: 'read' } }).catch(()=>({error:true}));
-      if(!current() || request!==pState.clientRequestGeneration)return;
-      pState.clientData.loading=false;
-      if(error || !data?.config){pState.clientData._error='Shop configuration unavailable. Refresh status.';render();return;}
-      pState.clientData.config={...client,...data.config,id:client.id};
-      pState.clientData.verifiedAt = new Date().toISOString(); render(); return;
+      const detail=pState.clientData={...pState.clientData,requestGeneration:request,loading:true};
+      const readCurrent=()=>viewCurrent(eventContext,false) && request===pState.clientRequestGeneration;
+      try {
+        const { data, error } = await pb.functions.invoke('platform-config', { body: { client_id: client.id, action: 'read' } }).catch(()=>({error:true}));
+        if(!readCurrent())return;
+        detail.loading=false;
+        if(error || !data?.config){detail._error='Shop configuration unavailable. Refresh status.';render();return;}
+        detail.config={...client,...data.config,id:client.id};
+        detail.verifiedAt = new Date().toISOString();render();
+      } finally {
+        // Clear only this request's owned loading state, never its successor's.
+        if(pState.clientData===detail && request===pState.clientRequestGeneration && detail.loading){
+          detail.loading=false;detail._error='Configuration read cancelled. Refresh status.';
+        }
+      }
+      return;
     }
     if (action === 'refresh-operations') {
       const client=pState.selectedClient;if(!client)return;

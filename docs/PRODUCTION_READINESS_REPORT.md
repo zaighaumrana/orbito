@@ -368,3 +368,64 @@ No generated build/tool/test evidence, credential file, historical migration, fr
 ### Final trust-boundary review — 2026-10-13
 
 The provisional authenticated issuance design was rejected before commit/deployment: its server-derived project/nonce inputs would have become browser-editable RPC parameters. Final issuance retains service-only authority and adds an explicitly forwarded, independently checked canonical session. The service JWT itself has no sub/session_id. This is a narrow support boundary, not a generic service-role authorization bypass. Final SQL was rerun through actual CLI history rollback/retry; service-role SQL negatives and 235 source regressions are rerun on this final design. Historical local proposal wording in engineering history is superseded by the dated correction below.
+
+## 2026-10-13 — R1/R2 targeted authentication and read ownership correction
+
+Published checkpoint **65429dba0e19aea6467f1347222e044f5e7549bc** was independently reviewed: the earlier F1–F4 reproductions are corrected, but R1/R2 still made that checkpoint **CODE REVIEW FAIL**. The earlier readiness recommendation is historical, not approval of this follow-up. Current source is ready for focused independent re-review only after the authorized safe Git checkpoint. **STAGING / PRODUCTION remain NO-GO.** Exact follow-up SHA belongs to the enclosing Git revision and PR #4, which must stay Draft/unmerged.
+
+### Exact correction and adjacent evidence
+
+- **R1:** Each login claims a unique attempt object/UUID and advances authority generation. Every awaited signout, password login, setup lookup, canonical identity and protected load checks that owner before continuing. Catch cannot clear/sign out successor state; finally cannot release a successor's busy flag. clearSensitiveState invalidates the attempt and releases loginLoading, including canonical revocation and cross-tab SIGNED_OUT. Owned failure cleanup retains its own lock until local signout returns. The already-logged-out preflight/failure signout phase tolerates its expected native SIGNED_OUT; signout during authenticating/loading still cancels. Canonical identity, CAPTCHA, local signout scope, session cutoff and server authorization are unchanged. Native signout generates SIGNED_OUT and local scope is explicit ([official reference](https://supabase.com/docs/reference/javascript/auth-signout)).
+- **Adjacent R1:** A delayed initial session lookup could also reset a later login in the controlled actual-handler fixture. Startup checks its captured generation before routing/publishing; starting a new attempt invalidates old startup work. No replacement Auth architecture or browser role authority is introduced.
+- **R2:** Shop-config reads ignore modal identity while checking original authority/page/client/selection/request. Success/API failure/rejected transport settle only the owned read. Finally clears only that exact still-owned loading object/request on cancellation; a newer client/request is untouched. Shop singleton config ID remains clamped to the Platform client ID. Failures withhold mutations and expose the existing read-only Refresh status action. Opening/closing Edit Client does not discard the read or close/replace its modal. Form/mutation modal guards remain strict.
+
+### Reproducible failure-before / pass-after
+
+New tests execute actual production events.js, state.js, helpers.js and main.js (including SDK callback registration), with controlled transport promises. The read recovery executes the actual loadClientData implementation. No simplified replacement login/ownership handler, hosted traffic or live token is used. Baseline source is loaded with git show from the exact reviewed commit, not by editing/resetting the checkout:
+
+~~~powershell
+$env:ORBITO_UI_REVIEW_BASELINE='65429db'
+node --test tests/auth-ui-ownership.test.mjs # Expected FAIL: seven failures, one retained-behavior pass
+Remove-Item Env:ORBITO_UI_REVIEW_BASELINE
+node --test tests/auth-ui-ownership.test.mjs # PASS eight groups on current source
+~~~
+
+Coverage: config resolve/reject after canonical revocation; cross-tab SIGNED_OUT before identity and during loading; actual successor login after logout; late resolve/reject after successor success or while its lock is held; owned failure/cleanup and retry; late startup resolve/reject; modal open/close during read success/API failure/rejection; existing read-only refresh recovery; client switch/logout/revocation/role cancellation. Existing F1–F4 and modal-sensitive mutation regressions remain included.
+
+### Actual validation, scope and limitations
+
+| Check | Result in this round |
+| --- | --- |
+| Broad regression suite | **PASS 243; FAIL 0; SKIP 0**: all previous 235 plus eight new ownership groups. Two existing fixtures now initialize the real state's authority generation; assertions retained. |
+| Real local PostgreSQL 17 | **PASS six bootstrap, two canonical and nine lifecycle groups**. Canonical run includes 50 combined handler/database tests, overlapping broad coverage. Owned disposable databases with native Auth schema and explicitly identified SQL/Vault fixtures. |
+| Real local GoTrue v2.197.0 / PG17 | **PASS six provider groups**, including native current-password, Master refresh/cleanup, retained UUID/password and old-session cutoff, Pending/recovery/expired/reused links; single-session interruption/default-off destructive gate preserved. SQL adapter replaces PostgREST. |
+| Support Access | **PASS one comprehensive real PG17 service-role authorization/concurrency group**: actual issue/exchange, binding/revocation/rebinding/expiry/replay and one winner. No Support source/contract changed. |
+| Browser | **PASS all twelve existing native Chrome viewport/theme groups**, 320/768/1440px, zero external traffic/page errors. Backend/CAPTCHA doubles; R1/R2 timing probes are VM handler tests, not hosted/native cross-tab journeys. |
+| Deno / build | **PASS ten native frozen Deno entrypoints; PASS synthetic Vite build**. Cached dependencies reused; no installation or reproducible clean-install claim. Existing Vite CJS deprecation remains. |
+| Integrity / syntax / exposure | **PASS** JS syntax, whitespace/sensitive scan, twelve historical migration blobs, unchanged full SQL/Edge source, frozen artifact, protected refs and clean Shop. Five existing cycle participants unchanged. Staged checks required before publication. |
+| CLI atomicity | **Not rerun this round**: no SQL/CLI source changes. Earlier eight-group actual CLI evidence remains historical, not a new execution claim. |
+| Hosted / gateway / mail | **SKIP** hosted resources, real email/CAPTCHA, full PostgREST/Edge gateway, managed Storage/Realtime and hosted session continuity. No real employee/account operations. |
+
+Mocked timing proves handler ownership/dispatch, not every native SDK storage/cross-tab event ordering or cancellation of already dispatched Auth operations. The real local provider tests do not prove hosted single-session/MFA/inactivity/timebox settings. No issued request is assumed rolled back or blindly resubmitted. Changelog markdown retrieval was attempted but the web adapter rejected its content type; current official signout documentation was checked. No library/version/configuration change depends on a claimed latest-provider guarantee.
+
+### Exact follow-up manifest — nine files
+
+| Path | Responsibility |
+| --- | --- |
+| src/events.js | Owned login success/failure/cleanup; modal-independent owned Shop-config read. |
+| src/state.js | Login attempt state and cancellation/busy/routing reset. |
+| src/main.js | Cross-tab login cancellation and guarded startup publication. |
+| src/pages/clients.js | Existing read-only Refresh status action on failed/cancelled detail. |
+| tests/auth-ui-ownership.test.mjs (new) | Eight actual-handler baseline/current adversarial ownership groups. |
+| tests/platform-identity-consistency.test.mjs | Initialize generation in existing email/alias-login fixture. |
+| tests/ui-warnings.test.mjs | Initialize generation in existing click/native-submit fixture. |
+| docs/PRODUCTION_READINESS_REPORT.md | Dated evidence, exact scope, limitations and review gates. |
+| ENGINEERING_HISTORY.md | Append correction decisions/results; preserve prior evidence. |
+
+### Git / release boundary
+
+Owner authorizes only the existing Draft PR #4 update after deployment-trigger inspection. Use the approved native [CF-Pages-Skip] prefix and push only feature/platform-team-lifecycle-v2. Record the exact SHA and provider skip in PR/final checkpoint evidence after publication; do not infer provider skip from empty GitHub checks. Stop before push if trigger safety cannot be established. No hosted modification, migration, function/frontend deployment, protected-branch change, Shop change, new RBAC contract or alternate email delivery is part of this correction.
+
+Read-only pre-push trigger review completed: refreshed retrasellsaas settings still link zaighaumrana/orbito, development serves staging at 0dbde676, npm run build/dist/root, no deploy hooks. Prior exact 65429db is provider-recorded skipped. Source/base contain no Actions workflows; no repository webhooks or active local hooks; GitHub Pages disabled; installed integrations remain Codex/Cloudflare/Cursor. A stuck existing browser target was recovered with a fresh tab in the same browser, without settings changes. The verified native skip prefix is required because this feature branch remains preview-eligible. This is no-deployment verification, not proof of preview/backend isolation.
+
+Pending: focused independent re-review, owner shared-read/immediate-role-edit acceptance, separately authorized read-only staging Auth/backup/configuration preflight, and later separate coordinated rollout/disposable-account validation. Current-password enforcement, Master refresh continuity/default-off destructive approval, native sender limits, managed policies, backup/Vault portability, legal/provider and separate Shop session-hardening gates remain open.

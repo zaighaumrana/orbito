@@ -80,7 +80,7 @@ export function pageClientDetail() {
   } catch {}
   const head = `<div class="page-title client-detail-header"><div><div class="setup-heading"><h1>${esc(c.name)}</h1><span class="badge ${lifecycleState(c)==='Active'?'good':'warn'}">${esc(lifecycleState(c))}</span><span class="badge">${esc(c.plan)}</span></div><p>Client #${esc(c.id)} ${copyValue(c.id,'Copy ID')} · ${esc(c.industry||'Business')} · ${c.pairing_mode==='byo'?'Client-owned Supabase':'Managed Supabase'}</p></div><div class="setup-secondary">${canContactShop(c)?openShop+'<button class="secondary-button" data-p-modal="edit-client">Edit Client</button>':''}<button class="secondary-button" data-p-page="clients">← Back</button></div></div>` + (canContactShop(c) ? '' : renderRetainedClientMetadata(c));
 
-  if (cd._error) return head + `<div class="card">Operations unavailable: ${esc(cd._error)}</div>`;
+  if (cd._error) return head + `<div class="card">Operations unavailable: ${esc(cd._error)} <button class="secondary-button" data-p-action="refresh-operations">Refresh status</button></div>`;
   if (!o || !clientDataMatches(c)) return head + '<div class="card">Loading operations…</div>';
   const billing = computeClientBilling(c.id), thermal = o.thermal || {}, source = o.source;
   const metres = value => (Number(value || 0) / 1000).toLocaleString(undefined, { maximumFractionDigits: 3 });
