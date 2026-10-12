@@ -15,7 +15,7 @@ function authFixture({failure,stale,role='master_admin',afterRole=role,mismatch=
  const ctx={TypeError,testEnv:{VITE_PLATFORM_URL:'https://example.invalid',VITE_PLATFORM_ANON:'synthetic-public'},createClient:(...args)=>{options.push(args);return clients++?verifier:original;},
   pState:{authenticated:true,turnstileToken:'fresh-captcha',currentUser:{...identity,username:'original',sessionToken:'original-session-marker'}},PCFG:{admin_username:'original'},clearSensitiveState(){ctx.pState.authenticated=false;ctx.pState.currentUser={role:null};},captchaBusy(){},resetTurnstile(){ctx.pState.turnstileToken=null;calls.push(['reset']);},render(){},
   notify:Object.fromEntries(['error','success','info'].map(t=>[t,v=>messages.push([t,v?.userMessage || v])])),cancelDialogs(){},FormData:class{constructor(f){this.f=f;}entries(){return Object.entries(this.f.values);}}};
- vm.createContext(ctx);vm.runInContext(strip(read('src/supabase.js')),ctx);vm.runInContext(strip(read('src/forms.js')),ctx);
+ vm.createContext(ctx);vm.runInContext(read('src/async-context.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ctx);vm.runInContext(strip(read('src/supabase.js')),ctx);vm.runInContext(strip(read('src/forms.js')),ctx);
  const form={dataset:{pForm:'change-username'},values:{current:'synthetic-password',new_username:'new-alias'},reset(){calls.push(['form-reset']);}};
  return {ctx,calls,options,messages,writes,original,submit:()=>ctx.handleFormSubmit({target:form,preventDefault(){}})};
 }
@@ -69,9 +69,9 @@ test('team invitation/edit handlers retain server boundaries, role denial and id
 });
 function removalFixture() {
  let click,resolve,calls=0;const element={dataset:{pAction:'delete-platform-user',pId:'row-42'},isConnected:true,disabled:false};
- const state={currentUser:identity,data:{platformUsers:[{id:'row-42',name:'Fixture',email:'fixture@example.test',role:'billing_person'}]}};
+ const state={authenticated:true,currentUser:identity,data:{platformUsers:[{id:'row-42',name:'Fixture',email:'fixture@example.test',role:'billing_person'}]}};
  const ctx={pState:state,crypto:{randomUUID:()=> 'synthetic-request'},window:{addEventListener(){}},document:{getElementById:()=>null,addEventListener:(type,fn)=>{if(type==='click')click=fn;}},setInterval(){},notify:{error(){},success(){}},deleteUserDialog:()=>new Promise(r=>resolve=r),loadOperatorIdentity:async()=>identity,loadPlatform:async()=>{},render(){},pb:{functions:{invoke:async()=>{calls++;return {data:{success:true}};}}}};
- vm.createContext(ctx);vm.runInContext(strip(read('src/events.js')),ctx);ctx.initEvents();
+ vm.createContext(ctx);vm.runInContext(read('src/async-context.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ctx);vm.runInContext(strip(read('src/events.js')),ctx);ctx.initEvents();
  const event={target:{closest:selector=>selector.includes('data-auth-form')?null:element},preventDefault(){}};
  return {ctx,element,click:()=>click(event),finish:value=>resolve(value),calls:()=>calls};
 }
@@ -84,8 +84,8 @@ test('permanent deletion waits for custom password/CAPTCHA dialog, blocks repeat
 test('activation and rotation await decisions without changing request identities or sending cancelled operations',async()=>{
  for(const [action,accepted] of [['activate',false],['rotate',false],['rotate',true],['resume',true]]){
   let resolve;const calls=[],button={disabled:false,isConnected:true};const job={action:'rotate',request_id:'original-request',params:{}};
-  const ctx={pState:{selectedClient:{id:42},clientData:{provisioning:{job}}},notify:{error(){}},confirmDialog:()=>new Promise(r=>resolve=r),crypto:{randomUUID:()=> 'new-request'},loadClientData:async()=>{},render(){},pb:{functions:{invoke:async(name,{body})=>{calls.push(body);return{};}}}};
-  vm.createContext(ctx);vm.runInContext(strip(read('src/provisioning.js')),ctx);
+  const ctx={pState:{authenticated:true,currentUser:identity,clientRequestGeneration:0,selectedClient:{id:42},clientData:{clientId:42,requestGeneration:0,config:{id:42},provisioning:{job}}},notify:{error(){}},confirmDialog:()=>new Promise(r=>resolve=r),crypto:{randomUUID:()=> 'new-request'},loadClientData:async()=>{},render(){},pb:{functions:{invoke:async(name,{body})=>{calls.push(body);return{};}}}};
+  vm.createContext(ctx);vm.runInContext(read('src/async-context.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ctx);vm.runInContext(strip(read('src/provisioning.js')),ctx);
   const form={elements:{confirmed:{checked:true},note:{value:'Approved test-only cutover'}},querySelectorAll:()=>[button]};const promise=ctx.submitProvisioning(form,action);assert.equal(button.disabled,true);assert.equal(calls.length,0);resolve(accepted);await promise;
   assert.equal(calls.length,accepted?1:0);assert.equal(button.disabled,false);if(accepted)assert.equal(calls[0].request_id,action==='resume'?'original-request':'new-request');
  }
@@ -94,7 +94,7 @@ test('billing confirmation cancellation never prints and confirmation prints onc
  const handlers={};let prints=0;const client={id:42,currency_symbol:'USD'},invoice={id:7,client_id:42};
  const ctx={pState:{data:{clients:[client],usage:[],payments:[]}},esc:String,getInvoicePayments:()=>[],getInvoicePaidTotal:()=>0,buildInvoiceHTML:()=>'<p>Synthetic preview</p>',printInNewWindow:()=>prints++,
   document:{getElementById:selector=>({addEventListener:(type,fn)=>handlers[selector]=fn}),createElement:()=>({style:{},addEventListener(){},remove(){}}),body:{appendChild(){}}}};
- vm.createContext(ctx);const source=read('src/billing.js');vm.runInContext(source.slice(source.indexOf('function showInvoiceConfirmModal')),ctx);
+ vm.createContext(ctx);vm.runInContext(read('src/async-context.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ctx);const source=read('src/billing.js');vm.runInContext(source.slice(source.indexOf('function showInvoiceConfirmModal')),ctx);
  ctx.showInvoiceConfirmModal(invoice);handlers['invoice-confirm-cancel']();assert.equal(prints,0);ctx.showInvoiceConfirmModal(invoice);handlers['invoice-confirm-print']();assert.equal(prints,1);
 });
 test('complete application sources contain no native alert, confirm or prompt calls or dynamic wrappers',()=>{
@@ -104,13 +104,13 @@ test('complete application sources contain no native alert, confirm or prompt ca
 
 test('client suspension/reactivation retain the canonical lifecycle RPC, reason and selected target',async()=>{
  for(const action of ['suspend','reactivate']){
-  const f=authFixture();const calls=[];f.ctx.pState.selectedClient={id:42};f.ctx.rpc=async(name,args)=>calls.push({name,args});f.ctx.loadPlatform=async()=>{};f.ctx.loadClientData=async()=>{};
+  const f=authFixture();const calls=[];f.ctx.pState.selectedClient={id:42};f.ctx.pState.clientRequestGeneration=0;f.ctx.pState.clientData={clientId:42,requestGeneration:0,config:{id:42}};f.ctx.rpc=async(name,args)=>calls.push({name,args});f.ctx.loadPlatform=async()=>{};f.ctx.loadClientData=async()=>{};
   await f.ctx.handleFormSubmit({preventDefault(){},submitter:{value:action},target:{dataset:{pForm:'client-lifecycle'},elements:{reason:{value:'Approved fixture reason'}}}});
   assert.equal(calls.length,1);assert.equal(calls[0].name,'platform_client_lifecycle');assert.equal(calls[0].args.p_client,42);assert.equal(calls[0].args.p_action,action);assert.equal(calls[0].args.p_reason,'Approved fixture reason');
  }
 });
 test('unresolved recovery requires acknowledgment before refresh and preserves the original recovery request',async()=>{
- const f=authFixture();let acknowledge,refreshes=0;const calls=[];f.ctx.pState.selectedClient={id:42};f.ctx.pState.clientData={config:{}};
+ const f=authFixture();let acknowledge,refreshes=0;const calls=[];f.ctx.pState.clientRequestGeneration=0;f.ctx.pState.selectedClient={id:42};f.ctx.pState.clientData={clientId:42,requestGeneration:0,config:{id:42}};
  f.original.functions={invoke:async(name,args)=>{calls.push({name,args});return{data:{state:'unresolved'}};}};
  f.ctx.showMessage=()=>new Promise(r=>acknowledge=r);f.ctx.loadPlatform=async()=>refreshes++;f.ctx.loadClientData=async()=>{};
  const promise=f.ctx.handleFormSubmit({preventDefault(){},submitter:{value:'reconcile'},target:{dataset:{pForm:'config-recovery'},elements:{request_id:{value:'original-request'},reason:{value:'Read-back reconciliation'}}}});

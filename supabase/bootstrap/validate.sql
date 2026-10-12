@@ -52,9 +52,8 @@ begin
 end $$;
 select auth_user_id,revision,bound_at,bound_by_database_role from platform_private.master_identity;
 select id,admin_username,admin_password is null as legacy_password_cleared from public.platform_config;
--- Database-only identity proof. A real browser Auth/Turnstile smoke is separate.
-begin;
-select set_config('request.jwt.claim.sub',(select auth_user_id::text from platform_private.master_identity),true);
-set local role authenticated;
-select public.platform_operator_identity();
-rollback;
+-- No impersonation: this structural diagnostic does not prove browser/session
+-- authorization. From an actual signed-in Master client invoke
+-- platform_operator_identity() using that client's JWT and verify auth_user_id,
+-- role and (after lifecycle v2) session_id. Never synthesize a session claim here.
+select 'REQUIRED: actual signed-in Master identity RPC and browser smoke' as session_verification;

@@ -11,7 +11,7 @@ create function auth.email() returns text language sql stable as $$ select email
 create table auth.sessions(id uuid primary key,user_id uuid references auth.users(id) on delete cascade,created_at timestamptz not null default now(),not_after timestamptz);
 create table auth.mfa_amr_claims(id uuid primary key default gen_random_uuid(),session_id uuid references auth.sessions(id) on delete cascade,authentication_method text not null);
 create function auth.jwt() returns jsonb language sql stable as $$
- select coalesce(nullif(current_setting('request.jwt.claims',true),'')::jsonb,jsonb_build_object('sub',auth.uid(),'session_id',auth.uid()))
+ select coalesce(nullif(current_setting('request.jwt.claims',true),'')::jsonb,'{}'::jsonb)
 $$;
 create function auth.fixture_session() returns trigger language plpgsql as $$begin
  insert into auth.sessions(id,user_id) values(new.id,new.id);

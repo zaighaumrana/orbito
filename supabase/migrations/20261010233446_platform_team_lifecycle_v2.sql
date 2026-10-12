@@ -374,6 +374,48 @@ begin
 end $$;
 revoke all on function public.platform_operator_identity() from public,anon;
 grant execute on function public.platform_operator_identity() to authenticated;
+-- Issuance remains service-only: Edge verifies the actual browser Master and
+-- passes its canonical owned session, never browser-selected actor/server scope.
+-- Exchange validates the recorded capability actor without impersonating a user.
+create or replace function platform_private.support_master_identity(p_actor uuid) returns jsonb
+language plpgsql security definer set search_path='' as $$
+declare identity jsonb;
+begin
+ begin perform platform_private.team_master(p_actor); exception when insufficient_privilege then return null; end;
+ if exists(select 1 from public.platform_team_archive a join auth.users u on u.id=p_actor where a.auth_user_id=u.id or lower(a.email)=lower(u.email)) then return null; end if;
+ select jsonb_build_object('auth_user_id',u.id,'email',u.email,'role','master_admin') into identity
+ from auth.users u where u.id=p_actor and u.email ~ '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+$';
+ return identity;
+end $$;
+revoke all on function platform_private.support_master_identity(uuid) from public,anon,authenticated,service_role;
+
+create function public.platform_support_issue(p_client integer,p_actor uuid,p_token_hash text,p_platform_project text,p_session uuid) returns jsonb
+language plpgsql security definer set search_path='' as $$
+declare c public.clients%rowtype;s platform_private.shop_credentials%rowtype;b public.bridge_sources%rowtype;g platform_private.support_grants%rowtype;identity jsonb; stamp timestamptz:=clock_timestamp();
+begin
+ identity:=platform_private.support_master_identity(p_actor);
+ if identity is null or identity->>'auth_user_id' is distinct from p_actor::text or identity->>'role' is distinct from 'master_admin'
+  or not platform_private.session_live(p_actor,p_session)
+  or coalesce(identity->>'email','') !~ '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+$'
+ then raise exception 'Verified master and hashed grant required' using errcode='42501'; end if;
+ if identity is null or p_token_hash is null or p_token_hash !~ '^[a-f0-9]{64}$' or p_platform_project is null or p_platform_project !~ '^[a-z]{20}$' then raise exception 'Verified master and hashed grant required' using errcode='42501';end if;
+ select * into strict c from public.clients where id=p_client for update;
+ select * into s from platform_private.shop_credentials where client_id=p_client;
+ select * into b from public.bridge_sources where client_id=p_client;
+ if c.pairing_mode<>'managed' or c.onboarding_version<>2 or c.lifecycle_state not in ('Active','Suspended') or c.infrastructure_state in ('destroyed','decommissioned')
+  or s.client_id is null or s.project_ref=p_platform_project or c.supabase_url is distinct from 'https://'||s.project_ref||'.supabase.co'
+  or s.bridge_call_secret_id is null or b.source_id is null or b.client_binding is distinct from s.client_binding
+  or not exists(select 1 from platform_private.source_credentials where source_id=b.source_id)
+  or c.shop_url is null or c.shop_url !~ '^https://[A-Za-z0-9.-]+(:[0-9]+)?/?$' then raise exception 'Eligible paired managed Shop required';end if;
+ insert into platform_private.support_grants(token_hash,client_id,actor_id,project_ref,client_binding,source_id,issued_at,expires_at)
+ values(p_token_hash,p_client,p_actor,s.project_ref,s.client_binding,b.source_id,stamp,stamp+interval '90 seconds') returning * into g;
+ insert into public.operator_audit(client_id,actor_id,action,detail) values(p_client,p_actor,'support_grant_issued',jsonb_build_object('grant_id',g.id,'expires_at',g.expires_at));
+ return jsonb_build_object('shop_url',c.shop_url,'expires_at',g.expires_at);
+end $$;
+revoke all on function public.platform_support_issue(integer,uuid,text,text) from public,anon,authenticated,service_role;
+revoke all on function public.platform_support_issue(integer,uuid,text,text,uuid) from public,anon,authenticated;
+grant execute on function public.platform_support_issue(integer,uuid,text,text,uuid) to service_role;
+
 -- Defense in depth for Platform Storage and private Realtime channels. Existing
 -- permissive policies still decide which authorized operators may access objects.
 do $$ declare t record; original_role text=current_user; begin

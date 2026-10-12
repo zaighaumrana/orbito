@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { pState, setPCFG } from './state.js';
 import { serverConfigOperation } from './operations.js';
+import { captureAuthority, authorityCurrent, captureView, viewCurrent, selectClient, clientDataMatches } from './async-context.js';
 export const pb = createClient(import.meta.env.VITE_PLATFORM_URL, import.meta.env.VITE_PLATFORM_ANON);
 export const PLATFORM_AUTH_EMAIL = import.meta.env.VITE_PLATFORM_AUTH_EMAIL;
 let passwordVerifier;
@@ -85,7 +86,7 @@ async function allRows(table, order, select = '*') {
 }
 export async function loadPlatform() {
   if(!pState.authenticated)return;
-  const generation=pState.authorityGeneration;
+  const context=captureAuthority();
   const [clients,support,usage,invoices,rateLog,payments,credits,platformUsers,summary,teamArchive,teamHistory] = await Promise.all([
     allRows('clients','id'), allRows('support_tickets','id'),
     allRows('usage_logs','id'), allRows('billing_cycles','id'), allRows('pricing_rate_log','id'),
@@ -97,29 +98,51 @@ export async function loadPlatform() {
   ]);
   if (summary.error) throw summary.error;
   if(teamHistory.error)throw teamHistory.error;
-  if(generation!==pState.authorityGeneration || !pState.authenticated)return;
+  if(!authorityCurrent(context))return;
   Object.assign(pState.data, { clients,support,usage,invoices,rateLog,payments,credits,platformUsers,usageSummary: summary.data,teamArchive,teamOperations:teamHistory.data.operations });
-  if (pState.selectedClient) pState.selectedClient = clients.find(c => c.id === pState.selectedClient.id) || null;
+  if (pState.selectedClient) {
+    const selected=clients.find(c => c.id === pState.selectedClient.id);
+    if(selected)pState.selectedClient=selected;else selectClient();
+  }
 }
 export async function loadClientData(client) {
-  if(!pState.authenticated)return;
-  const generation=pState.authorityGeneration;
-  pState.selectedClient = client;
-  const { data, error } = await pb.rpc('platform_client_operations', { p_client: client.id });
-  const provision = await pb.rpc('platform_provision_status', { p_client: client.id });
-  const overhaul = await pb.rpc('platform_overhaul_status', { p_client: client.id });
-  if(generation!==pState.authorityGeneration || !pState.authenticated)return;
-  if(!overhaul.error)localStorage.removeItem(`orbito-operation:config:${client.id}`);
-  const connection = provision.data?.connection;
-  const latestRead = connection?.verified_at && (!client.config_synced_at || new Date(connection.verified_at) > new Date(client.config_synced_at));
-  pState.clientData = { config: latestRead ? { ...client, ...connection.health?.shop_config } : client, operations: data, _error: error?.message,
-    provisioning: provision.data, provisioningError: provision.error?.message, overhaul:overhaul.data,overhaulError:overhaul.error?.message, verifiedAt: latestRead ? connection.verified_at : client.config_synced_at };
+  if(!pState.authenticated || !client)return false;
+  if(pState.selectedClient?.id!==client.id)selectClient(client);
+  const context=captureView(),request=++pState.clientRequestGeneration;
+  const current=()=>viewCurrent(context,false) && request===pState.clientRequestGeneration;
+  pState.clientData={clientId:client.id,requestGeneration:request,loading:true};
+  try {
+    const [operations,provision,overhaul]=await Promise.all([
+      pb.rpc('platform_client_operations',{p_client:client.id}),
+      pb.rpc('platform_provision_status',{p_client:client.id}),
+      pb.rpc('platform_overhaul_status',{p_client:client.id}),
+    ]);
+    if(!current())return false;
+    if(operations.error)throw new Error('Client operations unavailable. Refresh status before making changes.');
+    if(!overhaul.error)localStorage.removeItem(`orbito-operation:config:${client.id}`);
+    const connection=provision.data?.connection;
+    const latestRead=connection?.verified_at && (!client.config_synced_at || new Date(connection.verified_at)>new Date(client.config_synced_at));
+    pState.clientData={clientId:client.id,requestGeneration:request,loading:false,
+      config:latestRead?{...client,...connection.health?.shop_config,id:client.id}:client,operations:operations.data,
+      provisioning:provision.data,provisioningError:provision.error?.message,overhaul:overhaul.data,overhaulError:overhaul.error?.message,
+      verifiedAt:latestRead?connection.verified_at:client.config_synced_at};
+    return true;
+  } catch {
+    if(!current())return false;
+    pState.clientData={clientId:client.id,requestGeneration:request,loading:false,_error:'Client operations unavailable. Refresh status before making changes.'};
+    return true;
+  }
 }
 export async function updateClientConfig(client, updates) {
+  if(!clientDataMatches(client))throw Error('Refresh the selected client before changing its configuration.');
+  const context=captureView();
   await serverConfigOperation(client.id,updates,async()=>{
     const {data,error}=await pb.rpc('platform_overhaul_status',{p_client:client.id});
-    if(error)throw error;return data;
+    if(error)throw error;
+    if(!viewCurrent(context) || !clientDataMatches(client))throw Error('The client view changed. No follow-up configuration request was sent.');
+    return data;
   }, async requestId => {
+    if(!viewCurrent(context) || !clientDataMatches(client))return;
     const { data, error } = await pb.functions.invoke('platform-config', { body: { client_id: client.id, request_id: requestId, changes: updates } });
     if (error || data?.state !== 'applied') {
       let body = data;
@@ -130,5 +153,5 @@ export async function updateClientConfig(client, updates) {
     }
     return data;
   });
-  return true;
+  return viewCurrent(context);
 }

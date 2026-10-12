@@ -1,3 +1,4 @@
+import { captureView, viewCurrent, selectClient, clientDataMatches } from './async-context.js';
 import { notify, confirmDialog, showMessage, deleteUserDialog, cancelDialogs } from './dialogs.js';
 import { resetTurnstile, mountTurnstile, cleanupTurnstile, captchaBusy } from './turnstile.js';
 import { pState, clearSensitiveState }                          from "./state.js";
@@ -16,6 +17,8 @@ export function initEvents() {
   document.addEventListener("click", event => {
     // Auth buttons use the existing action handler; prevent a second native submit.
     if (event.target.closest('[data-auth-form] button[type="submit"]')) event.preventDefault();
+    const eventContext=pState.authenticated?captureView():null,eventGeneration=pState.authorityGeneration;
+    const current=()=>eventContext && viewCurrent(eventContext);
     (async () => {
     const el = event.target.closest(
       "button,a,[data-p-page],[data-p-action],[data-p-modal],[data-p-close]"
@@ -32,7 +35,7 @@ export function initEvents() {
       if (!pState.authenticated) return;
       pState.page = el.dataset.pPage;
       pState.filter = "";
-      if (el.dataset.pPage !== "client-detail") pState.selectedClient = null;
+      selectClient(el.dataset.pPage==='client-detail'?pState.selectedClient:null);
       render(); return;
     }
 
@@ -44,9 +47,9 @@ export function initEvents() {
     const action = el.dataset.pAction;
     if (!action) return;
     if(action==='open-shop-support'){
-      if(!pState.authenticated || pState.currentUser?.role!=='master_admin' || !pState.selectedClient)return;
+      if(!clientDataMatches() || pState.currentUser?.role!=='master_admin')return;
       el.disabled=true;
-      try {await openShopSupport(pState.selectedClient);} catch(error){notify.error(error);} finally{if(el.isConnected)el.disabled=false;}
+      try {await openShopSupport(pState.selectedClient);} catch(error){if(current())notify.error(error);} finally{if(el.isConnected)el.disabled=false;}
       return;
     }
     if (action === 'copy-setup') {
@@ -111,6 +114,8 @@ export function initEvents() {
     /* ── Confirm new password from reset link ── */
     if (action === "confirm-reset-password") {
       if (pState.passwordSaving || !pState.passwordFlow) return;
+      const flow=pState.passwordFlow,generation=pState.authorityGeneration;
+      const setupCurrent=()=>flow===pState.passwordFlow && generation===pState.authorityGeneration;
       const newpass = document.getElementById("reset-newpass")?.value;
       const confirm = document.getElementById("reset-confirm")?.value;
       const statusEl = document.getElementById("reset-status");
@@ -130,7 +135,8 @@ export function initEvents() {
       let result;
       try {
         result=await pb.functions.invoke('platform-password-setup',{body:{password:newpass,request_id:pState.passwordFlow.requestId}});
-      } finally {pState.passwordSaving=false;if(el.isConnected)el.disabled=false;}
+      } finally {if(setupCurrent())pState.passwordSaving=false;if(el.isConnected)el.disabled=false;}
+      if(!setupCurrent())return;
       if (result.error || result.data?.success!==true) {
         statusEl.textContent = "Password setup or activation could not be confirmed. Your account may remain restricted. Retry the same setup, or contact your administrator if the outcome is uncertain.";
         statusEl.style.cssText += "color:#c24132;background:rgba(194,65,50,0.1)";
@@ -143,6 +149,7 @@ export function initEvents() {
 
       pState.setupRouter?.clear();await pb.auth.signOut({ scope: "local" });
       setTimeout(() => {
+        if(generation!==pState.authorityGeneration || pState.authenticated)return;
         pState.page = "login";
         render();
       }, 1500);
@@ -179,6 +186,7 @@ export function initEvents() {
       const { data: authData, error: authError } = await pb.auth.signInWithPassword({
         email: isEmail ? username : PLATFORM_AUTH_EMAIL, password, options: { captchaToken },
       });
+      if(eventGeneration!==pState.authorityGeneration)return;
       if (authError || !authData?.session) { _loginFail(errorEl);return; }
       const generation=pState.authorityGeneration;
       try {
@@ -213,19 +221,21 @@ export function initEvents() {
     if (action === "open-client") {
       const client = pState.data.clients.find(c => String(c.id) === String(el.dataset.pId));
       if (!client) return;
-      pState.selectedClient = client;
+      selectClient(client);
       pState.page           = "client-detail";
       pState.clientData     = {};
       render();
-      await loadClientData(client);
-      render(); return;
+      if(await loadClientData(client))render(); return;
     }
 
     /* Trusted subscription state update */
     if(action==='load-public-environment') {
+      if(!clientDataMatches())return;
+      const client=pState.selectedClient,request=pState.clientRequestGeneration;
       el.disabled=true;
       try {
-        const {data,error}=await pb.functions.invoke('platform-provision',{body:{client_id:pState.selectedClient.id,request_id:crypto.randomUUID(),action:'frontend-env',params:{}}});
+        const {data,error}=await pb.functions.invoke('platform-provision',{body:{client_id:client.id,request_id:crypto.randomUUID(),action:'frontend-env',params:{}}});
+        if(!current() || request!==pState.clientRequestGeneration)return;
         if(error || !data?.public_env)throw Error('Public configuration unavailable; check managed project access.');
         pState.clientData.publicEnv=data.public_env;render();
       }finally{el.disabled=false;}
@@ -234,26 +244,36 @@ export function initEvents() {
     if(action==='client-view') { pState.clientView=el.dataset.view;render();return; }
     if (action === 'suspend-client' || action === 'activate-client') {
       const client = pState.data.clients.find(c => c.id === Number(el.dataset.pId));
-      if (await updateClientConfig(client, { suspended: action === 'suspend-client' })) {
+      if(!clientDataMatches(client))return;
+      if (await updateClientConfig(client, { suspended: action === 'suspend-client' }) && current()) {
         await loadPlatform();
-        if (pState.selectedClient?.id === client.id) await loadClientData(pState.data.clients.find(c => c.id === client.id));
-        render();
+        if(!current())return;
+        if(await loadClientData(pState.data.clients.find(c => c.id === client.id)))render();
       }
       return;
     }
 
     if (action === 'read-shop-config') {
-      const { data, error } = await pb.functions.invoke('platform-config', { body: { client_id: pState.selectedClient.id, action: 'read' } });
-      if (error || !data?.config) throw new Error(data?.error || error?.message || 'Shop configuration unavailable');
-      pState.clientData.config = { ...pState.selectedClient, ...data.config };
+      if(!clientDataMatches())return;
+      const client=pState.selectedClient,request=++pState.clientRequestGeneration;
+      pState.clientData={...pState.clientData,requestGeneration:request,loading:true};
+      const { data, error } = await pb.functions.invoke('platform-config', { body: { client_id: client.id, action: 'read' } }).catch(()=>({error:true}));
+      if(!current() || request!==pState.clientRequestGeneration)return;
+      pState.clientData.loading=false;
+      if(error || !data?.config){pState.clientData._error='Shop configuration unavailable. Refresh status.';render();return;}
+      pState.clientData.config={...client,...data.config,id:client.id};
       pState.clientData.verifiedAt = new Date().toISOString(); render(); return;
     }
     if (action === 'refresh-operations') {
-      await loadPlatform(); await loadClientData(pState.selectedClient); render(); return;
+      const client=pState.selectedClient;if(!client)return;
+      await loadPlatform();if(!current())return;
+      if(await loadClientData(pState.selectedClient))render(); return;
     }
     if (action === 'paper-status') {
+      if(!clientDataMatches())return;
+      const client=pState.selectedClient;
       await rpc('platform_paper_action', { p_client: pState.selectedClient.id, p_request: el.dataset.id, p_version: Number(el.dataset.version), p_status: el.dataset.status, p_delivery: null });
-      await loadClientData(pState.selectedClient); render(); return;
+      if(current() && await loadClientData(client))render(); return;
     }
 
     /* ── Module toggles ── */
@@ -266,15 +286,17 @@ export function initEvents() {
       "toggle-paper":      "paper_resupply_enabled",
     };
     if (toggleMap[action]) {
+      if(!clientDataMatches())return;
+      const client=pState.selectedClient;
       const field = toggleMap[action];
       const cfg   = pState.clientData.config || {};
       const next  = !cfg[field];
       if (field === 'paper_resupply_enabled') {
         await rpc('platform_set_paper', { p_client: pState.selectedClient.id, p_enabled: next });
       } else if (!await updateClientConfig(pState.selectedClient, { [field]: next })) return;
-      await loadPlatform();
-      await loadClientData(pState.data.clients.find(c => c.id === pState.selectedClient.id));
-      render();
+      if(!current())return;
+      await loadPlatform();if(!current())return;
+      if(await loadClientData(pState.data.clients.find(c => c.id === client.id)))render();
       return;
     }
 
@@ -283,8 +305,9 @@ export function initEvents() {
       const clientId = Number(el.dataset.pId);
       const client    = pState.data.clients.find(c => c.id === clientId);
       const newInvoice = await generateInvoice(clientId);
-      await loadPlatform(); render();
-      if (client && newInvoice) printClientInvoices(client, [newInvoice]);
+      if(!current())return;
+      await loadPlatform();if(current())render();
+      if (current() && client && newInvoice) printClientInvoices(client, [newInvoice]);
       return;
     }
 
@@ -333,7 +356,8 @@ export function initEvents() {
 
     if (action === 'archive-client') {
       const client=pState.data.clients.find(c=>c.id===Number(el.dataset.pId));
-      await loadClientData(client);pState.page='client-detail';pState.modal=null;render();return;
+      if(!client)return;selectClient(client);pState.page='client-detail';pState.modal=null;
+      if(await loadClientData(client))render();return;
     }
 
     /* ── Edit platform user ── */
@@ -365,17 +389,19 @@ export function initEvents() {
       let confirmation;
       try {
         const identity = await loadOperatorIdentity();
-        if(identity.role!=='master_admin')return;
+        if(!current() || identity.role!=='master_admin')return;
         const deletion=['delete-platform-user','reconcile-platform-user'].includes(action);
         if(deletion){
           confirmation=await deleteUserDialog({title:'Permanently Delete User',message:`${user.name} · ${user.email} · ${user.role}. This action permanently removes the user's Platform account and cannot be undone. Authorization is revoked first; an immutable archive is retained only after Auth absence is verified.`,accountEmail:identity.email,confirmLabel:action==='reconcile-platform-user'?'Verify deletion outcome':'Delete Permanently',captchaToken:()=>pState.turnstileToken,
             afterMount:()=>{void mountTurnstile({containerId:'team-delete-verification',statusId:'team-delete-verification-status',buttonSelector:'.platform-dialog [data-captcha-submit]'});},onClose:()=>cleanupTurnstile()});
           if(!confirmation)return;
         }else if(!await confirmDialog({title:action==='reactivate-platform-user'?'Reactivate employee?':'Deactivate employee?',message:action==='reactivate-platform-user'?`${user.name} (${user.email}) will regain access to their existing account and must sign in again. A Pending invitation will remain Pending.`:`${user.name} (${user.email}) will lose Platform authorization. Their Auth identity is retained and outstanding setup is cancelled.`,confirmLabel:action==='reactivate-platform-user'?'Reactivate':'Deactivate',danger:action!=='reactivate-platform-user'}))return;
+        if(!current())return;
         const {data,error}=await pb.functions.invoke(deletion?'delete-platform-user':action,{body:{id:user.id,request_id:requestId,...(confirmation || {}),...(action==='reconcile-platform-user'?{reconcile:true}:{})}});
-        if(error || data?.success!==true){notify.error(`Operation could not be confirmed. Review request ${requestId}; do not retry an uncertain Auth operation blindly.`);await loadPlatform();render();return;}
+        if(!current())return;
+        if(error || data?.success!==true){notify.error(`Operation could not be confirmed. Review request ${requestId}; do not retry an uncertain Auth operation blindly.`);await loadPlatform();if(current())render();return;}
         notify.success('Team operation verified. Reactivated employees must sign in again.');
-        await loadPlatform(); render();
+        await loadPlatform(); if(current())render();
       } finally {if(confirmation){confirmation.password='';confirmation.captchaToken='';}if(el.isConnected)el.disabled=false;if(document.getElementById('verification-widget'))void mountTurnstile();}
       return;
     }
@@ -385,10 +411,12 @@ export function initEvents() {
       const { error } = await pb.from("support_tickets")
         .update({ status: "Resolved", resolved_at: new Date().toISOString() })
         .eq("id", el.dataset.pId);
+      if(!current())return;
       if (error) { notify.error(error); return; }
-      await loadPlatform(); render(); return;
+      await loadPlatform(); if(current())render(); return;
     }
     })().catch(error => {
+      if(eventGeneration!==pState.authorityGeneration || (eventContext && !current()))return;
       if (pState.loginLoading) { pState.authenticated = false; pState.page = 'login'; pState.loginLoading = false; render(); }
       if (pState.resetLoading) { pState.resetLoading = false; resetTurnstile(); }
       notify.error(error);

@@ -898,3 +898,35 @@ into feature/platform-team-lifecycle-v2 for independent review only. Recheck Dra
 unmerged PR, exact source commit, protected refs, worktree and Cloudflare skipped
 record after push. Final SHA/status are supplied by Git/PR and the checkpoint report;
 this pre-commit history does not claim post-push verification before it occurs.
+
+## 2026-10-12 — PR #4 independent-review F1–F4 corrections
+
+Branch: feature/platform-team-lifecycle-v2. Verified published review base be43f28b3a2cea0b1d73b2b9611a96818bed810d, Draft/open/unmerged PR #4 -> development. Earlier local-only checkpoints remain historical. Owner's confirmation that lifecycle migration 20261010233446 is unapplied governs this source-only correction; twelve applied migration blobs and frozen Shop artifact remain untouched.
+
+### Changes and decisions
+
+F1: session-aware operator identity broke historical support helper impersonation. Issuance now runs under the actual Master caller JWT, with canonical UUID/role/owned live session checks in SQL; service-role issuance is revoked. Service-only exchange resolves the recorded canonical actor without setting user claims. Exact source/client/project/binding/lifecycle, hash-only 256-bit grant, 90-second expiry, one-winner consumption and audit stay unchanged. The diagnostic no longer impersonates a subject. SQL fixtures declare user sessions explicitly; service tests contain no fake user session.
+
+F2/F3: add authority UUID/session/role/view/selection/request/modal continuity guards to loaders and mutation continuations. Newer client loads win; mismatched/loading/failed detail cannot drive configuration. Logout, revocation, account/session switch and navigation discard late private results/follow-up writes. Related native link/setup and support-popup races were reproduced and corrected. Current-server mutations may already commit; no rollback or automatic resend is inferred. Username busy cleanup cannot remain stuck after navigation.
+
+F4: distinguish published be43f28 from the historical uncommitted audit and enclosing correction revision; update coordinated rollout to include the reviewed support handler. Shared Manager/Billing reads match the existing documented contract, not UI confidentiality; any narrower RBAC requires an owner decision. Real SQL finish_edit verifies the existing session immediately adopts the live reduced role without changing suspension cutoff behavior.
+
+### Validation / release boundary
+
+PASS: 235 broad tests, six PG17 bootstrap groups, two canonical groups (50 combined handler/database tests), nine lifecycle groups, eight actual CLI 2.120.0 atomicity groups, six local GoTrue journeys, SQL-only fresh/upgrade/late rollback, real support authorization/concurrency group, twelve native Chrome groups, ten frozen Deno checks and synthetic Vite build. Baseline F1 service issue/exchange and F2/F3/adjacent setup probes fail before fixes and pass on corrected source. Explicit synthetic SQL/browser transports remain separate from real provider proof; no emails sent.
+
+SKIP: full PostgREST/Edge gateway support journey (no cached PostgREST runtime), hosted Auth/CAPTCHA/mail/Storage/Realtime/continuity and real account writes. Existing Vite CJS deprecation remains. Staging/production NO-GO pending independent re-review, owner policy decisions and separately approved hosted preflight/rollout/backup/journeys.
+
+Git checkpoint is authorized only after current trigger review: development-only Pages build, no deploy hooks, no source/base Actions workflows/repository webhooks or local Git hooks; verified native CF-Pages-Skip prefix prevents this source update's Pages deployment. Backend isolation is not inferred. Push only existing PR source, keep Draft; final SHA/skip evidence belongs to Git/PR/final checkpoint report. No merge, hosted resource, protected branch, Shop or credential changes.
+
+## 2026-10-13 — Final targeted PR #4 source checkpoint preparation
+
+Work continued across midnight Asia/Karachi. The complete follow-up is 43 files: targeted source/forward SQL/diagnostic/docs and explicit session/context regression fixtures. Final SQL also retains the historical verified-email shape restriction at issuance. Affected PG17 support and CLI fresh/staging history-rejection/retry checks passed after that last SQL correction; full results and before/after probes are recorded in PRODUCTION_READINESS_REPORT. No hosted deployment/test is implied.
+
+Reconfirmed the reviewed be43f28 source base, Draft/open/unmerged PR #4 -> development, unchanged protected refs, twelve historical migrations/frozen Shop artifact and clean Shop. Stage exactly the recorded manifest; inspect staged diff, whitespace and sensitive values, commit with the verified native CF-Pages-Skip prefix, push only the existing feature ref and verify Cloudflare skip/PR SHA afterward. Keep staging/production NO-GO and stop for independent source review. No merge, hosted resource or production configuration change is authorized.
+
+### Final 2026-10-13 support boundary correction (supersedes provisional F1 design above)
+
+Before committing, rejected public/authenticated issuance because server-only Platform ref and nonce control must stay in Edge. Final SQL adds a service-only five-argument support RPC: native caller verification/canonical identity supplies the actual session_id, SQL rechecks confirmed active bound Master plus the owned live session, and all API access to the old four-argument RPC is revoked. Consumption validates the recorded actor/capability without user JWT impersonation. The service JWT contains no fake user claims. This matches the existing trusted team-command boundary and does not weaken operator_role. Tests use distinct Auth UUID/session IDs, direct browser/legacy API denials, missing/expired/wrong-owner/removed sessions, revoked/rebound actors and concurrent exchange.
+
+Also caught and tested an introduced modal/loading interaction: opening a modal must not cancel a still-current client detail load. Loaders ignore modal identity while retaining authority/view/selection/request guards; mutation completions retain modal/operation identity. Docker temporarily became unavailable, was restarted by the owner, and final affected checks reran rather than being waived. These were local development corrections, never hosted changes.

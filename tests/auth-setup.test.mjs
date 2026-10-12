@@ -9,7 +9,7 @@ function fixture({kind='pending',hash='',search='',contextError=false,linkError=
  const ctx={URLSearchParams,window:{location:{hash,search,pathname:'/'}},history:{replaceState:()=>calls.push('scrub')},crypto:{randomUUID:()=> 'synthetic-operation'},setTimeout:fn=>timers.push(fn)};
  vm.createContext(ctx);vm.runInContext(read('src/auth-setup.js').replace(/^export /gm,''),ctx);
  const router=ctx.createSetupRouter({pb,state,render:()=>calls.push('render'),notify:{error(){}}});
- return {router,state,calls,session,flush:async()=>{for(const fn of timers.splice(0))fn();await new Promise(r=>setImmediate(r));}};
+ return {pb,router,state,calls,session,flush:async()=>{for(const fn of timers.splice(0))fn();await new Promise(r=>setImmediate(r));}};
 }
 for(const event of ['SIGNED_IN','INITIAL_SESSION'])test('verified Pending '+event+' enters setup without URL authority',async()=>{const f=fixture();f.router.event(event,f.session);assert.deepEqual(f.calls,[],'Callback must not await SDK while its lock is held');await f.flush();assert.equal(f.state.page,'reset-password');assert.equal(f.state.authenticated,false);assert.equal(f.state.passwordFlow.kind,'pending');});
 test('genuine recovery routes Active user, ordinary/master reset query does not',async()=>{const recovery=fixture({kind:'active'});recovery.router.event('PASSWORD_RECOVERY',recovery.session);await recovery.flush();assert.equal(recovery.state.page,'reset-password');for(const search of ['','?reset=true']){const f=fixture({kind:'active',search});assert.equal(await f.router.boot(f.session),false);assert.equal(f.state.passwordFlow,undefined);}});
@@ -26,3 +26,11 @@ test('completed/cancelled recovery cannot reroute the next ordinary login into s
  }
 });
 test('password UI checks server result and guards repeat submissions; never calls unchecked acceptance',()=>{const code=read('src/events.js');const block=code.split('if (action === "confirm-reset-password") {')[1].split('/* â”€â”€ LOGIN')[0];assert.match(block,/passwordSaving/);assert.match(block,/result\.data\?\.success!==true/);assert.match(block,/platform-password-setup/);assert.ok(!block.includes('platform_accept_invite'));assert.ok(!block.includes('auth.updateUser'));});
+test('logout during native link exchange or setup retry cannot restore a private setup view',async()=>{
+ for(const operation of ['boot','retry']){
+  const f=fixture({hash:'#type=invite&token_hash=synthetic-proof'});let release;
+  if(operation==='boot')f.pb.auth.verifyOtp=()=>new Promise(r=>release=r);else f.pb.auth.getSession=()=>new Promise(r=>release=r);
+  const pending=operation==='boot'?f.router.boot(null):f.router.retry();f.router.event('SIGNED_OUT',null);f.state.page='login';
+  release({data:{session:f.session}});await pending;assert.equal(f.state.page,'login');assert.equal(f.state.passwordFlow,null);assert.equal(f.state.recoveryEmail,null);
+ }
+});

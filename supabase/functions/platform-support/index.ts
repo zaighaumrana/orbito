@@ -21,11 +21,11 @@ Deno.serve(async req=>{
    if(Object.keys(body).some(k=>!['action','client_id'].includes(k)) || !Number.isSafeInteger(body.client_id) || body.client_id<1)return reply(400,{error:'Invalid client'})
    const caller=createClient(url,Deno.env.get('SUPABASE_ANON_KEY')!,{...options,global:{headers:{Authorization:req.headers.get('authorization')||''}}})
    const user=await caller.auth.getUser(),identity=await caller.rpc('platform_operator_identity')
-   if(user.error || !user.data?.user || identity.error || identity.data?.auth_user_id!==user.data.user.id || identity.data?.role!=='master_admin')return reply(403,{error:'Verified master administrator required'})
+   if(user.error || !user.data?.user || identity.error || identity.data?.auth_user_id!==user.data.user.id || identity.data?.role!=='master_admin' || typeof identity.data?.session_id!=='string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identity.data.session_id))return reply(403,{error:'Verified master administrator required'})
    const token=Array.from(crypto.getRandomValues(new Uint8Array(32)),b=>b.toString(16).padStart(2,'0')).join('')
    const platformRef=/^https:\/\/([a-z]{20})\.supabase\.co$/.exec(url)?.[1]
    if(!platformRef)return reply(503,{error:'Platform project identity invalid'})
-   const grant=await admin.rpc('platform_support_issue',{p_client:body.client_id,p_actor:user.data.user.id,p_token_hash:await hash(token),p_platform_project:platformRef})
+   const grant=await admin.rpc('platform_support_issue',{p_client:body.client_id,p_actor:user.data.user.id,p_token_hash:await hash(token),p_platform_project:platformRef,p_session:identity.data.session_id})
    if(grant.error || !grant.data)return reply(409,{error:'Support access requires an active or suspended, paired managed Shop'})
    return reply(200,{token,shop_url:grant.data.shop_url,expires_at:grant.data.expires_at})
   }

@@ -1,3 +1,4 @@
+import { clientDataMatches } from '../async-context.js';
 import { copyValue } from '../client-setup.js';
 import { lifecycleState, canContactShop, visibleClients, lifecyclePanel } from '../lifecycle.js';
 import { provisioningPanel } from '../provisioning.js';
@@ -80,12 +81,12 @@ export function pageClientDetail() {
   const head = `<div class="page-title client-detail-header"><div><div class="setup-heading"><h1>${esc(c.name)}</h1><span class="badge ${lifecycleState(c)==='Active'?'good':'warn'}">${esc(lifecycleState(c))}</span><span class="badge">${esc(c.plan)}</span></div><p>Client #${esc(c.id)} ${copyValue(c.id,'Copy ID')} · ${esc(c.industry||'Business')} · ${c.pairing_mode==='byo'?'Client-owned Supabase':'Managed Supabase'}</p></div><div class="setup-secondary">${canContactShop(c)?openShop+'<button class="secondary-button" data-p-modal="edit-client">Edit Client</button>':''}<button class="secondary-button" data-p-page="clients">← Back</button></div></div>` + (canContactShop(c) ? '' : renderRetainedClientMetadata(c));
 
   if (cd._error) return head + `<div class="card">Operations unavailable: ${esc(cd._error)}</div>`;
-  if (!o) return head + '<div class="card">Loading operations…</div>';
+  if (!o || !clientDataMatches(c)) return head + '<div class="card">Loading operations…</div>';
   const billing = computeClientBilling(c.id), thermal = o.thermal || {}, source = o.source;
   const metres = value => (Number(value || 0) / 1000).toLocaleString(undefined, { maximumFractionDigits: 3 });
   const flag = (label, field, action) => moduleToggleRow(label,
     field === 'paper_resupply_enabled' ? 'Owner request capability only; thermal collection always continues' : (cd.verifiedAt || c.config_synced_at) ? 'Last verified Shop configuration' : 'Not yet verified with Shop', cd.config?.[field] === true, action);
-  const canConfig = canContactShop(c) && ['master_admin','portfolio_manager'].includes(pState.currentUser.role);
+  const canConfig = clientDataMatches(c) && canContactShop(c) && ['master_admin','portfolio_manager'].includes(pState.currentUser.role);
   const canBill = ['master_admin','billing_person'].includes(pState.currentUser.role);
   const ready = c.billing_policy === 'usage-v1' && c.currency && !c.accounting_review_required;
   const projection = o.projection?.payload;

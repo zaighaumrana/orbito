@@ -16,7 +16,7 @@ export function createSetupRouter({pb,state,render,notify}) {
       const query=new URLSearchParams(window.location.search);query.delete('reset');
       history.replaceState(null,'',window.location.pathname+(query.size?'?'+query.toString():''));
     }
-    hint=null;hasReset=false;proof=null;failedLink=false;state.passwordFlow=null;
+    hint=null;hasReset=false;proof=null;failedLink=false;state.passwordFlow=null;state.recoveryEmail=null;
   }
   async function resolve(session,event) {
     const current=++generation;
@@ -46,11 +46,13 @@ export function createSetupRouter({pb,state,render,notify}) {
   }
   return {
     async boot(session) {
+      const scheduled=generation;
       if(proof){
         const hash=proof;
         // Remove credentials before any render/analytics/navigation. Memory only.
         history.replaceState(null,'',window.location.pathname+window.location.search);
         const result=await pb.auth.verifyOtp({token_hash:hash,type:hint});
+        if(scheduled!==generation)return true;
         if(result.error || !result.data?.session){error('This link is invalid, expired, revoked or already used. Contact your administrator.');return true;}
         session=result.data.session;
       }
@@ -61,9 +63,9 @@ export function createSetupRouter({pb,state,render,notify}) {
       if(state.passwordFlow || !['SIGNED_IN','INITIAL_SESSION','PASSWORD_RECOVERY'].includes(event))return;
       // Auth callbacks must stay synchronous: SDK calls here can deadlock its lock.
       const scheduled=generation;
-      setTimeout(()=>{if(scheduled===generation && !state.passwordFlow)void resolve(session,event).catch(()=>error('Account verification is unavailable. Retry or contact your administrator.'));},0);
+      setTimeout(()=>{if(scheduled===generation && !state.passwordFlow)void resolve(session,event).catch(()=>{if(generation===scheduled+1)error('Account verification is unavailable. Retry or contact your administrator.');});},0);
     },
-    async retry(){const {data,error:failure}=await pb.auth.getSession();if(failure)throw failure;return resolve(data.session,hint==='recovery'?'PASSWORD_RECOVERY':'INITIAL_SESSION');},
+    async retry(){const scheduled=generation;const {data,error:failure}=await pb.auth.getSession();if(scheduled!==generation)return true;if(failure)throw failure;return resolve(data.session,hint==='recovery'?'PASSWORD_RECOVERY':'INITIAL_SESSION');},
     clear,
   };
 }

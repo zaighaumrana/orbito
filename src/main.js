@@ -1,3 +1,4 @@
+import { captureView, viewCurrent, selectClient } from './async-context.js';
 import { createSetupRouter } from './auth-setup.js';
 import { notify, cancelDialogs } from './dialogs.js';
 import { pb, loadConfig, loadPlatform, loadOperatorIdentity } from "./supabase.js";
@@ -15,7 +16,8 @@ document.addEventListener("submit", async event => {
   const form = event.target;
   if (form.dataset.busy) return;
   form.dataset.busy = 'true';
-  try { await handleFormSubmit(event); } catch (error) { notify.error(error); }
+  const context=captureView();
+  try { await handleFormSubmit(event); } catch (error) { if(viewCurrent(context))notify.error(error); }
   finally { delete form.dataset.busy; }
 });
 
@@ -35,7 +37,7 @@ window.addEventListener("popstate", () => {
   const page = pathMap[window.location.pathname] || "overview";
   pState.page   = page;
   pState.filter = "";
-  if (page !== "client-detail") pState.selectedClient = null;
+  selectClient();
   render();
 });
 
@@ -48,13 +50,16 @@ pb.auth.onAuthStateChange((event,session)=>{
   if(event==='TOKEN_REFRESHED' || event==='SIGNED_IN')setTimeout(()=>void validateSession(render),0);
 });
 pState.authRouting=true;render();
+const bootGeneration=pState.authorityGeneration;
 (async()=>{
   const {data,error}=await pb.auth.getSession();if(error)throw error;
   if(await setupRouter.boot(data.session))return;
   pState.authRouting=false;
   if(!data.session){pState.page='login';render();return;}
-  pState.currentUser=await loadOperatorIdentity();await loadConfig();
-  pState.authenticated=true;
+  const identity=await loadOperatorIdentity();if(bootGeneration!==pState.authorityGeneration)return;
+  pState.currentUser=identity;pState.authenticated=true;await loadConfig();
+  if(bootGeneration!==pState.authorityGeneration || !pState.authenticated)return;
   pState.page=({'/':'overview','/clients':'clients','/billing':'billing','/support':'support','/settings':'settings'})[window.location.pathname] || 'overview';
-  await loadPlatform();await validateSession(render);render();
-})().catch(()=>{pState.authRouting=false;cancelDialogs();clearSensitiveState();pState.page='login';render();notify.error('Account verification is unavailable. Sign in again or retry when your connection is restored.');});
+  await loadPlatform();if(bootGeneration!==pState.authorityGeneration || !pState.authenticated)return;
+  await validateSession(render);if(bootGeneration===pState.authorityGeneration)render();
+})().catch(()=>{if(bootGeneration!==pState.authorityGeneration)return;pState.authRouting=false;cancelDialogs();clearSensitiveState();pState.page='login';render();notify.error('Account verification is unavailable. Sign in again or retry when your connection is restored.');});

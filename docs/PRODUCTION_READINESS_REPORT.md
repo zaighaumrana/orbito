@@ -8,13 +8,13 @@ validation, email, deployment or production change was performed by this audit.
 
 ## Repository and scope
 
-- Isolated local branch: `fix/pr4-security-stabilization`.
+- Historical isolated local branch: `fix/pr4-security-stabilization`.
 - Reviewed audit base: `a0dae0fc90332f9fc4a498823c1851c00c3f17b6`.
 - [PR #4](https://github.com/zaighaumrana/orbito/pull/4): Draft, open, unmerged;
-  `feature/platform-team-lifecycle-v2` -> `development`; remote source unchanged.
+  `feature/platform-team-lifecycle-v2` -> `development`; remote source was unchanged at that historical local checkpoint.
 - At the local audit checkpoint these corrections were uncommitted. The owner
   subsequently authorized a GitHub review checkpoint on 2026-10-12. The exact
-  published revision is the latest PR #4 commit; production NO-GO is unchanged.
+  published initial correction revision is `be43f28b3a2cea0b1d73b2b9611a96818bed810d`; production NO-GO is unchanged.
 - Read-only remote refs remain: development `0dbde676ca57ed1599a295e221d274ef080cac41`,
   deployment `a43db6a2b5fc51f8f9039f156c6edcd6dbfeb519`, frozen main
   `5df274ae9e8c187cc39e2013185cdf205e776fb1`.
@@ -28,7 +28,7 @@ entrypoints/shared dependencies, full migration chain, operator RLS/RPC boundari
 Auth/session handling, billing, provisioning, lifecycle, support and integration
 contracts were inspected. Historical/deferred compatibility is preserved.
 
-## Confirmed findings and fixes
+## Historical stabilization findings and fixes (published be43f28)
 
 | Finding | Correction/evidence |
 | --- | --- |
@@ -79,7 +79,7 @@ dependency upgrade, UI redesign, legal/publication or environment change.
 | Frontend/rendering | Synthetic build, source syntax, mocked login/Clients/Billing/Settings/navigation/PIN regressions, native dialogs/Team viewport tests and stored-XSS regression pass. Native browser backend transports/CAPTCHA are synthetic. No new circular-import participants; five existing cycle participants remain. |
 | Secrets/release boundary | Browser contains public configuration only; no added service/Management secrets. Changed-source scan finds no private keys/live JWT/secret-key pattern. Twelve historical migrations/artifact and protected refs unchanged. |
 
-## Test execution — PASS / FAIL / SKIP
+## Historical stabilization test execution — PASS / FAIL / SKIP
 
 | Check | Final result |
 | --- | --- |
@@ -148,7 +148,7 @@ read genuine history/state before deciding on retry; never repair history manual
 
 ## Exact changed-file manifest
 
-Changes are local only; ignored tool binaries/builds/logs are not Git artifacts.
+Historical local audit manifest: these 39 paths were subsequently committed/pushed at `be43f28b3a2cea0b1d73b2b9611a96818bed810d`. Ignored tools/builds/logs were not committed. The targeted follow-up manifest appears below.
 
 | Files | Responsibility |
 | --- | --- |
@@ -263,3 +263,108 @@ After publishing, verify the exact new commit in Cloudflare as skipped and confi
 Draft/unmerged PR state and protected refs. GitHub's commit/PR records and the final
 checkpoint report supply the resulting SHA and post-push status; this pre-commit
 entry does not claim those future checks have already passed.
+
+## 2026-10-12–13 — F1–F4 targeted correction and re-review checkpoint
+
+**CODE REVIEW: ready for independent re-review of the enclosing Git commit, not certified approved. STAGING / PRODUCTION: NO-GO.** Verified published baseline is **be43f28b3a2cea0b1d73b2b9611a96818bed810d**, Draft PR #4 source feature/platform-team-lifecycle-v2 -> development. The correction revision is the commit containing this report; the PR/final checkpoint report supplies its full SHA after publishing. No hosted resource was contacted or changed. Earlier tables are historical evidence; the independent F1 finding invalidated their support transport claim.
+
+| Finding | Root cause and correction | Before / after evidence |
+| --- | --- | --- |
+| F1 HIGH | Historical helper set only sub while canonical identity now requires owned live session. Issuance remains service-only: Edge verifies actual caller identity/session and forwards its canonical session_id; five-argument SQL compares bound Master/verified Auth and actual owned live session. Old four-argument API execution is revoked. Server-derived project scope and 256-bit nonce never become browser-selected RPC inputs. Private capability actor validation reads protected canonical state without changing claims; service exchange retains all original bindings/locks/audits. | Pinned be43 baseline on PG17: valid browser Master, service issue denied and otherwise eligible seeded grant exchange false, command fails. Corrected actual service SQL role: issue/exchange pass with explicit verified session argument and no fake user JWT; Manager/forged actor/missing/expired/removed/wrong-owner session, browser minting/legacy issuance and authenticated exchange deny; wrong scope, expiry, revoked Master and replay deny; overlapping consumption has one winner. |
+| F2 MEDIUM | Authority-only load guard did not identify selected target/newer request. Add selection/request generations, capture target/view, publish only current results, mark failures/loading and require matching loaded config identity before mutations. | Actual-source A/B reversal previously config.id=1 with selectedClient.id=2; mismatched toggle reached backend. Both fail before and pass after; same-target repeated loads/navigation/failures covered. |
+| F3 MEDIUM | Late insert and other continuations wrote private state or started work after logout/view changes. Check original authority generation/UUID/session/role, view/selection/modal before publication/follow-ups. Preserve uncertain server outcomes without automatic retry. | Before: successful Add response restored private selectedClient after clear; native link response reopened reset-password after logout. After: success/failure/revocation/re-login/same-user new session/navigation/modal changes, Edit/config/provision/popup/setup outcomes are discarded. Current normal Add and original-session verifier behavior retained. |
+| F4 LOW | Historical local-only language survived a published checkpoint. Label old audit/manifest historical, record exact be43 publication and current enclosing source revision, append dated history/current results. | Git verifies prior checkpoint; no committed/deployed/hosted status is inferred from local tests. |
+
+The adjacent confirmed fixes include the same continuation defect in native link boot/retry, delayed password setup and pending support popup, plus verifier busy cleanup, thrown config-read loading cleanup and allowing a same-client detail load to finish while a modal opens (without allowing stale form completion to close another modal). No broader RBAC, financial, provider email or Shop redesign. Twelve historical migrations remain immutable; only owner-confirmed unapplied version 13 changes. No new migration version/history repair.
+
+### Current execution results
+
+| Check | Result / scope |
+| --- | --- |
+| Broad existing plus focused new regressions | **PASS 235; FAIL 0; SKIP 0** (225 preserved + nine race groups + one native-setup group). Actual source with explicit transport doubles. |
+| PG17 database suites | **PASS six bootstrap groups; two canonical groups** (50 combined canonical/handler tests); original eight lifecycle groups pass; final **nine lifecycle groups PASS**, including role edit/shared reads. Real provider schemas; synthetic SQL users where stated. |
+| Actual pinned CLI 2.120.0 | **PASS eight groups** including real history-insert rejection/backend termination/rollback/retry/unsafe flush negative control. Final affected lifecycle fresh/upgrade history cases rerun after final SQL correction; no history fabricated. Six nested bootstrap groups overlap, not extra unique coverage. |
+| Real local GoTrue v2.197.0 / PG17 | **PASS six groups**: current password, original Master refresh/cleanup, single-session interruption/default-off gate, retained UUID/password and cutoff, native recovery/Pending/expired/reused links. SQL adapter replaces PostgREST. No SMTP delivery. |
+| Support authorization / concurrency | **PASS one comprehensive PG17 group**: actual service-only issue/consume with a Master session distinct from Auth UUID, real-shaped service claims without sub/session_id, binding/lifecycle/revocation/expiry/replay/one winner and audit. SQL-only Auth/Vault fixture; no provider/gateway attestation. Baseline mode intentionally **FAILS** at be43 (regression reproduction), not a current-source failure. |
+| SQL-only runner | **PASS** full fresh Platform chain, retained-identity upgrade and late failure/full rollback; PostgreSQL 17 server, installed psql 18 client. **SKIP Shop execution**. |
+| Native Chrome / Playwright | **PASS twelve groups**, 320/768/1440px light/dark, dialogs/Team/focus/keyboard/rerender/logout, zero external traffic/page errors. Client races also run against actual JS in VM; real hosted Client views not claimed. |
+| Native Deno / synthetic Vite | **PASS ten frozen entrypoints; PASS build** with four synthetic public variables, ignored output. Existing Vite CJS deprecation persists. Initial browser attempt lacked module path and reported SKIP; correct existing paths resolved it without installation; final twelve groups PASS. |
+| Syntax / diff / integrity / exposure | **PASS** source JS syntax, whitespace, sensitive-pattern scan, twelve historical blobs, frozen artifact, protected refs and clean Shop. Existing five import-cycle participants unchanged; none added. Staged checks repeated before checkpoint. |
+| Full disposable PostgREST/Edge support gateway | **SKIP: no cached PostgREST image/executable**; no dependency download/repair. SQL boundary plus actual Edge-source transport doubles are not a full gateway journey. |
+| Hosted validation | **SKIP**, separately authorized staging gate: actual Auth settings/CAPTCHA/mail/recipient eligibility/session continuity, gateway/support handoff, Storage/Realtime/managed policy permissions and disposable writes. No hosted account or email tests. |
+
+### Reproduce safely
+
+Run the broad suite and existing local commands above. Dedicated support runner uses only its own labelled PG17 container/loopback port and cleans it after verifying ownership:
+
+~~~powershell
+node tests/run-support-local.mjs --baseline # Expected FAIL against pinned be43 SQL; no source/history edits
+node tests/run-support-local.mjs            # Expected PASS on corrected chain
+node --test tests/frontend-races.test.mjs tests/auth-setup.test.mjs
+node tests/run-platform-team-local.mjs --lifecycle-only
+~~~
+
+Use installed ORBITO_LOCAL_PSQL if the Windows default differs. Native browser harness paths remain documented above. Baseline fixtures use explicitly synthetic owned sessions for browser authorization; service claims never acquire user/session fields. All fixture resources are local and disposable; existing Docker containers/volumes are untouched.
+
+### Policy decisions and remaining release gates
+
+- Existing STAGING_TEAM_CUTOVER matrix documents shared canonical/operational reads for Manager/Billing. Historical operator_read also exposes financial/support/team/control-plane SELECT even when navigation hides those sections. Owner must accept that contract or approve a separate narrower policy/loader change. This round does not certify per-role confidentiality.
+- Actual service-only begin_edit/finish_edit changes Manager to Billing on the same session; canonical identity and protected mutation immediately use the live new role. No fresh-login cutoff is added for edits; suspension/reactivation cutoffs, password AMR and deleted-session denials remain intact.
+- Keep native password enforcement, actual Master refresh continuity before trusted approval, built-in email recipient/rate constraints, provider permissions, backup/restore/Vault and legal/separate-Shop gates open. No Resend/SMTP/hook architecture is reintroduced. No-email Reactivate, deletion/password/CAPTCHA/audit/archive/uncertainty protections remain tested.
+- After independent source re-review, obtain separate staging preflight/freeze/backup/rollout authorization. The coordinated backend sequence must include the reviewed platform-support handler: new session-forwarding issuance fails closed before migration 13, while the old four-argument handler cannot issue afterward. Preserve its mixed-transport JWT flag and unchanged Shop exchange contract. Apply only reviewed migration, then authorize frontend and approved disposable hosted journeys. Never automatically repair history or retry uncertain provider writes.
+
+### Deployment trigger safety / checkpoint
+
+Read-only current Cloudflare inspection: repository orbito, development serving orbito.ahwad.com at 0dbde676ca57ed1599a295e221d274ef080cac41; npm run build/dist/root; no deploy hooks. Preview includes * and excludes only the earlier bootstrap branch, so PR #4 is eligible. Existing be43 and a0 commits are provider-recorded skipped. The verified native [CF-Pages-Skip] prefix is required for this authorized source push ([official procedure](https://developers.cloudflare.com/pages/configuration/git-integration/github-integration/#skipping-a-build-via-a-commit-message)). GitHub has no repository webhooks/source or development workflows; installed apps remain Codex/Cloudflare/Cursor; no local Git hooks. Preview Access restriction is not backend isolation. No configuration change. Publish only PR source, verify provider skip/current SHA and Draft/unmerged state afterward; final Git/PR records supply post-push evidence.
+
+### Complete targeted follow-up manifest — 43 files
+
+- ENGINEERING_HISTORY.md — Dated targeted corrections, tests and boundaries.
+- docs/PLATFORM_TEAM_LIFECYCLE_REVIEW.md — Published checkpoint and coordinated support/team rollout gates.
+- docs/PRODUCTION_READINESS_REPORT.md — Historical evidence, current findings/results and complete follow-up manifest.
+- docs/SUPPORT_SESSION_HANDOFF.md — New verified-session service issuance/capability exchange contract; old contract labelled historical.
+- src/async-context.js — Shared UUID/session/role/view/selection/modal continuity and loaded-target validation.
+- src/auth-setup.js — Cancel late native link exchange/retry/error routing on logout.
+- src/events.js — Invalidate selection/load requests; gate toggles/read/config/team/billing/setup continuations.
+- src/forms.js — Discard late Add/Edit/config/team/password outcomes and follow-up writes; release verifier busy state safely.
+- src/main.js — Bound form errors, startup results and browser navigation.
+- src/pages/clients.js — Withhold config controls until selected and loaded client identities match.
+- src/provisioning.js — Cancel stale UI publication, downloads and automatic next-stage dispatch.
+- src/state.js — Selection/request generations and private/busy-state clearing.
+- src/supabase.js — Selection/request-bound detail loads, failure state and config pre-dispatch continuity.
+- src/support-handoff.js — Close pending popup rather than open Shop after logout/navigation.
+- supabase/bootstrap/validate.sql — Structural checks only; actual signed-in JWT identity verification required, no impersonation.
+- supabase/functions/platform-support/index.ts — Verify actual caller, forward canonical session to service-only issue RPC; unchanged service-only exchange.
+- supabase/migrations/20261010233446_platform_team_lifecycle_v2.sql — Unapplied forward override: service-only live-Master/owned-session issuance and private canonical capability actor checks.
+- tests/auth-setup.test.mjs — Late OTP/retry cancellation failure-before/pass-after.
+- tests/control-plane.sql — Explicit owned synthetic user JWT/session claims; no service session substitution.
+- tests/currencies-boundaries.sql — Explicit owned synthetic user JWT/session claims; no service session substitution.
+- tests/dialogs-browser.mjs — Load the actual shared continuity code and declare valid synthetic UI/context/request fixtures.
+- tests/frontend-races.test.mjs — Nine actual-source adversarial race/continuation groups.
+- tests/local-bootstrap.sql — Remove implicit user/session JWT fallback; explicit SQL-only fixture sessions.
+- tests/manual-owner-activation.sql — Explicit owned synthetic user JWT/session claims; no service session substitution.
+- tests/onboarding-stabilization.sql — Explicit owned synthetic user JWT/session claims; no service session substitution.
+- tests/onboarding-stabilization.test.mjs — Load the actual shared continuity code and declare valid synthetic UI/context/request fixtures.
+- tests/onboarding-v2.sql — Explicit owned synthetic user JWT/session claims; no service session substitution.
+- tests/onboarding-v2.test.mjs — Load the actual shared continuity code and declare valid synthetic UI/context/request fixtures.
+- tests/overhaul-sql.test.mjs — Explicit verified-session issue arguments, sessionless service JWTs and API ACL assertions.
+- tests/platform-auth-dialogs.test.mjs — Load the actual shared continuity code and declare valid synthetic UI/context/request fixtures.
+- tests/platform-identity-consistency.test.mjs — Load the actual shared continuity code and declare valid synthetic UI/context/request fixtures.
+- tests/platform-master-upgrade.sql — Explicit owned synthetic user JWT/session claims; no service session substitution.
+- tests/platform-overhaul.sql — Explicit owned synthetic user JWT/session claims; no service session substitution.
+- tests/platform-overhaul.test.mjs — Load the actual shared continuity code and declare valid synthetic UI/context/request fixtures.
+- tests/run-support-local.mjs — Owned PG17 disposable runner, credential sanitization/cleanup and pinned failing baseline mode.
+- tests/session-authority.test.mjs — Load the actual shared continuity code and declare valid synthetic UI/context/request fixtures.
+- tests/support-access.sql — Explicit owned synthetic user JWT/session claims; no service session substitution.
+- tests/support-handoff-postgres.test.mjs — Real service claims/roles, failure-before, issuance/exchange denials, binding/expiry/revocation/replay/concurrency.
+- tests/support-handoff.sql — Explicit owned synthetic user JWT/session claims; no service session substitution.
+- tests/support-handoff.test.mjs — Caller issue transport and bound transient popup fixture.
+- tests/team-lifecycle-browser.mjs — Load the actual shared continuity code and declare valid synthetic UI/context/request fixtures.
+- tests/team-lifecycle-postgres.test.mjs — Actual finish_edit live-role reduction and documented shared-read probe.
+- tests/ui-warnings.test.mjs — Load the actual shared continuity code and declare valid synthetic UI/context/request fixtures.
+
+No generated build/tool/test evidence, credential file, historical migration, frozen Shop artifact or unrelated source is part of this manifest.
+
+### Final trust-boundary review — 2026-10-13
+
+The provisional authenticated issuance design was rejected before commit/deployment: its server-derived project/nonce inputs would have become browser-editable RPC parameters. Final issuance retains service-only authority and adds an explicitly forwarded, independently checked canonical session. The service JWT itself has no sub/session_id. This is a narrow support boundary, not a generic service-role authorization bypass. Final SQL was rerun through actual CLI history rollback/retry; service-role SQL negatives and 235 source regressions are rerun on this final design. Historical local proposal wording in engineering history is superseded by the dated correction below.

@@ -9,7 +9,8 @@ let chromium;
 try{({chromium}=await import(process.env.PLAYWRIGHT_MODULE_PATH?pathToFileURL(process.env.PLAYWRIGHT_MODULE_PATH).href:'playwright'));}
 catch{console.log('SKIP: existing Playwright unavailable; no installation attempted.');process.exitCode=2;}
 if(chromium){
- const fixture=`import {notify,confirmDialog,showMessage,deleteUserDialog,cancelDialogs} from '/dialogs.js';
+ const fixture=`import { captureView, viewCurrent, selectClient, clientDataMatches } from '/async-context.js';
+import {notify,confirmDialog,showMessage,deleteUserDialog,cancelDialogs} from '/dialogs.js';
  import {pState,PCFG,setPCFG,clearSensitiveState} from '/state.js';
  const esc=value=>String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const tit=(title,description)=>'<h1>'+esc(title)+'</h1><p>'+esc(description)+'</p>';
@@ -26,7 +27,7 @@ if(chromium){
  const render=()=>document.getElementById('platform-app').innerHTML=pState.authenticated?'<div class="platform-main">'+pageSettings()+'</div>':'<h1>Sign in</h1>';
  `+read('src/events.js').replace(/^import[\s\S]*?;\s*/gm,'')+`
  initEvents();render();window.rerender=render;window.logout=async()=>{window.revoked=true;await validateSession(render);};window.ready=true;`;
- const resources={'/':{type:'text/html',body:'<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/styles.css"></head><body><main id="platform-app"></main><script type="module" src="/fixture.js"></script></body></html>'},'/fixture.js':{type:'text/javascript',body:fixture},'/state.js':{type:'text/javascript',body:read('src/state.js')},'/dialogs.js':{type:'text/javascript',body:read('src/dialogs.js')},'/styles.css':{type:'text/css',body:read('src/styles.css')}};
+ const resources={'/':{type:'text/html',body:'<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/styles.css"></head><body><main id="platform-app"></main><script type="module" src="/fixture.js"></script></body></html>'},'/fixture.js':{type:'text/javascript',body:fixture},'/async-context.js':{type:'text/javascript',body:read('src/async-context.js')},'/state.js':{type:'text/javascript',body:read('src/state.js')},'/dialogs.js':{type:'text/javascript',body:read('src/dialogs.js')},'/styles.css':{type:'text/css',body:read('src/styles.css')}};
  const server=createServer((req,res)=>{const item=resources[req.url];res.writeHead(item?200:404,{'Content-Type':item?.type || 'text/plain'});res.end(item?.body || 'Not found');});
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const origin='http://127.0.0.1:'+server.address().port;
  let browser;const external=[],errors=[];

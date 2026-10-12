@@ -15,9 +15,9 @@ test('existing real-email master login and alias login use Auth credentials then
    document:{getElementById:id=>id==='platform-username'?{value:name}:id==='platform-pin'?{value:'Auth-only-password'}:errorEl},
    loadOperatorIdentity:async()=>name==='new-alias'?{...identity,username:'new-alias'}:identity,loadConfig:async()=>{},loadPlatform:async()=>{assert.equal(ctx.pState.authenticated,true,'Verified login must enable the guarded data loader');},
    pb:{rpc:async()=>({data:{kind:'active'}}),auth:{signOut:async()=>{},signInWithPassword:async input=>{attempts.push(input);return {data:{session:{user:{id:identity.auth_user_id}}}};}}}};
-  ctx.clearSensitiveState=()=>{ctx.pState.authenticated=false;ctx.pState.currentUser={role:null};};ctx.cancelDialogs ||= ()=>{}; ctx.notify ||= {error:message=>assert.fail(String(message)),success:()=>{},info:()=>{}}; vm.createContext(ctx);
+  ctx.clearSensitiveState=()=>{ctx.pState.authenticated=false;ctx.pState.currentUser={role:null};};ctx.cancelDialogs ||= ()=>{}; ctx.notify ||= {error:message=>assert.fail(String(message)),success:()=>{},info:()=>{}}; vm.createContext(ctx);vm.runInContext(read('src/async-context.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ctx);
   const block=clickBlock('do-login');
-  await vm.runInContext('async function login(){'+block+'\nlogin()',ctx);
+  await vm.runInContext('async function login(){const eventGeneration=pState.authorityGeneration;'+block+'\nlogin()',ctx);
   assert.equal(attempts[0].email,identity.email);assert.equal(Boolean(ctx.pState.authenticated),success);
   if(success){assert.equal(ctx.pState.currentUser.auth_user_id,identity.auth_user_id);assert.equal(ctx.pState.currentUser.role,'master_admin');if(name==='new-alias')assert.equal(ctx.pState.currentUser.username,'new-alias');}
  }
@@ -29,18 +29,18 @@ test('restored real-email master session uses verified identity without VITE ali
   createSetupRouter:()=>({boot:async()=>false,event(){}}),pState:{page:'login',authenticated:false},render(){},initEvents(){},validateSession:async()=>{},loadConfig:async()=>{},loadPlatform:async()=>{},
   loadOperatorIdentity:async()=>{checked++;return {...identity,username:'new-alias'};},alert:message=>{throw Error(message)},
   pb:{auth:{onAuthStateChange(){},getSession:async()=>({data:{session:{user:{id:identity.auth_user_id,email:identity.email}}}}),signOut:async()=>{}}}};
- ctx.cancelDialogs ||= ()=>{}; ctx.notify ||= {error:message=>assert.fail(String(message)),success:()=>{},info:()=>{}}; vm.createContext(ctx);await vm.runInContext(strip(read('src/main.js')),ctx);
+ ctx.cancelDialogs ||= ()=>{}; ctx.notify ||= {error:message=>assert.fail(String(message)),success:()=>{},info:()=>{}}; vm.createContext(ctx);vm.runInContext(read('src/async-context.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ctx);await vm.runInContext(strip(read('src/main.js')),ctx);
  assert.equal(checked,1);assert.equal(ctx.pState.authenticated,true);assert.equal(ctx.pState.currentUser.auth_user_id,identity.auth_user_id);assert.equal(ctx.pState.page,'settings');
  assert.equal(ctx.pState.currentUser.username,'new-alias');
 });
 
 test('alias edit reauthenticates actual Auth email; password changes only use Auth',async()=>{
  const auth=[],writes=[];
- const ctx={pState:{authenticated:true,turnstileToken:'fresh-test-token'},PCFG:{},reauthenticateMaster:async (password,captchaToken)=>{auth.push(['reauth',{email:identity.email,password,captchaToken}]);return identity;},captchaBusy(){},resetTurnstile(){},render(){},alert(){},
+ const ctx={pState:{authenticated:true,currentUser:identity,turnstileToken:'fresh-test-token'},PCFG:{},reauthenticateMaster:async (password,captchaToken)=>{auth.push(['reauth',{email:identity.email,password,captchaToken}]);return identity;},captchaBusy(){},resetTurnstile(){},render(){},alert(){},
   FormData:class{constructor(form){this.form=form;}entries(){return Object.entries(this.form.values);}},
   pb:{auth:{signInWithPassword:async value=>{auth.push(['reauth',value]);return{};},updateUser:async value=>{auth.push(['password',value]);return{};},signOut:async()=>{}},
    from:table=>({update:value=>({eq:()=>({select:()=>({maybeSingle:async()=>{writes.push({table,value});return{data:{id:1,...value}};}})})})})}};
- ctx.clearSensitiveState=()=>{ctx.pState.authenticated=false;};ctx.cancelDialogs ||= ()=>{}; ctx.notify ||= {error:message=>assert.fail(String(message)),success:()=>{},info:()=>{}}; vm.createContext(ctx);vm.runInContext(strip(read('src/forms.js')),ctx);
+ ctx.clearSensitiveState=()=>{ctx.pState.authenticated=false;};ctx.cancelDialogs ||= ()=>{}; ctx.notify ||= {error:message=>assert.fail(String(message)),success:()=>{},info:()=>{}}; vm.createContext(ctx);vm.runInContext(read('src/async-context.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ctx);vm.runInContext(strip(read('src/forms.js')),ctx);
  const submit=(type,values)=>ctx.handleFormSubmit({preventDefault(){},target:{dataset:{pForm:type},values,reset(){}}});
  await submit('change-username',{current:'Auth-only-password',new_username:'new-alias'});
  assert.equal(auth[0][1].email,identity.email);assert.equal(writes[0].table,'platform_config');assert.deepEqual(Object.keys(writes[0].value),['admin_username']);
@@ -51,7 +51,7 @@ test('alias edit reauthenticates actual Auth email; password changes only use Au
 test('recovery uses native Auth CAPTCHA; activation uses checked setup boundary',async()=>{
  const calls=[];const nodes=Object.fromEntries(['forgot-email','forgot-status','reset-newpass','reset-confirm','reset-status'].map(k=>[k,{value:k==='forgot-email'?identity.email:'NewAuthPassword1!',textContent:'',style:{cssText:''},classList:{remove(){}}}]));
  const ctx={el:{disabled:false,isConnected:true},navigator:{onLine:true},window:{location:{origin:'https://platform.example.test'}},pState:{turnstileToken:'public-test-token',passwordFlow:{requestId:'synthetic-request'}},document:{getElementById:id=>nodes[id]},render(){},captchaBusy(){},setTimeout(){},pb:{auth:{signOut:async()=>{},resetPasswordForEmail:async(email,options)=>{calls.push(['native-recovery',{email,...options}]);return{};}},functions:{invoke:async(name,{body})=>{calls.push([name,body]);return {data:{success:true}};}}}};
- ctx.notify={error:message=>assert.fail(String(message))};vm.createContext(ctx);
+ ctx.notify={error:message=>assert.fail(String(message))};vm.createContext(ctx);vm.runInContext(read('src/async-context.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ctx);
  await vm.runInContext('async function reset(){'+clickBlock('send-reset-link')+'\nreset()',ctx);
  await vm.runInContext('async function confirm(){'+clickBlock('confirm-reset-password')+'\nconfirm()',ctx);
  assert.equal(calls[0][0],'native-recovery');assert.equal(calls[0][1].email,identity.email);assert.equal(calls[0][1].captchaToken,'public-test-token');assert.equal(calls[0][1].redirectTo,'https://platform.example.test/?reset=true');assert.equal(calls[1][0],'platform-password-setup');assert.equal(calls[1][1].password,'NewAuthPassword1!');assert.equal(calls.length,2);

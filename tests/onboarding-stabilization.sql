@@ -16,6 +16,7 @@ insert into public.platform_users(auth_user_id,name,email,role,status) values
  ('91000000-0000-4000-8000-000000000003','Billing','billing@example.test','billing_person','Active');
 select set_config('platform.team_transition','',true);
 select set_config('request.jwt.claim.sub','91000000-0000-4000-8000-000000000002',true);
+select set_config('request.jwt.claims','{"sub":"91000000-0000-4000-8000-000000000002","session_id":"91000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
 set local role authenticated;
 insert into public.clients(id,name,supabase_url,supabase_anon,shop_url,currency,onboarding_version,owner_name,owner_email,pairing_mode,plan)
  values(9500,'Role Shop','https://abcdefghijklmnopqrst.supabase.co','','https://shop.example.test','PKR',2,'Owner','owner@example.test','byo','Basic');
@@ -30,12 +31,14 @@ do $$ declare blocked boolean:=false;begin
 end $$;
 reset role;
 select set_config('request.jwt.claim.sub','91000000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claims','{"sub":"91000000-0000-4000-8000-000000000001","session_id":"91000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
 set local role authenticated;
 select pg_temp.assert(public.platform_operator_identity()->>'role'='master_admin','canonical master email works without browser alias');
 insert into public.clients(id,name,supabase_url,supabase_anon,shop_url,currency,onboarding_version,owner_name,owner_email)
  values(9501,'Master Shop','https://abcdefghijklmnopqrsv.supabase.co','','https://master.example.test','PKR',2,'Owner','master@example.test');
 reset role;
 select set_config('request.jwt.claim.sub','91000000-0000-4000-8000-000000000003',true);
+select set_config('request.jwt.claims','{"sub":"91000000-0000-4000-8000-000000000003","session_id":"91000000-0000-4000-8000-000000000003","role":"authenticated"}',true);
 set local role authenticated;
 do $$ declare n integer;blocked boolean:=false;begin
  update public.clients set name='Forbidden' where id=9500;get diagnostics n=row_count;
@@ -45,6 +48,7 @@ do $$ declare n integer;blocked boolean:=false;begin
 end $$;
 reset role;
 select set_config('request.jwt.claim.sub','91000000-0000-4000-8000-000000000004',true);
+select set_config('request.jwt.claims','{"sub":"91000000-0000-4000-8000-000000000004","session_id":"91000000-0000-4000-8000-000000000004","role":"authenticated"}',true);
 set local role authenticated;
 select pg_temp.assert((select count(*)=0 from public.clients),'unknown authenticated user cannot read clients');
 do $$ declare blocked boolean:=false;begin
@@ -55,6 +59,7 @@ do $$ declare blocked boolean:=false;begin
 end $$;
 reset role;
 select set_config('request.jwt.claim.sub','91000000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claims','{"sub":"91000000-0000-4000-8000-000000000001","session_id":"91000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
 select public.platform_provision_begin(9500,'93000000-0000-4000-8000-000000000001','pair-shop','{}');
 do $$ begin perform public.platform_onboarding_step('93000000-0000-4000-8000-000000000001','prepare');end $$;
 select public.platform_onboarding_step('93000000-0000-4000-8000-000000000001','health','{"infrastructure":"ready","owner_setup":"owner_setup_pending","owner_invite":"owner_invite_not_started","onboarding":"onboarding_pending","config":{"repair_module_enabled":true,"inventory_module_enabled":false,"technician_module_enabled":true,"live_tracking_enabled":true,"ems_enabled":false,"ems_track_breaks":false,"suspended":false}}');

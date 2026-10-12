@@ -9,6 +9,7 @@ select set_config('platform.team_transition','',true);
 select platform_private.initialize_config('Fixture master','Disposable support fixture');
 select platform_private.bind_master('98000000-0000-4000-8000-000000000001',null,'Disposable support fixture');
 select set_config('request.jwt.claim.sub','98000000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claims','{"sub":"98000000-0000-4000-8000-000000000001","session_id":"98000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
 select pg_temp.support_assert(public.platform_operator_identity()->>'email'='canonical-master@example.test','existing identity RPC returns canonical Auth email for UUID-authorized master');
 insert into public.clients(id,name,plan,onboarding_version,owner_name,owner_email,supabase_url,supabase_anon,shop_url,currency,billing_policy,pairing_mode)
 values(9800,'Support repair','Basic',2,'Reserved owner','owner@example.test','https://dexzxxqkbwnpetbsuxxv.supabase.co','','https://shop.example.test','PKR','usage-v1','managed'),
@@ -58,6 +59,7 @@ do $$declare flag text;begin
  end loop;
 end$$;
 select set_config('request.jwt.claim.sub','98000000-0000-4000-8000-000000000002',true);
+select set_config('request.jwt.claims','{"sub":"98000000-0000-4000-8000-000000000002","session_id":"98000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
 set local role authenticated;
 do $$begin
  begin perform public.platform_support_access_target(9800,gen_random_uuid());raise exception 'manager accepted';exception when insufficient_privilege then null;end;

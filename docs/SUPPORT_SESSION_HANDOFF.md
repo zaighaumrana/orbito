@@ -4,7 +4,11 @@
 
 This replaces the Shop's Platform password login. The confirmed hosted failure was Platform Auth returning `captcha_failed` because the Shop forwarded a valid master password without a Platform CAPTCHA token. Platform CAPTCHA remains enabled and unchanged. Shop customers keep their existing Shop login/CAPTCHA flow.
 
-## Authorization and transport
+## 2026-10-12 PR #4 forward correction — source only
+
+The historical service-only issuance description below applies to migration 12 and earlier. Unapplied migration 13 introduces service-only five-argument issuance. The reviewed Edge handler verifies the real Master caller, forwards the canonical session_id, and keeps actor/hash/Platform ref server-controlled. SQL independently rechecks canonical UUID/confirmed active Auth and the actual live owned session. The old four-argument issuance RPC is revoked from every API role; browser roles cannot mint capabilities directly. Service-only exchange validates the recorded capability's canonical actor without setting user claims. Its 90-second/hash-only/single-use/binding/lifecycle/audit contract is unchanged. Deploy the reviewed support handler together with lifecycle migration under separate approval: new handler requires the v13 canonical session/RPC contract and fails closed before migration; old four-argument handler cannot issue afterward. Preserve the mixed-transport gateway flag. No Shop artifact update is required. SQL fixtures no longer substitute a browser session into service claims. An issued capability survives browser logout until expiry but fails on canonical Master revocation/rebinding. Late browser issuance responses close the blank popup after logout/navigation rather than opening Shop. This local correction is not hosted validation.
+
+## Historical authorization and transport
 
 The authenticated Platform master selects **Clients → Client detail → Open Shop as Support**. The new `platform-support` Edge Function verifies `auth.getUser()` and the existing `platform_operator_identity()` under the caller JWT, requiring the same UUID and canonical `master_admin` role. Browser-supplied actor, email, destination, project or credentials are rejected.
 

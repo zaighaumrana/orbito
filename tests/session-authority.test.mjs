@@ -29,6 +29,7 @@ test('actual private data loaders discard late results and do not start after lo
  const f=fixture({});const pending=[];let reads=0;
  f.ctx.pb.from=()=>{const q={select:()=>q,order:()=>q,range:()=>{reads++;return new Promise(r=>pending.push(()=>r({data:[{id:1,private:'synthetic'}]})));},single:()=>new Promise(r=>pending.push(()=>r({data:{admin_username:'late-alias'}})))};return q;};
  f.ctx.pb.rpc=async name=>({data:name==='platform_team_history'?{operations:[]}: {private:'synthetic'}});
+ vm.runInContext(read('src/async-context.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),f.ctx);
  f.ctx.createClient=()=>f.ctx.pb;f.ctx.testEnv={};f.ctx.serverConfigOperation=()=>{};
  vm.runInContext(read('src/supabase.js').replace(/^import .*$/gm,'').replace(/^export /gm,'').replaceAll('import.meta.env','testEnv'),f.ctx);
  const loading=f.ctx.loadPlatform();const config=f.ctx.loadConfig();const client=f.ctx.loadClientData({id:1});f.ctx.clearSensitiveState();pending.splice(0).forEach(r=>r());await Promise.all([loading,config,client]);

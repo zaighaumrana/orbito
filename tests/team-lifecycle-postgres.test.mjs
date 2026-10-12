@@ -54,6 +54,19 @@ test('fresh full chain: privilege closure, master/role preservation, missing/nul
  assert.throws(()=>sql(service(command(14,'begin_delete').replace(master,billing)),db),/Master administrator required/);
 }));
 
+test('role edits use live SQL role on the existing session; shared operator reads remain the documented inherited contract',()=>fixture('role_edit',db=>{
+ fresh(db);
+ assert.equal(JSON.parse(sql(asUser(manager,'select public.platform_operator_identity()'),db).split('\n').at(-1)).role,'portfolio_manager');
+ const before=sql(`select session_not_before from public.platform_users where auth_user_id='${manager}'`,db);
+ sql(service(command(81,'begin_edit',manager,{role:'billing_person'})),db);
+ sql(service(command(81,'finish_edit',manager)),db);
+ assert.equal(sql(`select session_not_before from public.platform_users where auth_user_id='${manager}'`,db),before,'role edits do not introduce a fresh-login contract');
+ assert.equal(JSON.parse(sql(asUser(manager,'select public.platform_operator_identity()'),db).split('\n').at(-1)).role,'billing_person','unchanged JWT/session loses the old role immediately');
+ assert.throws(()=>sql(asUser(manager,'select public.platform_set_paper(-1,true)'),db),/role|authorized/i,'old Manager mutation must be rejected before target processing');
+ for(const who of [manager,billing])for(const table of ['platform_users','billing_cycles','payments','support_tickets'])
+  assert.ok(Number(sql(asUser(who,`select count(*) from public.${table}`),db).split('\n').at(-1))>=0,'shared reads are not hidden by UI navigation');
+}));
+
 test('staging-style upgrade preserves identities, config and audit; late failure is atomic',()=>fixture('upgrade',db=>{
  chain(db,files.filter(f=>f<'20261008191709'));
  sql(`insert into auth.users(id,email,email_confirmed_at) values('${master}','master@example.test',now());insert into public.platform_config(id,admin_username) values(1,'existing');create or replace function platform_private.operator_role() returns text language sql stable security definer set search_path='' as $$select case when auth.uid()='${master}'::uuid then 'master_admin' end$$;`,db);

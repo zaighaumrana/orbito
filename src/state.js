@@ -15,6 +15,8 @@ export const pState = {
   authenticated:  false,
   currentUser:    { role: null, username: "" },
   authorityGeneration: 0,
+  clientSelectionGeneration: 0,
+  clientRequestGeneration: 0,
   turnstileToken: null,
   loginLoading:   false,
   resetLoading:   false,
@@ -31,12 +33,15 @@ export function setPCFG(data) {
 // Late responses must not repopulate private data after logout/revocation.
 export function clearSensitiveState() {
   pState.authorityGeneration++;
+  pState.clientSelectionGeneration++;
+  pState.clientRequestGeneration++;
   pState.authenticated=false;
   pState.currentUser={role:null,username:""};
   pState.selectedClient=null;pState.clientData={};pState.modal=null;
   pState.filter='';pState.recoveryEmail=null;pState.setupMessage='';
   for(const key of Object.keys(pState.data))pState.data[key]=Array.isArray(pState.data[key])?[]:{};
   pState.turnstileToken=null;pState.passwordFlow=null;
+  pState.reauthLoading=false;pState.passwordSaving=false;
   PCFG={admin_username:""};
 }
 
