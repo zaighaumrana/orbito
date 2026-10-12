@@ -13,19 +13,31 @@ export const pState = {
   selectedClient: null,
   clientData:     {},
   authenticated:  false,
-  currentUser:    { role: "master_admin", username: "admin" },
+  currentUser:    { role: null, username: "" },
+  authorityGeneration: 0,
   turnstileToken: null,
   loginLoading:   false,
   resetLoading:   false,
 };
 
 export let PCFG = {
-  admin_password: "",
   admin_username: "admin",
 };
 
 export function setPCFG(data) {
   PCFG = { ...PCFG, ...data };
+}
+
+// Late responses must not repopulate private data after logout/revocation.
+export function clearSensitiveState() {
+  pState.authorityGeneration++;
+  pState.authenticated=false;
+  pState.currentUser={role:null,username:""};
+  pState.selectedClient=null;pState.clientData={};pState.modal=null;
+  pState.filter='';pState.recoveryEmail=null;pState.setupMessage='';
+  for(const key of Object.keys(pState.data))pState.data[key]=Array.isArray(pState.data[key])?[]:{};
+  pState.turnstileToken=null;pState.passwordFlow=null;
+  PCFG={admin_username:""};
 }
 
 // ── Role-based nav ────────────────────────────────────────────────
@@ -41,5 +53,5 @@ export function getNav() {
   const role = pState.currentUser.role;
   if (role === "billing_person")    return ALL_NAV.filter(n => !["clients","support"].includes(n.page));
   if (role === "portfolio_manager") return ALL_NAV.filter(n => !["billing"].includes(n.page));
-  return ALL_NAV;
+  return role === "master_admin" ? ALL_NAV : [];
 }

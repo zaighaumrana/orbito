@@ -2,7 +2,7 @@ import { submitProvisioning } from './provisioning.js';
 import { publicEnvironment } from './lifecycle.js';
 import { validateOwner } from './onboarding.js';
 import { rpc, recordPayment, retryOperation } from "./operations.js";
-import { pState, PCFG } from "./state.js";
+import { pState, PCFG, clearSensitiveState } from "./state.js";
 import { pb, reauthenticateMaster, loadPlatform, loadClientData, updateClientConfig } from "./supabase.js";
 import { resetTurnstile, captchaBusy } from './turnstile.js';
 import { notify, showMessage, cancelDialogs } from './dialogs.js';
@@ -164,19 +164,20 @@ export async function handleFormSubmit(event) {
     if (data.newpass !== data.confirm) { notify.error("Passwords don't match."); return; }
     const pwErr = validatePassword(data.newpass);
     if (pwErr) { notify.error(pwErr); return; }
-    const { error } = await pb.auth.updateUser({ password: data.newpass });
+    if (!data.current) { notify.error("Enter your current password."); return; }
+    const { error } = await pb.auth.updateUser({ current_password: data.current, password: data.newpass });
     if (error) { notify.error(error); return; }
     notify.success("Password updated. Please log in again.");
     cancelDialogs();
-    await pb.auth.signOut();
-    pState.authenticated = false;
+    clearSensitiveState();
     pState.page = "login";
-    render(); return;
+    render();await pb.auth.signOut({ scope: "local" });return;
   }
 
   /* ── Change Master Admin Username ── */
   if (type === "change-username") {
     if (pState.reauthLoading) return;
+    const generation=pState.authorityGeneration;
     const username = data.new_username?.trim();
     if (!username || username.length > 100) { notify.error('Enter a username of 1–100 characters.'); return; }
     const token = pState.turnstileToken;
@@ -188,6 +189,7 @@ export async function handleFormSubmit(event) {
       if (error || saved?.id !== 1 || saved.admin_username !== username) {
         notify.error('Username update could not be confirmed. Refresh Settings before retrying.'); return;
       }
+      if(generation!==pState.authorityGeneration || !pState.authenticated)return;
       PCFG.admin_username = saved.admin_username;
       pState.currentUser = { ...pState.currentUser, username: saved.admin_username };
       form.reset(); notify.success('Username updated.'); render();
@@ -201,13 +203,13 @@ export async function handleFormSubmit(event) {
     if (data.newpass !== data.confirm) { notify.error("Passwords don't match."); return; }
     const pwErr = validatePassword(data.newpass);
     if (pwErr) { notify.error(pwErr); return; }
-    const { error } = await pb.auth.updateUser({ password: data.newpass });
+    if (!data.current) { notify.error("Enter your current password."); return; }
+    const { error } = await pb.auth.updateUser({ current_password: data.current, password: data.newpass });
     if (error) { notify.error(error); return; }
     notify.success("Password updated. Please log in again.");
     cancelDialogs();
-    await pb.auth.signOut();
-    pState.authenticated = false;
+    clearSensitiveState();
     pState.page = "login";
-    render(); return;
+    render();await pb.auth.signOut({ scope: "local" });return;
   }
 }

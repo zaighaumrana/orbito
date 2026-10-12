@@ -4,7 +4,6 @@ const initial = new URLSearchParams(window.location.hash.slice(1));
 let hint = initial.get('type');
 let hasReset = new URLSearchParams(window.location.search).has('reset');
 let proof = initial.get('token_hash');
-let operation = initial.get('operation');
 let failedLink = initial.has('error') || initial.has('error_code');
 if (failedLink || proof) history.replaceState(null,'',window.location.pathname+window.location.search);
 let generation = 0;
@@ -17,7 +16,7 @@ export function createSetupRouter({pb,state,render,notify}) {
       const query=new URLSearchParams(window.location.search);query.delete('reset');
       history.replaceState(null,'',window.location.pathname+(query.size?'?'+query.toString():''));
     }
-    hint=null;hasReset=false;proof=null;operation=null;failedLink=false;state.passwordFlow=null;
+    hint=null;hasReset=false;proof=null;failedLink=false;state.passwordFlow=null;
   }
   async function resolve(session,event) {
     const current=++generation;
@@ -37,8 +36,8 @@ export function createSetupRouter({pb,state,render,notify}) {
     }
     const kind=context.data.kind;
     const recovery=event==='PASSWORD_RECOVERY' || hint==='recovery';
-    if(kind==='pending' || (kind==='active' && recovery) || (kind==='inactive' && context.data.reactivation_pending && proof && operation)) {
-      state.passwordFlow={requestId:operation || state.passwordFlow?.requestId || crypto.randomUUID(),proof,kind};
+    if(kind==='pending' || (kind==='active' && recovery)) {
+      state.passwordFlow={requestId:state.passwordFlow?.requestId || crypto.randomUUID(),kind};
       state.recoveryEmail=context.data.email;state.authenticated=false;state.authRouting=false;state.page='reset-password';render();return true;
     }
     if(kind==='inactive'){error('Your account has been deactivated by the administrator. Please contact your administrator to restore access.');return true;}

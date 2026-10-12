@@ -12,7 +12,7 @@ const cfgSelect = `select source_id::text,client_binding,usage_mode,delivery_ena
  to_regprocedure('public.bridge_apply_billing(uuid,bigint,jsonb)') is not null as billing_compatible
  from app_private.bridge_config where singleton`
 class OperatorError extends Error {}
-const fail = (message: string): never => { throw new OperatorError(message) }
+function fail(message: string): never { throw new OperatorError(message) }
 async function jsonRequest(url: string, init: RequestInit, label: string) {
   let response: Response
   try { response = await fetch(url, { ...init, redirect: 'error', signal: AbortSignal.timeout(15000) }) }
@@ -175,7 +175,7 @@ Deno.serve(async req => {
     stage = 'reading_contract'
     let cfg = await query(target.project_ref,cfgSelect)
     validateConfig(cfg)
-    if (context.source && (cfg.source_id !== context.source.source_id || context.source.client_binding !== (target.client_binding ?? context.source.client_binding))) fail('Shop source identity/binding differs from Platform. Manual reconciliation required.')
+    if (context.source && (cfg.source_id !== context.source.source_id || cfg.client_binding !== context.source.client_binding)) fail('Shop source identity/binding differs from Platform. Manual reconciliation required.')
     const binding = context.source?.client_binding ?? context.connection?.client_binding
     if (!binding) fail('Provision a client binding first.')
     const assertBound = () => { if (cfg.client_binding !== binding) fail('Shop binding differs from the provisioned account.') }

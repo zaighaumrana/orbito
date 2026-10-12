@@ -10,7 +10,7 @@ const helpers=['shop-credentials','bridge-call'].map(p=>read(`supabase/functions
 const code=transformSync((helpers+'\n'+main).replace(/^import .*$/gm,'').replace(/^export /gm,''),{loader:'ts',format:'cjs'}).code;
 const scheduler='fixture-scheduler-not-real',callSecret='fixture-bridge-call-credential-000000000000',service='fixture-platform-service',shopService='fixture-shop-service';
 const ref='kxmovywgshyltwusghhj',sourceId='91fb4957-c2c4-4d6a-8a8a-e4783b302f97';
-function fixture({missing=false,lookupError=false,http=200,network=false,response={enabled:true,acknowledged:0},operator=false,allowed=true,action='provision-call',managementFails=false}={}) {
+function fixture({missing=false,lookupError=false,http=200,network=false,response={enabled:true,acknowledged:0},operator=false,allowed=true,action='provision-call',managementFails=false,bindingMismatch=false}={}) {
  let handler; const calls=[],requests=[]; let stored=null;
  const context={job:{step:'credential_saved',plan:{}},connection:{project_ref:ref,client_binding:'orbito-client-1'},source:{source_id:sourceId,client_binding:'orbito-client-1',enabled:true,usage_from_sequence:7},currency:'PKR',projection_exists:true,source_credential_exists:true};
  const rpc=async(name,args)=>{
@@ -36,6 +36,7 @@ function fixture({missing=false,lookupError=false,http=200,network=false,respons
   fetch:async(url,init)=>{
    requests.push({url,init});
    if(url.startsWith('https://api.supabase.com/')) {
+    if(url.endsWith('/database/query'))return Response.json([{source_id:sourceId,client_binding:bindingMismatch?'wrong-client':'orbito-client-1',last_sequence:'1',usage_mode:'bridge',delivery_enabled:true,config_access:true,billing_compatible:true}]);
     assert.equal(url,`https://api.supabase.com/v1/projects/${ref}/secrets`);
     const values=JSON.parse(init.body); assert.equal(values.length,1); assert.equal(values[0].name,'PLATFORM_BRIDGE_CALL_SECRET');
     assert.ok(values[0].value===stored,'Management secret must equal prepared Vault value');
@@ -86,6 +87,9 @@ test('non-master cannot backfill credentials',async()=>{
  const h=fixture({operator:true,allowed:false});assert.equal((await h.run()).status,409);assert.equal(h.requests.length,0);
  assert.deepEqual(h.calls.map(c=>c.name),['getUser','platform_provision_begin']);
 });
+test('verification missing credential and mismatched canonical Shop binding stop before remote writes',async()=>{
+ for(const options of [{missing:true},{bindingMismatch:true}]){const f=fixture({operator:true,action:'verify',...options});assert.equal((await f.run()).status,503);assert.ok(!f.requests.some(r=>r.url.endsWith('/secrets')));assert.ok(!f.requests.some(r=>r.url.endsWith('/functions/v1/platform-bridge')));}
+});
 test('unknown Management outcome retains job for resume without committing new reference',async()=>{
  const h=fixture({operator:true,managementFails:true});assert.equal((await h.run()).status,503);
  assert.ok(!h.calls.some(c=>c.name==='platform_commit_bridge_call'));
@@ -111,7 +115,15 @@ test('existing selection, duplicate/sequence ledger invariants and cutover/sourc
  const section=(a,b)=>main.slice(main.indexOf(a),main.indexOf(b,main.indexOf(a))).replace(/\r\n/g,'\n');
  assert.equal(sha(section("    } else if (body.action === 'activate') {","    } else if (body.action === 'rotate') {")),protectedHashes.activation);
  assert.equal(sha(section("    } else if (body.action === 'rotate') {","    } else if (body.action === 'verify') {")),protectedHashes.sourceRotation);
- for(const [path,digest] of Object.entries(protectedHashes).filter(([k])=>k.startsWith('supabase/')))assert.equal(sha(readFileSync(new URL('../'+path,import.meta.url))),digest);
+ // Fixed historical digests use CRLF; accept either checkout representation.
+ // Substantive SQL changes still fail, including this explicit negative check.
+ for(const [path,digest] of Object.entries(protectedHashes).filter(([k])=>k.startsWith('supabase/'))) {
+  const source=readFileSync(new URL('../'+path,import.meta.url),'utf8').replace(/\r\n/g,'\n');
+  const canonical=source.replace(/\n/g,'\r\n');
+  assert.equal(sha(canonical),digest);
+  assert.equal(sha(canonical.replace(/\r\n/g,'\n').replace(/\n/g,'\r\n')),digest);
+  assert.notEqual(sha(canonical+'select false;\r\n'),digest);
+ }
  const sourceWrite="{ name:'PLATFORM_BRIDGE_SOURCE_SECRET',value:secret },";
  assert.equal(main.split(sourceWrite).length-1,2);
  assert.match(main,/await provisionCall\(\)/); // Additional initial credential setup; source code remains separate.

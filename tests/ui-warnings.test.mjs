@@ -79,12 +79,13 @@ test('main dispatcher leaves Auth submission to its dedicated handler and recove
   pb:{auth:{onAuthStateChange:fn=>authChange=fn,getSession:async()=>({data:{session:null}})}},alert:message=>{throw Error(message)}};
  ctx.cancelDialogs ||= ()=>{}; ctx.notify ||= {error:message=>assert.fail(String(message)),success:()=>{},info:()=>{}}; vm.createContext(ctx);await vm.runInContext(strip(read('src/main.js')),ctx);
  await submit({target:{dataset:{authForm:'login'}},preventDefault(){throw Error('Main intercepted Auth form');}});assert.equal(calls,0);
- await submit({target:{dataset:{pForm:'change-password'}},preventDefault(){}});assert.equal(calls,1);
+ await submit({target:{dataset:{pForm:'change-password'}},preventDefault(){}});assert.equal(calls,0,'Logged-out forms must not submit');
+ ctx.pState.authenticated=true;await submit({target:{dataset:{pForm:'change-password'}},preventDefault(){}});assert.equal(calls,1);
  authChange('PASSWORD_RECOVERY',{user:{email:'recovery@example.test'}});assert.equal(ctx.pState.recoveryEmail,'recovery@example.test');assert.equal(ctx.pState.authenticated,false);
 });
 test('expired-session timer signs out and renders login using its injected callback',async()=>{
  let timer,renders=0,signouts=0;
- const ctx={pState:{authenticated:true,page:'clients'},PCFG:{},pb:{auth:{getUser:async()=>({data:{user:null}}),signOut:async()=>{signouts++;}}},render(){renders++;},
+ const ctx={pState:{authenticated:true,page:'clients',authorityGeneration:0},PCFG:{},clearSensitiveState(){ctx.pState.authenticated=false;ctx.pState.authorityGeneration++;},pb:{rpc:async()=>({data:{authorized:false}}),auth:{signOut:async options=>{assert.equal(options.scope,'local');signouts++;}}},render(){renders++;},
   document:{addEventListener(){}},window:{addEventListener(){}},setInterval:fn=>timer=fn};
  ctx.cancelDialogs ||= ()=>{}; ctx.notify ||= {error:message=>assert.fail(String(message)),success:()=>{},info:()=>{}}; vm.createContext(ctx);vm.runInContext(strip(read('src/helpers.js')),ctx);vm.runInContext(strip(read('src/events.js')),ctx);ctx.initEvents();await timer();
  assert.equal(signouts,1);assert.equal(renders,1);assert.equal(ctx.pState.page,'login');assert.equal(ctx.pState.authenticated,false);

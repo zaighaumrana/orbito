@@ -51,7 +51,7 @@ function pushAsync(db,dir){
 function successful(result){assert.equal(result.status,0,redact(result.stderr || result.stdout));}
 const history=db=>sql(`select count(*) from supabase_migrations.schema_migrations where version='${version}'`,db);
 const old='92000000-0000-4000-8000-000000000001';
-function canonical(db,id){return sql(`begin;select set_config('request.jwt.claim.sub','${id}',true);set local role authenticated;select public.platform_operator_identity()->>'role';rollback;`,db).split('\n').at(-1);}
+function canonical(db,id){return sql(`begin;select set_config('request.jwt.claims','${JSON.stringify({sub:id,session_id:id})}',true);select set_config('request.jwt.claim.sub','${id}',true);set local role authenticated;select public.platform_operator_identity()->>'role';rollback;`,db).split('\n').at(-1);}
 function snapshot(db){
  const dump=must('docker',['exec',container,'pg_dump','-U','supabase_admin','-d',db,'--schema-only','--schema=public','--schema=platform_private']);
  // pg_dump generates a new psql restriction key on each call; it is not schema.
@@ -246,21 +246,22 @@ for(const scenario of ['fresh','staging'])test('team lifecycle CLI history rejec
  successful(push(db,dir));
  if(scenario==='fresh')sql(`insert into auth.users(id,email,email_confirmed_at) values('${old}','fresh-master@example.test',now());select platform_private.initialize_config('Fresh fixture','Reviewed fixture');select platform_private.bind_master('${old}',null,'Reviewed fixture');`,db);
  assert.equal(sql('select count(*) from supabase_migrations.schema_migrations',db),'12');
+ sql(`insert into auth.sessions(id,user_id,created_at,updated_at) values('${old}','${old}',now(),now());`,db);
  const teamVersion='20261010233446',teamFile=teamVersion+'_platform_team_lifecycle_v2.sql',before=snapshot(db);
  copyFileSync(join(root,'supabase/migrations',teamFile),join(dir,'supabase/migrations',teamFile));
  sql(`create function supabase_migrations.team_history_fault() returns trigger language plpgsql as $$declare s text;begin
  if new.version='${teamVersion}' then
-  if to_regclass('public.platform_team_archive') is null or to_regprocedure('public.platform_team_password_step(uuid,uuid,text,text)') is null
+  if to_regclass('public.platform_team_archive') is null or to_regprocedure('public.platform_team_password_step(uuid,uuid,text,uuid)') is null
    or has_table_privilege('service_role','public.platform_users','INSERT,UPDATE,DELETE,TRUNCATE') then raise exception 'Team SQL did not complete';end if;
   foreach s in array new.statements loop
    s:=upper(regexp_replace(s,'^([[:space:]]|--[^\\n]*\\n)*','','g'));
-   if s !~ '^(CREATE (OR REPLACE )?(TABLE|FUNCTION|TRIGGER|POLICY|UNIQUE INDEX) |ALTER TABLE |DROP POLICY |REVOKE |GRANT |DO[[:space:]])' then raise exception 'Pipeline-incompatible team statement: %',left(s,70);end if;
+   if s !~ '^(CREATE (OR REPLACE )?(TABLE|FUNCTION|TRIGGER|POLICY|UNIQUE INDEX) |INSERT INTO |ALTER TABLE |DROP POLICY |REVOKE |GRANT |DO[[:space:]])' then raise exception 'Pipeline-incompatible team statement: %',left(s,70);end if;
   end loop;
   raise exception 'Injected team history rejection after completed SQL';
  end if;return new;end$$;
  create trigger team_history_fault before insert on supabase_migrations.schema_migrations for each row execute function supabase_migrations.team_history_fault();`,db);
  const failed=push(db,dir);assert.notEqual(failed.status,0);assert.match(failed.stderr+failed.stdout,/Injected team history rejection after completed SQL/);
- assert.equal(sql("select to_regclass('public.platform_team_archive') is null and to_regprocedure('public.platform_team_password_step(uuid,uuid,text,text)') is null",db),'t');
+ assert.equal(sql("select to_regclass('public.platform_team_archive') is null and to_regprocedure('public.platform_team_password_step(uuid,uuid,text,uuid)') is null",db),'t');
  assert.equal(sql(`select count(*) from supabase_migrations.schema_migrations where version='${teamVersion}'`,db),'0');
  assert.deepEqual(snapshot(db),before);assert.equal(canonical(db,old),'master_admin');
  sql('drop trigger team_history_fault on supabase_migrations.schema_migrations;drop function supabase_migrations.team_history_fault();',db);

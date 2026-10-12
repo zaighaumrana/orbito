@@ -56,7 +56,7 @@ export function userModals(type, md) {
                 </select></label>
               <label class="field" style="grid-column:1/-1"><span>Email</span>
                 <input name="email" type="email" autocomplete="username" required value="${esc(md.email)}"></label>
-              <p class="muted">Employees set their own passwords. Reactivation uses an approved recovery link.</p>
+              <p class="muted">Employees set their own passwords. Reactivation retains the existing password and requires a fresh sign-in.</p>
             </div>
             <div class="modal-actions" style="margin-top:14px">
               <button type="button" class="secondary-button" data-p-close>Cancel</button>

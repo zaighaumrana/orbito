@@ -1,5 +1,5 @@
 import { cancelDialogs } from './dialogs.js';
-import { pState, PCFG } from "./state.js";
+import { pState, PCFG, clearSensitiveState } from "./state.js";
 import { pb } from "./supabase.js";
 
 export const money = (v, sym) =>
@@ -26,14 +26,21 @@ export function moduleToggleRow(label, sub, enabled, action) {
     </div>`;
 }
 
-// Supabase Auth owns sessions. Backend role checks remain authoritative.
+let checking;
+// A successful canonical denial is different from a transient network failure.
 export async function validateSession(onInvalid) {
   if (!pState.authenticated) return;
-  const { data, error } = await pb.auth.getUser();
-  if (error || !data.user) {
-    cancelDialogs();
-    await pb.auth.signOut(); pState.authenticated = false; pState.page = 'login';
-    // The caller already imports render. Avoid a helpers → render → pages cycle.
-    onInvalid();
-  }
+  if(checking)return checking;
+  const generation=pState.authorityGeneration;
+  checking=(async()=>{
+    let result;
+    try{result=await pb.rpc('platform_session_status');}catch{return;}
+    if(generation!==pState.authorityGeneration)return;
+    const invalidJwt=result.error && (result.error.status===401 || ['PGRST301','PGRST303'].includes(result.error.code));
+    const identityDrift=!result.error && result.data?.authorized===true && result.data.auth_user_id!==pState.currentUser.auth_user_id;
+    if(!invalidJwt && !identityDrift && (result.error || result.data?.authorized!==false))return;
+    cancelDialogs();pState.setupRouter?.clear();clearSensitiveState();pState.page='login';onInvalid();
+    try{await pb.auth.signOut({scope:'local'});}catch{/* Revoked state stays cleared even offline. */}
+  })().finally(()=>checking=null);
+  return checking;
 }

@@ -1,6 +1,6 @@
 import { notify, confirmDialog, showMessage, deleteUserDialog, cancelDialogs } from './dialogs.js';
 import { resetTurnstile, mountTurnstile, cleanupTurnstile, captchaBusy } from './turnstile.js';
-import { pState }                          from "./state.js";
+import { pState, clearSensitiveState }                          from "./state.js";
 import { pb, PLATFORM_AUTH_EMAIL,
          loadConfig, loadPlatform, loadClientData, loadOperatorIdentity,
          updateClientConfig }              from "./supabase.js";
@@ -95,12 +95,13 @@ export function initEvents() {
       const captchaToken = pState.turnstileToken;
       pState.resetLoading = true; captchaBusy();
       pState.page = "forgot-password"; // keep on this page after render
-      const { data, error } = await pb.functions.invoke('platform-password-recovery', { body: { email, captchaToken } });
-      pState.resetLoading = false;
-      render();
+      let error;
+      try { ({error}=await pb.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/?reset=true`, captchaToken })); }
+      catch { error={code:'unavailable'}; }
+      finally { pState.resetLoading = false; render(); }
       const newStatusEl = document.getElementById("forgot-status");
       if (newStatusEl) {
-        newStatusEl.textContent = error ? "Reset request failed. Verify again and retry." : data?.message || "If an eligible account exists for that email, a reset link has been sent.";
+        newStatusEl.textContent = error?.code==='captcha_failed' ? "Complete fresh verification and try again." : "Check your email for recovery instructions if recovery is available for that account. If no email arrives, retry later or contact your administrator.";
         newStatusEl.style.cssText += "color:#7aada0;background:rgba(122,173,160,0.1)";
         newStatusEl.classList.remove("hidden");
       }
@@ -128,7 +129,7 @@ export function initEvents() {
       pState.passwordSaving=true;el.disabled=true;
       let result;
       try {
-        result=await pb.functions.invoke('platform-password-setup',{body:{password:newpass,request_id:pState.passwordFlow.requestId,...(pState.passwordFlow.proof?{proof:pState.passwordFlow.proof}:{})}});
+        result=await pb.functions.invoke('platform-password-setup',{body:{password:newpass,request_id:pState.passwordFlow.requestId}});
       } finally {pState.passwordSaving=false;if(el.isConnected)el.disabled=false;}
       if (result.error || result.data?.success!==true) {
         statusEl.textContent = "Password setup or activation could not be confirmed. Your account may remain restricted. Retry the same setup, or contact your administrator if the outcome is uncertain.";
@@ -140,7 +141,7 @@ export function initEvents() {
       statusEl.style.cssText += "color:#7aada0;background:rgba(122,173,160,0.1)";
       statusEl.classList.remove("hidden");
 
-      pState.setupRouter?.clear();await pb.auth.signOut();
+      pState.setupRouter?.clear();await pb.auth.signOut({ scope: "local" });
       setTimeout(() => {
         pState.page = "login";
         render();
@@ -169,7 +170,7 @@ export function initEvents() {
       pState.loginLoading = true; captchaBusy();
 
       const isEmail = username.includes("@");
-      await pb.auth.signOut();
+      await pb.auth.signOut({ scope: "local" });
 
       if (!isEmail && !PLATFORM_AUTH_EMAIL) {
         errorEl.textContent = 'Use your Platform Auth email. Username login needs the optional email alias configured.';
@@ -179,17 +180,21 @@ export function initEvents() {
         email: isEmail ? username : PLATFORM_AUTH_EMAIL, password, options: { captchaToken },
       });
       if (authError || !authData?.session) { _loginFail(errorEl);return; }
+      const generation=pState.authorityGeneration;
       try {
         const setup=await pb.rpc('platform_team_setup_context');
         if(!setup.error && setup.data?.kind==='pending') {pState.loginLoading=false;await pState.setupRouter.retry();return;}
         const identity = await loadOperatorIdentity();
         if (!isEmail && (identity.role !== 'master_admin' || username.toLowerCase() !== String(identity.username || '').toLowerCase()))
           throw new Error('Access not authorised for this account.');
-        pState.currentUser = { ...identity,sessionToken:crypto.randomUUID() };
+        if(generation!==pState.authorityGeneration)return;
+        pState.currentUser = { ...identity,sessionToken:crypto.randomUUID() };pState.authenticated=true;
         await loadConfig();await loadPlatform();
-        pState.authenticated = true;pState.loginLoading = false;pState.page = 'overview';render();
+        if(generation!==pState.authorityGeneration || !pState.authenticated)return;
+        pState.loginLoading = false;pState.page = 'overview';render();
       } catch (error) {
-        await pb.auth.signOut();errorEl.textContent = error.message;_loginFail(errorEl,true);
+        clearSensitiveState();
+        await pb.auth.signOut({ scope: "local" });errorEl.textContent = error.message;_loginFail(errorEl,true);
       }
       return;
     }
@@ -198,12 +203,10 @@ export function initEvents() {
     if (action === "logout") {
       cancelDialogs();
       pState.setupRouter?.clear();
-      await pb.auth.signOut();
-      pState.authenticated = false;
-      pState.currentUser   = { role: "master_admin", username: "admin" };
+      clearSensitiveState();
       pState.page          = "login";
-      pState.turnstileToken = null;
-      render(); return;
+      render();
+      await pb.auth.signOut({ scope: "local" });return;
     }
 
     /* ── Open client detail ── */
@@ -368,11 +371,10 @@ export function initEvents() {
           confirmation=await deleteUserDialog({title:'Permanently Delete User',message:`${user.name} · ${user.email} · ${user.role}. This action permanently removes the user's Platform account and cannot be undone. Authorization is revoked first; an immutable archive is retained only after Auth absence is verified.`,accountEmail:identity.email,confirmLabel:action==='reconcile-platform-user'?'Verify deletion outcome':'Delete Permanently',captchaToken:()=>pState.turnstileToken,
             afterMount:()=>{void mountTurnstile({containerId:'team-delete-verification',statusId:'team-delete-verification-status',buttonSelector:'.platform-dialog [data-captcha-submit]'});},onClose:()=>cleanupTurnstile()});
           if(!confirmation)return;
-        }else if(!await confirmDialog({title:action==='reactivate-platform-user'?'Reactivate employee?':'Deactivate employee?',message:action==='reactivate-platform-user'?`${user.name} (${user.email}) will receive a Supabase recovery link. Access stays Inactive until verified password setup completes.`:`${user.name} (${user.email}) will lose Platform authorization. Their Auth identity is retained and outstanding setup is cancelled.`,confirmLabel:action==='reactivate-platform-user'?'Send reactivation recovery':'Deactivate',danger:action!=='reactivate-platform-user'}))return;
+        }else if(!await confirmDialog({title:action==='reactivate-platform-user'?'Reactivate employee?':'Deactivate employee?',message:action==='reactivate-platform-user'?`${user.name} (${user.email}) will regain access to their existing account and must sign in again. A Pending invitation will remain Pending.`:`${user.name} (${user.email}) will lose Platform authorization. Their Auth identity is retained and outstanding setup is cancelled.`,confirmLabel:action==='reactivate-platform-user'?'Reactivate':'Deactivate',danger:action!=='reactivate-platform-user'}))return;
         const {data,error}=await pb.functions.invoke(deletion?'delete-platform-user':action,{body:{id:user.id,request_id:requestId,...(confirmation || {}),...(action==='reconcile-platform-user'?{reconcile:true}:{})}});
         if(error || data?.success!==true){notify.error(`Operation could not be confirmed. Review request ${requestId}; do not retry an uncertain Auth operation blindly.`);await loadPlatform();render();return;}
-        if(data.already_initiated)notify.info('Recovery was already initiated. No new email was sent. Verify delivery with the employee; access remains Inactive.');
-        else notify.success(data.awaiting_password?'Recovery email sent. Employee remains Inactive until password setup completes.':'Team operation verified.');
+        notify.success('Team operation verified. Reactivated employees must sign in again.');
         await loadPlatform(); render();
       } finally {if(confirmation){confirmation.password='';confirmation.captchaToken='';}if(el.isConnected)el.disabled=false;if(document.getElementById('verification-widget'))void mountTurnstile();}
       return;
@@ -420,7 +422,10 @@ export function initEvents() {
   window.addEventListener("offline", () => { pState.online = false; if (pState.authenticated) render(); });
 
   /* ── Session check every 60s ── */
-  setInterval(() => validateSession(render), 60 * 1000);
+  const recheck=()=>validateSession(render);
+  setInterval(recheck, 60 * 1000);
+  window.addEventListener("focus",recheck);
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden)recheck();});
 }
 
 /* ── Login failure helper ── */

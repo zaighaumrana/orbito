@@ -29,7 +29,7 @@ test('outer submit dispatcher owns busy state while special forms execute and re
    await pending;return {data:{state:'applied'}};
   };
   const ctx=load('src/forms.js',{
-   pState:{selectedClient:{id:42,supabase_url:'https://abcdefghijklmnopqrst.supabase.co'},clientData:{config:{}},modal:'open'},
+   pState:{authenticated:true,selectedClient:{id:42,supabase_url:'https://abcdefghijklmnopqrst.supabase.co'},clientData:{config:{}},modal:'open'},
    rpc:operation,pb:{functions:{invoke:operation}},publicEnvironment:ui.publicEnvironment,
    navigator:{clipboard:{writeText:operation}},notify:{error:value=>alerts.push(value?.userMessage || 'The operation could not be completed. Refresh its status before retrying.')},
    loadPlatform:async()=>{refreshes++;assert.equal(form.dataset.busy,'true');},loadClientData:async()=>{},render:()=>renders++,

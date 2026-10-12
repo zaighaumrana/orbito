@@ -16,7 +16,7 @@ for (const action of ['bootstrap-shop','onboarding-status','repair-support-acces
   const form={dataset:{pForm:'client-provisioning'},elements:{},querySelectorAll:()=>buttons};
   const event={target:form,submitter:{value:action},preventDefault:()=>{}};
   const ctx={
-   pState:{selectedClient:client,clientData:{provisioning:{}},modal:'setup'},
+   pState:{authenticated:true,selectedClient:client,clientData:{provisioning:{}},modal:'setup'},
    crypto:{randomUUID:()=>payload.request_id},
    document:{addEventListener:(type,handler)=>{assert.equal(type,'submit');submit=handler;}},
    pb:{functions:{invoke:async(name,{body})=>{calls.push({name,body});await invocation;return {data:{}};}}},

@@ -11,14 +11,15 @@ if(chromium){
  const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
  const html='<!doctype html><html data-theme="light"><head><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/styles.css"></head><body><main id="platform-app"><button id="open">Open dialog</button><button id="logout" data-p-action="logout">Logout</button></main><script type="module" src="/fixture.js"></script></body></html>';
  const fixture=`import {confirmDialog,inputDialog,cancelDialogs,notify} from '/dialogs.js';
- const pState={authenticated:true,currentUser:{role:'master_admin',username:'Synthetic'},data:{}};
+ import {pState,clearSensitiveState} from '/state.js';
+ Object.assign(pState,{authenticated:true,currentUser:{role:'master_admin',username:'Synthetic'},data:{}});
  const pb={auth:{signOut:async()=>{window.signouts++;}}};
  const render=()=>{document.getElementById('platform-app').innerHTML='<button id="open">New opener</button><button id="logout" data-p-action="logout">Logout</button>';};
  const validateSession=async()=>{};
  window.results=[];window.signouts=0;window.ui={confirmDialog,inputDialog,cancelDialogs,render,pState};
  window.openDecision=()=>{document.getElementById('open').focus();confirmDialog({title:'Synthetic confirmation',message:'No remote operation.',danger:true}).then(value=>window.results.push(value));};
  `+read('src/events.js').replace(/^import[\s\S]*?;\s*/gm,'')+'\ninitEvents(); window.ready=true;';
- const resources={'/':{type:'text/html',body:html},'/fixture.js':{type:'text/javascript',body:fixture},'/dialogs.js':{type:'text/javascript',body:read('src/dialogs.js')},'/styles.css':{type:'text/css',body:read('src/styles.css')}};
+ const resources={'/':{type:'text/html',body:html},'/fixture.js':{type:'text/javascript',body:fixture},'/state.js':{type:'text/javascript',body:read('src/state.js')},'/dialogs.js':{type:'text/javascript',body:read('src/dialogs.js')},'/styles.css':{type:'text/css',body:read('src/styles.css')}};
  const server=createServer((req,res)=>{const resource=resources[req.url];res.writeHead(resource?200:404,{'Content-Type':resource?.type || 'text/plain'});res.end(resource?.body || 'Not found');});
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const origin='http://127.0.0.1:'+server.address().port;
  let browser,passed=0;const external=[],errors=[];

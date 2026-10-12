@@ -15,6 +15,7 @@ export class PlatformAuthError extends Error {
       network: 'Authentication could not be reached. Check your connection and try again.',
       rate_limit: 'Too many authentication attempts. Wait before trying again.',
       authentication: 'Password verification could not be completed. Try again after fresh verification.',
+      continuity: 'Password verification is disabled until administrator session continuity is verified. Contact the Platform owner.',
     };
     super(messages[code] || messages.authentication); this.code=code; this.userMessage=this.message;
   }
@@ -42,6 +43,7 @@ export async function reauthenticateMaster(password, captchaToken) {
   if (!password) throw new PlatformAuthError('invalid_credentials');
   const before = await loadOperatorIdentity();
   if (before.role!=='master_admin') throw new PlatformAuthError('master_only');
+  if (before.password_verification_safe!==true) throw new PlatformAuthError('continuity');
   // Independent, memory-only Auth client: never replace the existing session.
   const verifier=passwordVerifier ||= createClient(import.meta.env.VITE_PLATFORM_URL,import.meta.env.VITE_PLATFORM_ANON,
     {auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false,storageKey:'platform-password-verification'}});
@@ -67,9 +69,10 @@ export async function reauthenticateMaster(password, captchaToken) {
   }
 }
 export async function loadConfig() {
+  const generation=pState.authorityGeneration;
   const { data, error } = await pb.from('platform_config').select('id,admin_username').single();
   if (error) throw error;
-  if (data) setPCFG(data);
+  if (data && generation===pState.authorityGeneration) setPCFG(data);
 }
 // Paginate historical ledgers instead of silently accepting the default 1000 rows.
 async function allRows(table, order, select = '*') {
@@ -81,6 +84,8 @@ async function allRows(table, order, select = '*') {
   }
 }
 export async function loadPlatform() {
+  if(!pState.authenticated)return;
+  const generation=pState.authorityGeneration;
   const [clients,support,usage,invoices,rateLog,payments,credits,platformUsers,summary,teamArchive,teamHistory] = await Promise.all([
     allRows('clients','id'), allRows('support_tickets','id'),
     allRows('usage_logs','id'), allRows('billing_cycles','id'), allRows('pricing_rate_log','id'),
@@ -92,14 +97,18 @@ export async function loadPlatform() {
   ]);
   if (summary.error) throw summary.error;
   if(teamHistory.error)throw teamHistory.error;
+  if(generation!==pState.authorityGeneration || !pState.authenticated)return;
   Object.assign(pState.data, { clients,support,usage,invoices,rateLog,payments,credits,platformUsers,usageSummary: summary.data,teamArchive,teamOperations:teamHistory.data.operations });
   if (pState.selectedClient) pState.selectedClient = clients.find(c => c.id === pState.selectedClient.id) || null;
 }
 export async function loadClientData(client) {
+  if(!pState.authenticated)return;
+  const generation=pState.authorityGeneration;
   pState.selectedClient = client;
   const { data, error } = await pb.rpc('platform_client_operations', { p_client: client.id });
   const provision = await pb.rpc('platform_provision_status', { p_client: client.id });
   const overhaul = await pb.rpc('platform_overhaul_status', { p_client: client.id });
+  if(generation!==pState.authorityGeneration || !pState.authenticated)return;
   if(!overhaul.error)localStorage.removeItem(`orbito-operation:config:${client.id}`);
   const connection = provision.data?.connection;
   const latestRead = connection?.verified_at && (!client.config_synced_at || new Date(connection.verified_at) > new Date(client.config_synced_at));

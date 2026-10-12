@@ -1,7 +1,7 @@
 import { createSetupRouter } from './auth-setup.js';
-import { notify } from './dialogs.js';
+import { notify, cancelDialogs } from './dialogs.js';
 import { pb, loadConfig, loadPlatform, loadOperatorIdentity } from "./supabase.js";
-import { pState }                        from "./state.js";
+import { pState, clearSensitiveState }                        from "./state.js";
 import { render }                        from "./render.js";
 import { initEvents }                    from "./events.js";
 import { handleFormSubmit }              from "./forms.js";
@@ -11,6 +11,7 @@ import { validateSession }               from "./helpers.js";
 document.addEventListener("submit", async event => {
   if (event.target.dataset.authForm !== undefined) return;
   event.preventDefault();
+  if (!pState.authenticated) return;
   const form = event.target;
   if (form.dataset.busy) return;
   form.dataset.busy = 'true';
@@ -41,7 +42,11 @@ window.addEventListener("popstate", () => {
 /* Resolve both invitation and recovery callbacks through verified server state. */
 const setupRouter = createSetupRouter({pb,state:pState,render,notify});
 pState.setupRouter=setupRouter;
-pb.auth.onAuthStateChange((event,session)=>setupRouter.event(event,session));
+pb.auth.onAuthStateChange((event,session)=>{
+  setupRouter.event(event,session);
+  if(event==='SIGNED_OUT' && pState.authenticated){cancelDialogs();clearSensitiveState();pState.page='login';render();}
+  if(event==='TOKEN_REFRESHED' || event==='SIGNED_IN')setTimeout(()=>void validateSession(render),0);
+});
 pState.authRouting=true;render();
 (async()=>{
   const {data,error}=await pb.auth.getSession();if(error)throw error;
@@ -52,4 +57,4 @@ pState.authRouting=true;render();
   pState.authenticated=true;
   pState.page=({'/':'overview','/clients':'clients','/billing':'billing','/support':'support','/settings':'settings'})[window.location.pathname] || 'overview';
   await loadPlatform();await validateSession(render);render();
-})().catch(()=>{pState.authRouting=false;pState.authenticated=false;pState.page='login';render();notify.error('Account verification is unavailable. Sign in again or retry when your connection is restored.');});
+})().catch(()=>{pState.authRouting=false;cancelDialogs();clearSensitiveState();pState.page='login';render();notify.error('Account verification is unavailable. Sign in again or retry when your connection is restored.');});

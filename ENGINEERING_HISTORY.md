@@ -792,3 +792,109 @@ Auth/config, functions, frontend, Cloudflare, production or Shop changes. Source
 tests, dependency integrity lock and rollout documentation only; authorized feature
 commit/push uses `[CF-Pages-Skip]` and a draft PR to development, no merge. Recovery
 limitations and ordered separate-approval gates: `docs/PLATFORM_TEAM_LIFECYCLE_REVIEW.md`.
+
+## 2026-10-12 — PR #4 final lifecycle/security stabilization (local; supersedes email reactivation)
+
+Branch: `fix/pr4-security-stabilization`, isolated at reviewed PR #4 HEAD
+`a0dae0fc90332f9fc4a498823c1851c00c3f17b6`. Prior entries are retained as historical
+checkpoints. Owner confirmed migration `20261010233446` has never been applied or
+manually executed on hosted databases; only this unreleased migration is revised.
+All twelve preceding migration Git blobs and frozen Shop artifact remain unchanged.
+
+### Changes and confirmed findings
+
+Replaced rejected email reactivation with exact-UUID retained-account suspension
+and restoration. SQL Inactive/cutoff/audit commits before provider ban dispatch;
+provider receipt, owned ban, original status and canonical Master are rechecked.
+Reactivate sends no email/link/invitation, preserves password/role, restores former
+Pending as Pending and requires fresh password login for ordinary access. Unknown
+legacy identities and independent/changed bans fail closed. Added permanent old-
+session cutoff, live owned Auth-session checks, Storage/private Realtime restrictive
+policies and read-only managed-owner/RLS/dependency preflight. Runtime deletion
+checks repeat custom Auth/team FKs and Storage ownership before dispatch; managed
+Auth FK allowlist verifies exact schema/owner/table/constraint/user_id column.
+
+Both ordinary password forms now send current_password; actual native API missing/
+wrong-password denials retain the original password and session. Native Require
+current password remains a hosted release prerequisite. Actual provider journeys
+caught implicit recovery OTP AMR and post-Reactivate setup gaps; verified native
+recovery can set a password without granting normal post-suspension authority or
+activating Inactive. Pending acceptance follows native password success, not email
+issuance. Removed Resend/custom Send Email Hook/recovery endpoint, reactivation
+proof/transport SQL, obsolete transport tests/dependency integrity entries and
+unused shared reexport. Required Pending retry/support compatibility stays.
+
+Independent Master verification remains memory-only/local-scope cleanup. Real
+single-session policy interrupts the original refresh during verification. Added
+a default-off, current-Master-bound, trusted/audited continuity approval; delete
+checks it before password grant/service client and again at SQL reservation/dispatch.
+Alias verification is withheld while unapproved. Approval does not configure Auth
+or establish actual safety; rebinding invalidates it.
+
+Browser canonical authority checks every minute/focus/visibility distinguish
+confirmed denial from network failure, cancel dialogs and clear private state.
+Late loaders/alias/authority responses cannot refill it; login loader ordering and
+logout cleanup are corrected. Wider audit found stored HTML/link injection in
+Support Tickets: text/attributes are escaped and links allow credential-free HTTP(S)
+only. Provisioning's preexisting Deno narrowing failure/nonexistent binding field
+is corrected against actual server/read-back state; existing activation/rotation
+contracts and digests are preserved. Fixed newline-portable hash tests without
+changing historical SQL. No unrelated refactor, publication or secret changes.
+
+### Validation and release gates
+
+PASS: 225 broad regressions (zero failures/skips); six real PG17 bootstrap groups;
+two canonical pre/post UUID groups; eight final real PG17 lifecycle groups; eight
+pinned CLI atomicity groups plus final two affected lifecycle history rejection/
+rollback/retry cases; six real GoTrue v2.197.0/PG17 Auth journeys; SQL-only Platform
+fresh/upgrade/late-rollback runner; actual one-winner support SQL concurrency;
+twelve native Chrome viewport/theme groups; all ten frozen Deno entrypoint checks;
+synthetic Vite build; syntax/whitespace/sensitive-value/historical/artifact checks.
+Local Auth tests use real HTTP/provider/schema and a SQL adapter for PostgREST;
+SQL-only fixtures and browser transport/CAPTCHA doubles are explicitly distinct.
+Development test/configuration failures were diagnosed and corrected before final
+PASS. Existing Vite CJS API deprecation and existing import cycles are not suppressed;
+no added circular participants. Shop test execution intentionally skipped.
+
+SKIP: hosted gateway/configuration, real email/CAPTCHA, timebox/inactivity, hosted
+session continuity and real employee writes. Production remains NO-GO: verify
+current-password enforcement and safe Master continuity before approval; built-in
+shared Auth sender restrictions conflict with unrestricted production onboarding;
+managed policy permissions/public Storage/open Realtime need hosted checks. No
+provider compare-and-set unban/arbitrary-UUID logout API is assumed. Freeze related
+DDL/provider/target writes around destructive work; ambiguous ban/unban requires
+trusted audited recovery. Frozen Shop suspension retains the intentional Orbito
+Support exception, but open tabs/existing Auth sessions need separate authorized
+session-hardening review. Backup restore/Vault and legal/provider gates unchanged.
+
+Documentation: `docs/PLATFORM_TEAM_LIFECYCLE_REVIEW.md` supersedes the rejected
+transport plan with ordered separate-approval gates. `docs/PRODUCTION_READINESS_REPORT.md`
+records fixes, evidence, exact file manifest, limitations and NO-GO. No hosted
+connection, mutation, deployment, email, Cloudflare/Shop/protected-branch change,
+commit or push. PR #4 remains Draft/open/unmerged at original remote HEAD. Local
+corrections await independent source review and explicit checkpoint/integration
+approval; no merge or deployment follows automatically.
+
+
+## 2026-10-12 — Authorized GitHub review checkpoint for PR #4 corrections
+
+Owner authorized committing/pushing the complete 39-file local correction set to
+update the existing Draft PR #4; no merge or deployment. The previous uncommitted
+audit checkpoint is preserved above. Verified exact manifest, reviewed base HEAD,
+twelve historical migration blobs, frozen Shop artifact, staged-source eligibility
+and existing local validation evidence. Only checkpoint documentation is refreshed;
+source behavior/test results remain those recorded in the final stabilization audit.
+
+Read-only Cloudflare inspection verified staging Pages `retrasellsaas`, repository
+orbito, development production branch, npm run build/dist/root and no deploy hooks.
+The PR source remains preview-eligible; prior skip-prefixed a0dae0f is skipped with
+no deployment. Use verified native [CF-Pages-Skip] commit prefix and explicitly push
+only the existing PR source ref. GitHub Pages disabled, no repository webhooks or
+source/development Actions workflows. Preview Access restriction is verified;
+backend isolation is not inferred. No settings/secrets/Supabase/Shop changes.
+
+Commit on isolated fix/pr4-security-stabilization, then fast-forward integration
+into feature/platform-team-lifecycle-v2 for independent review only. Recheck Draft/
+unmerged PR, exact source commit, protected refs, worktree and Cloudflare skipped
+record after push. Final SHA/status are supplied by Git/PR and the checkpoint report;
+this pre-commit history does not claim post-push verification before it occurs.
