@@ -612,3 +612,44 @@ refresh continuity before destructive policy approval; real mail/CAPTCHA/role/
 lifecycle journeys with approved disposable accounts; coordinated backend/13/14/
 frontend authorization; backup/Vault recovery, legal/provider and separate frozen
 Shop/session gates. No merge, deployment or real account operation is authorized.
+
+## 2026-10-13 — Focused bfc24ca review corrections
+
+The independent Work review reproduced two MEDIUM defects. This six-file follow-up
+addresses only those defects and the actually affected Billing addon notice:
+src/supabase.js, src/forms.js, tests/platform-role-loaders.test.mjs,
+tests/frontend-races.test.mjs, this report and ENGINEERING_HISTORY.md.
+
+Each verified, owned role-tagged page now invalidates former-role state directly,
+even after another dataset has rejected Promise.all. A single bounded reload
+fetches the new role's datasets; old generation/session responses cannot reverse
+it. A second role change fails visibly without an automatic request loop. Normal
+loads gain no requests. Authority/session validation and database RLS are unchanged.
+
+Manager plan synchronization uses already approved Active/Suspended and present
+infrastructure status; the existing server config boundary still verifies role,
+binding and credentials. Master retains its prior verified-connection path.
+Unready, failed, rejected or uncertain sync explicitly reports the committed
+Platform change and unconfirmed Shop outcome, closes the save form, refreshes
+status and directs recorded uncertainty to Master reconciliation. Existing server
+intent checks prevent blind repeat writes. Billing rates still save normally;
+an inventory-addon change explicitly requires Master/Manager Shop reconciliation,
+because Billing's existing server permission deliberately denies config writes.
+No private provisioning read or new Billing privilege is introduced.
+
+**Validation:** five focused cases FAIL against the reviewed source, then PASS
+afterward; **27 directly affected tests PASS** (23 loader/race/operation checks
+and four selected configuration/recovery checks), zero final FAIL/SKIP. Covers
+both role directions, first-error/late-change ordering, paused native verification,
+late former-role replies, Manager/Master sync, unready setup, failed/uncertain/
+rejected sync, unresolved-intent blocking and Billing/Master rates. Actual handlers
+and config helper run with synthetic transports. Syntax, synthetic Vite build,
+whitespace and sensitive/integrity checks PASS; existing Vite CJS warning remains.
+
+SQL/PG17/CLI/Auth/Deno and the full 250/19-browser suites were **not rerun**:
+permissions, migrations, RPC contracts, Edge source and dependencies did not change.
+Their preceding results remain historical evidence. Hosted Shop outcomes, native
+session behavior and UI journeys remain unverified this round. All existing hosted
+release gates remain. Safe checkpoint requires current trigger inspection, native
+CF-Pages-Skip and exact provider verification. Keep Draft PR #4 unmerged;
+**independent re-review pending; STAGING / PRODUCTION remain NO-GO.**

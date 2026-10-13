@@ -76,14 +76,18 @@ export async function loadConfig() {
   if (error) throw error;
   if (data && generation===pState.authorityGeneration) setPCFG(data);
 }
-async function memberRows(dataset,context) {
+async function memberRows(dataset,context,onRoleChange) {
   const rows=[];
   for(let offset=0;;offset+=1000){
     const {data,error}=await pb.rpc('platform_read_page',{p_dataset:dataset,p_offset:offset});
     if(error)throw error;
     if(data?.auth_user_id!==context.id || data?.session_id!==context.session || !Array.isArray(data?.rows)
       || !['master_admin','portfolio_manager','billing_person'].includes(data.role))throw Error('Read authorization could not be verified.');
-    if(data.role!==context.role){const changed=Error('Your role changed. Refreshing authorized data.');changed.roleChanged=true;changed.role=data.role;throw changed;}
+    if(data.role!==context.role){
+      // Handle each owned response even if another dataset already rejected.
+      if(authorityCurrent(context))onRoleChange(data.role);
+      throw Error('Your role changed. Refreshing authorized data.');
+    }
     rows.push(...data.rows);if(data.rows.length<1000)return rows;
   }
 }
@@ -99,6 +103,18 @@ async function allRows(table, order, select = '*') {
 export async function loadPlatform(retryRole=true) {
   if(!pState.authenticated)return;
   let context=captureAuthority();
+  let roleRefresh;
+  const onRoleChange=role=>{
+    refreshRoleState({...pState.currentUser,role});context=captureAuthority();
+    if(retryRole){
+      const refreshed=context;roleRefresh=loadPlatform(false);
+      // The old aggregate may already have failed; still render its successor.
+      roleRefresh.then(()=>{if(authorityCurrent(refreshed))pState.onRoleChange?.();},()=>{});
+    }else{
+      pState.dataError='Your role changed again. Refresh authorized Platform data before making changes.';
+      pState.onDataError?.();
+    }
+  };
   try {
   const identity=await loadOperatorIdentity();
   if(!authorityCurrent(context))return;
@@ -106,7 +122,7 @@ export async function loadPlatform(retryRole=true) {
   if(identity.role!==context.role){refreshRoleState(identity);context=captureAuthority();}
   if(context.role!=='master_admin'){
     const datasets=context.role==='portfolio_manager'?['clients','support','invoices','account']:['clients','usage','invoices','payments','credits','rateLog','account'];
-    const [pages,summary,dashboard]=await Promise.all([Promise.all(datasets.map(name=>memberRows(name,context))),pb.rpc('platform_usage_summary'),pb.rpc('platform_dashboard_summary')]);
+    const [pages,summary,dashboard]=await Promise.all([Promise.all(datasets.map(name=>memberRows(name,context,onRoleChange))),pb.rpc('platform_usage_summary'),pb.rpc('platform_dashboard_summary')]);
     if(summary.error || !Array.isArray(summary.data))throw summary.error || Error('Usage summary unavailable.');
     if(dashboard.error || !Number.isInteger(dashboard.data?.open_tickets))throw dashboard.error || Error('Dashboard summary unavailable.');
     if(!authorityCurrent(context))return;
@@ -134,13 +150,8 @@ export async function loadPlatform(retryRole=true) {
     if(selected)pState.selectedClient=selected;else selectClient();
   }
   }catch(error){
+    if(roleRefresh)return roleRefresh;
     if(!authorityCurrent(context))return;
-    if(error.roleChanged){
-      // This owned SQL response already detected a live role change. Drop every
-      // prior-role record before any further native identity/network operation.
-      refreshRoleState({...pState.currentUser,role:error.role});context=captureAuthority();
-      if(retryRole)return loadPlatform(false);
-    }
     pState.dataReady=false;pState.dataError='Authorized Platform data is unavailable. Refresh before making changes.';
     pState.onDataError?.();
     throw error;

@@ -33,6 +33,30 @@ function fixture(role='portfolio_manager'){
  return {ctx,calls,effects,rows,transport,setRole:r=>liveRole=r,failDataset:d=>failedDataset=d,failNative:()=>nativeFailure=true,holdClients:()=>gate=deferred()};
 }
 const datasets=f=>f.calls.filter(c=>Array.isArray(c) && c[0]==='platform_read_page').map(c=>c[1].p_dataset);
+
+test('a failed dataset cannot suppress a later owned canonical role change or its authorized reload',async()=>{
+ for(const [before,after,failed] of [['portfolio_manager','billing_person','support'],['billing_person','portfolio_manager','payments']]){
+  const f=fixture(before);await f.ctx.loadPlatform();f.ctx.pState.selectedClient={id:1};f.ctx.pState.modal={type:'edit-client'};
+  const clients=f.holdClients();f.failDataset(failed);await assert.rejects(f.ctx.loadPlatform());
+  const verified=deferred();f.transport.auth.getUser=()=>verified.promise;f.setRole(after);clients.resolve();await new Promise(r=>setImmediate(r));
+  assert.equal(f.ctx.pState.currentUser.role,after);assert.equal(f.ctx.pState.modal,null);assert.equal(f.ctx.pState.selectedClient,null);
+  assert.equal(f.ctx.pState.data.support.length,0);assert.equal(f.ctx.pState.data.payments.length,0);assert.equal(f.ctx.pState.dataReady,false);
+  verified.resolve({data:{user:{id:'synthetic-employee'}}});await new Promise(r=>setImmediate(r));
+  assert.equal(f.ctx.pState.dataReady,true);assert.equal(after==='billing_person'?f.ctx.pState.data.support.length:f.ctx.pState.data.payments.length,0);
+  assert.ok(!f.effects.includes('signout'));
+ }
+});
+
+test('an old-role page arriving after the failed-dataset role cutover cannot replace or reverse the successor',async()=>{
+ const f=fixture();await f.ctx.loadPlatform();const oldIdentity={...f.ctx.pState.currentUser},late=deferred(),rpc=f.transport.rpc;let held=false;
+ f.transport.rpc=(name,args)=>{if(name==='platform_read_page' && args.p_dataset==='invoices' && !held){held=true;return late.promise;}return rpc(name,args);};
+ const clients=f.holdClients();f.failDataset('support');await assert.rejects(f.ctx.loadPlatform());f.setRole('billing_person');clients.resolve();await new Promise(r=>setImmediate(r));
+ assert.equal(f.ctx.pState.currentUser.role,'billing_person');const generation=f.ctx.pState.authorityGeneration;
+ late.resolve({data:{...oldIdentity,rows:[{private:'former-role'}]}});await new Promise(r=>setImmediate(r));
+ assert.equal(f.ctx.pState.currentUser.role,'billing_person');assert.equal(f.ctx.pState.authorityGeneration,generation);
+ assert.equal(f.ctx.pState.data.support.length,0);assert.equal(f.ctx.pState.data.payments.length,1);assert.equal(f.ctx.pState.dataReady,true);
+ assert.doesNotMatch(JSON.stringify(f.ctx.pState.data),/former-role/);
+});
 test('Manager loader requests operational/support, own account and invoice summaries only; pagination retains all authorized records',async()=>{
  const f=fixture();f.rows.clients=Array.from({length:1000},(_,id)=>({id}));let page=0;const old=f.transport.rpc;f.transport.rpc=async(name,args)=>{if(name==='platform_read_page' && args.p_dataset==='clients'){f.calls.push([name,args]);return {data:{...f.ctx.pState.currentUser,rows:page++?[{id:1000}]:f.rows.clients}};}return old(name,args);};
  await f.ctx.loadPlatform();assert.equal(f.ctx.pState.data.clients.length,1001);assert.deepEqual([...new Set(datasets(f))].sort(),['account','clients','invoices','support']);assert.equal(page,2);

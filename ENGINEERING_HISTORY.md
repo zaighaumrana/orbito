@@ -995,3 +995,34 @@ manifest/matrix/reproduction/limits are in PRODUCTION_READINESS_REPORT and
 PLATFORM_ROLE_READ_ISOLATION. Safe source commit/push uses the approved native
 CF-Pages-Skip prefix after trigger inspection and exact post-push verification;
 final SHA is Git/PR checkpoint evidence. No staging/production GO is declared.
+
+## 2026-10-13 — Focused role-response race and Manager entitlement corrections
+
+Branch: feature/platform-team-lifecycle-v2; reviewed base bfc24ca50d4f5d18b329f0c601473c0f9ee208df.
+The latest independent review reproduced a first dataset error suppressing a
+later canonical role change, and a Manager plan save skipping Shop sync because
+private provisioning fields are intentionally unavailable.
+
+Owned role-tagged responses now immediately clear former-role cache, client,
+modal and continuations independently of aggregate rejection. A bounded reload
+uses only the successor's permitted datasets; stale replies cannot reverse it.
+Manager entitlement sync uses approved operational status and the existing
+checked config path. Master verification remains supported. Incomplete sync
+reports the committed Platform update, refreshes status, closes the form and
+requires reconciliation of recorded uncertainty, never automatic write replay.
+Billing inventory-addon changes were also affected: rates remain authorized,
+while unconfirmed Shop sync is explicitly referred to Master/Manager rather than
+broadening Billing's deliberately denied configuration authority.
+
+PASS: five failure-before/pass-after cases; 27 affected loader/race/operation/
+configuration checks; syntax, synthetic Vite build, whitespace and integrity.
+Transport is synthetic. Full regression/browser/native database/Auth/CLI/Deno
+suites were not rerun because no server contract, SQL, Edge or dependency changed.
+Native/hosted behavior remains a separate gate; Vite CJS warning remains.
+
+Exactly six files: src/supabase.js, src/forms.js, tests/platform-role-loaders.test.mjs,
+tests/frontend-races.test.mjs, PRODUCTION_READINESS_REPORT.md and this history.
+All fourteen migrations, frozen Shop artifact and protected branches are preserved.
+Update only existing Draft PR #4 after current trigger inspection, native skip
+and exact provider confirmation. No merge, hosted change or deployment;
+independent review pending, staging/production remain NO-GO.

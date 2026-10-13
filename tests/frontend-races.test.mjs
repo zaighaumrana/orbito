@@ -12,7 +12,7 @@ function fixture(){
  const messages=[],calls=[],pending=new Map();let click;
  const ctx={navigator:{onLine:true},localStorage:{getItem(){},removeItem(){}},testEnv:{},crypto:{randomUUID:()=> 'synthetic-request'},
   createClient:()=>ctx.transport,transport:{rpc:async(name,{p_client}={})=>{calls.push([name,p_client]);if(name==='platform_client_operations'){const gate=deferred();pending.set(p_client,[...(pending.get(p_client)||[]),gate]);return gate.promise;}return {data:{}};}},
-  notify:Object.fromEntries(['error','success','info'].map(k=>[k,v=>messages.push([k,v])])),render(){calls.push(['render']);},cancelDialogs(){},
+  notify:Object.fromEntries(['error','success','info','warning'].map(k=>[k,v=>messages.push([k,v])])),render(){calls.push(['render']);},cancelDialogs(){},
   FormData:class{constructor(form){this.form=form;}entries(){return Object.entries(this.form.values||{});}},validateOwner:(name,email)=>({owner_name:name,owner_email:email}),
   serverConfigOperation:async(_id,_changes,readStatus,send)=>{await readStatus();return send('synthetic-request');},
   window:{addEventListener(){}},document:{getElementById:()=>null,addEventListener:(name,fn)=>{if(name==='click')click=fn;}},setInterval(){},validateSession(){},rpc:async(...args)=>{calls.push(args);return{};}};
@@ -40,6 +40,47 @@ test('module toggles deny mismatched detail/config identity before any backend c
  await f.click({pAction:'toggle-paper'});assert.equal(f.calls.filter(c=>c[0]==='platform_set_paper').length,0);
 });
 const loaded=(f,id=1)=>{const s=f.ctx.pState;s.page='client-detail';s.selectedClient={id,currency:'PKR'};s.clientData={clientId:id,requestGeneration:s.clientRequestGeneration,config:{id},operations:{}};};
+function entitlementFixture(role,outcome='applied'){
+ const f=fixture();loaded(f);const client=Object.assign(f.ctx.pState.selectedClient,{onboarding_version:2,lifecycle_state:'Active',infrastructure_state:'present',plan:'Basic',inventory_billable:false,ems_track_breaks:false});
+ f.ctx.pState.currentUser.role=role;f.ctx.pState.data.clients=[client];f.ctx.pState.modal={type:'edit-client'};f.ctx.pState.clientData.provisioning=null;
+ let unresolved=false;f.requests=[];f.sends=[];
+ f.ctx.transport.rpc=async(name,args)=>{f.requests.push([name,args]);return {data:name==='platform_plan_entitlements'?{technician_module_enabled:true,inventory_module_enabled:args.p_inventory}:name==='platform_overhaul_status'?{config_jobs:unresolved?[{request_id:'synthetic-request',state:'uncertain'}]:[]}:name==='platform_save_client'?{...client,...args.p_data}:{}};};
+ f.ctx.transport.functions={invoke:async(name,args)=>{f.sends.push([name,args]);unresolved=outcome!=='applied';if(outcome==='rejected')throw Error('Synthetic network failure');return {data:{state:outcome}};}};
+ // Use the actual config single-flight, unresolved-intent and RPC helper.
+ vm.runInContext(strip(read('src/operations.js')),f.ctx);
+ f.ctx.loadPlatform=async()=>{};f.ctx.loadClientData=async()=>true;
+ return f;
+}
+test('Manager and Master plan saves dispatch legitimate Shop entitlements without private provisioning reads',async()=>{
+ for(const role of ['portfolio_manager','master_admin']){
+  const f=entitlementFixture(role);await f.submit('edit-client',{currency:'PKR',name:'Client',plan:'Pro'});
+  assert.equal(f.requests.filter(c=>c[0]==='platform_save_client').length,1);assert.equal(f.sends.length,1);
+  assert.equal(f.sends[0][0],'platform-config');assert.equal(f.sends[0][1].body.client_id,1);assert.equal(f.sends[0][1].body.changes.technician_module_enabled,true);
+  assert.equal(f.ctx.pState.modal,null);assert.equal(f.ctx.pState.clientData.provisioning,null);assert.equal(f.messages.length,0);
+ }
+ const pending=entitlementFixture('portfolio_manager');pending.ctx.pState.selectedClient.lifecycle_state='Provisioning';
+ await pending.submit('edit-client',{currency:'PKR',plan:'Pro'});assert.equal(pending.sends.length,0);assert.ok(pending.messages.some(([tone,text])=>tone==='warning' && /verify Shop setup/i.test(text)));
+});
+test('failed, uncertain or rejected Shop sync reports a committed Platform plan without retrying unresolved writes',async()=>{
+ for(const outcome of ['failed','uncertain','rejected']){
+  const f=entitlementFixture('portfolio_manager',outcome);await f.submit('edit-client',{currency:'PKR',plan:'Pro'});
+  assert.equal(f.requests.filter(c=>c[0]==='platform_save_client').length,1);assert.equal(f.sends.length,1);assert.equal(f.ctx.pState.selectedClient.plan,'Pro');
+  assert.equal(f.ctx.pState.modal,null);assert.ok(f.messages.some(([tone,text])=>tone==='warning' && /Platform.*saved.*Shop.*not confirmed/i.test(text)));
+  assert.equal(f.messages.some(([tone])=>tone==='success'),false);
+  await assert.rejects(f.ctx.updateClientConfig(f.ctx.pState.selectedClient,{technician_module_enabled:true}),/unresolved/);assert.equal(f.sends.length,1);
+ }
+});
+test('Billing rate writes remain authorized; addon changes explicitly require allowed Shop reconciliation without private RPCs',async()=>{
+ for(const addon of [false,true]){
+  const f=entitlementFixture('billing_person');f.ctx.pState.modal={type:'edit-client-rates'};delete f.ctx.pState.selectedClient.onboarding_version;delete f.ctx.pState.selectedClient.infrastructure_state;
+  await f.submit('edit-client-rates',{client_id:'1',event_rate:'6',inventory_rate:'2',inventory_billable:String(addon)});
+  assert.equal(f.requests.filter(c=>c[0]==='platform_set_rates').length,1);assert.equal(f.requests.filter(c=>['platform_plan_entitlements','platform_overhaul_status'].includes(c[0])).length,0);assert.equal(f.sends.length,0);
+  assert.equal(f.messages.some(([tone,text])=>tone==='warning' && /inventory.*Shop/i.test(text)),addon);assert.equal(f.ctx.pState.modal,null);
+ }
+ const master=entitlementFixture('master_admin');master.ctx.pState.modal={type:'edit-client-rates'};
+ await master.submit('edit-client-rates',{client_id:'1',event_rate:'6',inventory_rate:'2',inventory_billable:'true'});
+ assert.equal(master.sends.length,1);assert.equal(master.sends[0][1].body.changes.inventory_module_enabled,true);assert.equal(master.messages.length,0);
+});
 test('newer same-client request wins; navigation cancels pending load; failures clear loading and deny writes',async()=>{
  const f=fixture();f.ctx.pState.page='client-detail';const a=f.ctx.loadClientData({id:1}),b=f.ctx.loadClientData({id:1});
  f.pending.get(1)[1].resolve({data:{version:'new'}});await b;f.pending.get(1)[0].resolve({data:{version:'old'}});await a;

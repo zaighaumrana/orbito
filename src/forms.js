@@ -33,6 +33,20 @@ export async function handleFormSubmit(event) {
     if(detail && !await loadClientData(pState.selectedClient))return;
     if(viewCurrent(refreshed))render();
   };
+  const syncEntitlements=async(client,plan,inventory)=>{
+    // Operational fields are already projected to Manager; server binding and
+    // role checks remain authoritative. Master retains its verified legacy path.
+    const ready=clientDataMatches(client) &&
+      (client.infrastructure_state==='present' && ['Active','Suspended'].includes(client.lifecycle_state)
+        || pState.currentUser.role==='master_admin' && pState.clientData.provisioning?.connection?.verified_at);
+    if(!ready)return 'Platform changes saved; Shop synchronization is not confirmed. Verify Shop setup and ask a Master Admin or Portfolio Manager to reconcile entitlements.';
+    try{
+      const modules=await rpc('platform_plan_entitlements',{p_plan:plan,p_inventory:inventory,p_breaks:client.ems_track_breaks});
+      if(!current())return;
+      if(await updateClientConfig(client,modules) && current())return;
+    }catch{if(!current())return;}
+    return 'Platform changes saved; Shop synchronization is not confirmed. Refresh Client status and ask the Master Admin to reconcile any recorded pending request before another Shop write.';
+  };
   if(['client-lifecycle','config-recovery','provision-recovery','public-environment'].includes(type)) {
     // main.js owns the busy flag for the entire submit/refresh lifecycle.
     const client=selected,action=event.submitter?.value;
@@ -115,13 +129,11 @@ export async function handleFormSubmit(event) {
     if(!current())return;
     if (error) { notify.error(error); return; }
     pState.selectedClient = { ...selected, ...data,id:selected.id };
-    if (pState.selectedClient.onboarding_version === 2 && pState.clientData.provisioning?.connection?.verified_at) {
-      const modules = await rpc('platform_plan_entitlements',{p_plan:data.plan,p_inventory:pState.selectedClient.inventory_billable,p_breaks:pState.selectedClient.ems_track_breaks});
-      if(!current())return;
-      await updateClientConfig(selected, modules);
-      if(!current())return;
-    }
-    await refresh(); return;
+    const notice=selected.onboarding_version===2?await syncEntitlements(selected,data.plan,selected.inventory_billable):null;
+    if(!current())return;
+    await refresh(true);
+    if(notice && viewCurrent(context,false))notify.warning(notice);
+    return;
   }
 
   /* ── Edit Client Rates ── */
@@ -134,12 +146,13 @@ export async function handleFormSubmit(event) {
 
     await rpc('platform_set_rates', { p_client: clientId, p_bill: newEvent, p_inventory: newInv, p_inventory_billable: invBillable });
     if(!current())return;
-    if (client.onboarding_version === 2 && clientDataMatches(client) && pState.clientData.provisioning?.connection?.verified_at) {
-      const modules = await rpc('platform_plan_entitlements',{p_plan:client.plan,p_inventory:invBillable,p_breaks:client.ems_track_breaks});
-      if(!current())return;
-      await updateClientConfig(client,modules);
-    }
-    await refresh(); return;
+    let notice;
+    if(pState.currentUser.role==='master_admin' && client.onboarding_version===2)notice=await syncEntitlements(client,client.plan,invBillable);
+    else if(invBillable!==client.inventory_billable)notice='Rates saved; inventory billing changed, but Shop entitlement synchronization is not confirmed. Ask a Master Admin or Portfolio Manager to verify and reconcile Shop settings.';
+    if(!current())return;
+    await refresh();
+    if(notice && viewCurrent(context,false))notify.warning(notice);
+    return;
   }
 
   /* ── Record Payment ── */
