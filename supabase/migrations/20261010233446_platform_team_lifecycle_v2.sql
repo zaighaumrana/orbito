@@ -418,15 +418,12 @@ grant execute on function public.platform_support_issue(integer,uuid,text,text,u
 
 -- Defense in depth for Platform Storage and private Realtime channels. Existing
 -- permissive policies still decide which authorized operators may access objects.
-do $$ declare t record; original_role text=current_user; begin
- for t in select c.oid::regclass as relation,c.relowner,c.relrowsecurity from pg_class c
+-- Hosted supautils allows postgres CREATE POLICY without managed-owner membership.
+-- Run as the migration caller; missing policy permission must abort the migration.
+do $$ declare t record; begin
+ for t in select c.oid::regclass as relation,c.relrowsecurity from pg_class c
   where c.oid in (to_regclass('storage.objects'),to_regclass('realtime.messages')) loop
   if not t.relrowsecurity then raise exception 'Managed Storage/Realtime RLS prerequisite is missing'; end if;
-  if not pg_has_role(current_user,t.relowner,'USAGE') then
-   if not pg_has_role(current_user,t.relowner,'SET') then raise exception 'Managed policy owner permission required; run reviewed preflight'; end if;
-   execute format('set local role %I',pg_get_userbyid(t.relowner));
-  end if;
   execute format('create policy platform_live_operator on %s as restrictive for all to authenticated using (coalesce((public.platform_session_status()->>''authorized'')::boolean,false)) with check (coalesce((public.platform_session_status()->>''authorized'')::boolean,false))',t.relation);
-  execute format('set local role %I',original_role);
  end loop;
 end $$;

@@ -247,12 +247,74 @@ for(const scenario of ['fresh','staging'])test('team lifecycle CLI history rejec
  if(scenario==='fresh')sql(`insert into auth.users(id,email,email_confirmed_at) values('${old}','fresh-master@example.test',now());select platform_private.initialize_config('Fresh fixture','Reviewed fixture');select platform_private.bind_master('${old}',null,'Reviewed fixture');`,db);
  assert.equal(sql('select count(*) from supabase_migrations.schema_migrations',db),'12');
  sql(`insert into auth.sessions(id,user_id,created_at,updated_at) values('${old}','${old}',now(),now());`,db);
+ // Native supautils from the cached official Supabase PG17 image, using its
+ // unchanged provider allowlist. Fixture owners create their own objects;
+ // no ownership transfer or internal-role membership is granted to postgres.
+ // This database image has no Realtime service bootstrap, so supply its local
+ // owner role as fixture metadata only (never a membership or migration caller).
+ sql("do $$begin if not exists(select 1 from pg_roles where rolname='supabase_realtime_admin') then create role supabase_realtime_admin login;end if;end$$;",db,[],'supabase_admin');
+ sql(`alter role supabase_storage_admin password '${password}';alter role supabase_realtime_admin password '${password}';`,db,[],'supabase_admin');
+ const ownerSql=(body,user)=>must('docker',['exec','-i','-e','PGPASSWORD='+password,container,'psql','-X','-q','-v','ON_ERROR_STOP=1','-h','127.0.0.1','-U',user,'-d',db,'-f','-'],{input:body});
+ sql('create schema storage authorization supabase_storage_admin;create schema realtime authorization supabase_realtime_admin;',db,[],'supabase_admin');
+ ownerSql('create table storage.objects(id uuid primary key,owner uuid);alter table storage.objects enable row level security;','supabase_storage_admin');
+ ownerSql('create table realtime.messages(id uuid primary key);alter table realtime.messages enable row level security;','supabase_realtime_admin');
+ sql(`grant usage on schema storage,realtime to postgres;alter role postgres nosuperuser;`,db,[],'supabase_admin');
+ try{
+ const authority=()=>sql(`select jsonb_build_object('superuser',(select rolsuper from pg_roles where rolname=current_user),
+ 'tables',(select jsonb_agg(jsonb_build_object('table',c.oid::regclass::text,'owner',pg_get_userbyid(c.relowner),
+ 'usage',pg_has_role(current_user,c.relowner,'USAGE'),'set',pg_has_role(current_user,c.relowner,'SET'),'rls',c.relrowsecurity) order by c.oid)
+ from pg_class c where c.oid in ('storage.objects'::regclass,'realtime.messages'::regclass)))`,db);
+ const originalAuthority=authority(),a=JSON.parse(originalAuthority);
+ assert.equal(a.superuser,false);assert.equal(a.tables.length,2);
+ assert.ok(a.tables.every(t=>!t.usage && !t.set && t.rls),'Caller must lack BOTH owner USAGE/SET memberships');
+ const capability=()=>sql(`select count(*)=1 from pg_settings where name='supautils.policy_grants' and context='sighup'
+ and (setting::jsonb->current_user) ?& array['storage.objects','realtime.messages']`,db);
+ assert.equal(capability(),'t','Real loaded supautils and provider policy allowlist are required');
+ const providerPolicyGrants=sql("select setting from pg_settings where name='supautils.policy_grants'",db);
+ const managedSnapshot=()=>digest(must('docker',['exec',container,'pg_dump','-U','supabase_admin','-d',db,'--schema-only','--schema=storage','--schema=realtime']).replace(/^\\(?:un)?restrict .*$/gm,''));
+ const policyCount=()=>sql("select count(*) from pg_policies where schemaname in ('storage','realtime') and policyname in ('platform_live_operator','platform_master_read_ceiling')",db);
+ // Keep the obsolete guard solely in isolated negative-control copies. This
+ // reproduction remains runnable after committing the correction, without
+ // depending on Git HEAD still containing the old migration/preflight bytes.
+ function obsoleteGuardCopy(file){
+  const body=read('supabase/migrations/'+file),start=body.lastIndexOf('do $$ declare t record;');
+  assert.ok(start>=0);
+  return body.slice(0,start)+body.slice(start).replace('c.relrowsecurity','c.relowner,c.relrowsecurity')
+   .replace("  execute format('create policy",`  if not pg_has_role(current_user,t.relowner,'USAGE') and not pg_has_role(current_user,t.relowner,'SET') then raise exception 'Obsolete managed policy owner permission required';end if;
+  execute format('create policy`);
+ }
+ sql(read('supabase/bootstrap/team-lifecycle-preflight.sql')+read('supabase/bootstrap/role-read-preflight.sql'),db);
  const teamVersion='20261010233446',teamFile=teamVersion+'_platform_team_lifecycle_v2.sql',before=snapshot(db);
+ const managedBefore=managedSnapshot();
+ copyFileSync(join(root,'supabase/migrations',teamFile),join(dir,'supabase/migrations',teamFile));
+ // Fault injection affects ONLY this owned container's provider configuration.
+ // Keep real supautils loaded, allow Storage but withhold Realtime permission:
+ // the first policy can execute, then 42501 must roll back the whole migration.
+ function withoutRealtimePolicyGrant(workFixture){
+  function configure(value){
+   sql(`alter system set supautils.policy_grants='${value.replaceAll("'","''")}';select pg_reload_conf();`,db,[],'supabase_admin');
+   let actual='';for(let n=0;n<20 && actual!==value;n++)actual=sql("select setting from pg_settings where name='supautils.policy_grants' and context='sighup'",db);
+   assert.equal(actual,value,'Local supautils configuration reload must finish');
+  }
+  try{configure('{"postgres":["storage.objects"]}');assert.equal(capability(),'f');workFixture();}
+  finally{configure(providerPolicyGrants);}
+  assert.equal(capability(),'t');
+ }
+ withoutRealtimePolicyGrant(()=>{
+  for(const file of ['team-lifecycle-preflight.sql','role-read-preflight.sql'])assert.throws(()=>sql(read('supabase/bootstrap/'+file),db),/CREATE POLICY permission unverified/);
+  const denied=push(db,dir);assert.notEqual(denied.status,0);assert.match(denied.stderr+denied.stdout,/must be owner of table (objects|messages)/);
+  assert.deepEqual(snapshot(db),before);assert.equal(managedSnapshot(),managedBefore);assert.equal(policyCount(),'0');assert.equal(authority(),originalAuthority);
+ });
+ // The obsolete owner requirement fails with real supautils available.
+ writeFileSync(join(dir,'supabase/migrations',teamFile),obsoleteGuardCopy(teamFile));
+ const legacyDenied=push(db,dir);assert.notEqual(legacyDenied.status,0);assert.match(legacyDenied.stderr+legacyDenied.stdout,/Obsolete managed policy owner permission required/);
+ assert.deepEqual(snapshot(db),before);assert.equal(managedSnapshot(),managedBefore);
  copyFileSync(join(root,'supabase/migrations',teamFile),join(dir,'supabase/migrations',teamFile));
  sql(`create function supabase_migrations.team_history_fault() returns trigger language plpgsql as $$declare s text;begin
  if new.version='${teamVersion}' then
   if to_regclass('public.platform_team_archive') is null or to_regprocedure('public.platform_team_password_step(uuid,uuid,text,uuid)') is null
-   or has_table_privilege('service_role','public.platform_users','INSERT,UPDATE,DELETE,TRUNCATE') then raise exception 'Team SQL did not complete';end if;
+   or has_table_privilege('service_role','public.platform_users','INSERT,UPDATE,DELETE,TRUNCATE')
+   or (select count(*) from pg_policies where policyname='platform_live_operator' and schemaname in ('storage','realtime') and permissive='RESTRICTIVE' and roles=array['authenticated']::name[] and cmd='ALL')<>2 then raise exception 'Team SQL did not complete';end if;
   foreach s in array new.statements loop
    s:=upper(regexp_replace(s,'^([[:space:]]|--[^\\n]*\\n)*','','g'));
    if s !~ '^(CREATE (OR REPLACE )?(TABLE|FUNCTION|TRIGGER|POLICY|UNIQUE INDEX) |INSERT INTO |ALTER TABLE |DROP POLICY |REVOKE |GRANT |DO[[:space:]])' then raise exception 'Pipeline-incompatible team statement: %',left(s,70);end if;
@@ -264,15 +326,25 @@ for(const scenario of ['fresh','staging'])test('team lifecycle CLI history rejec
  assert.equal(sql("select to_regclass('public.platform_team_archive') is null and to_regprocedure('public.platform_team_password_step(uuid,uuid,text,uuid)') is null",db),'t');
  assert.equal(sql(`select count(*) from supabase_migrations.schema_migrations where version='${teamVersion}'`,db),'0');
  assert.deepEqual(snapshot(db),before);assert.equal(canonical(db,old),'master_admin');
+ assert.equal(managedSnapshot(),managedBefore);assert.equal(policyCount(),'0');assert.equal(authority(),originalAuthority);
  sql('drop trigger team_history_fault on supabase_migrations.schema_migrations;drop function supabase_migrations.team_history_fault();',db);
  successful(push(db,dir));assert.equal(sql('select count(*) from supabase_migrations.schema_migrations',db),'13');
  assert.equal(sql(`select count(*)=1 and bool_and(cardinality(statements)>0) from supabase_migrations.schema_migrations where version='${teamVersion}'`,db),'t');
  assert.equal(canonical(db,old),'master_admin');const committed=snapshot(db);successful(push(db,dir));assert.deepEqual(snapshot(db),committed);
  // Additional forward-14 proof. The original bootstrap/history harness above
  // retains its pinned CLI and original six regression scenarios unchanged.
- sql('create schema storage;create table storage.objects(id uuid primary key,owner uuid);alter table storage.objects enable row level security;create schema realtime;create table realtime.messages(id uuid primary key);alter table realtime.messages enable row level security;',db);
  const readVersion='20261012231226',readFile=readVersion+'_platform_role_read_isolation.sql',beforeReads=snapshot(db);
+ const managedBeforeReads=managedSnapshot();
  sql(read('supabase/bootstrap/role-read-preflight.sql'),db);
+ copyFileSync(join(root,'supabase/migrations',readFile),join(dir,'supabase/migrations',readFile));
+ withoutRealtimePolicyGrant(()=>{
+  assert.throws(()=>sql(read('supabase/bootstrap/role-read-preflight.sql'),db),/CREATE POLICY permission unverified/);
+  const denied=push(db,dir);assert.notEqual(denied.status,0);assert.match(denied.stderr+denied.stdout,/must be owner of table (objects|messages)/);
+  assert.deepEqual(snapshot(db),beforeReads);assert.equal(managedSnapshot(),managedBeforeReads);assert.equal(policyCount(),'2');assert.equal(authority(),originalAuthority);
+ });
+ writeFileSync(join(dir,'supabase/migrations',readFile),obsoleteGuardCopy(readFile));
+ const oldReadDenied=push(db,dir);assert.notEqual(oldReadDenied.status,0);assert.match(oldReadDenied.stderr+oldReadDenied.stdout,/Obsolete managed policy owner permission required/);
+ assert.deepEqual(snapshot(db),beforeReads);assert.equal(managedSnapshot(),managedBeforeReads);
  copyFileSync(join(root,'supabase/migrations',readFile),join(dir,'supabase/migrations',readFile));
  sql(`create function supabase_migrations.read_history_fault() returns trigger language plpgsql as $$declare s text;begin
  if new.version='${readVersion}' then
@@ -292,9 +364,16 @@ for(const scenario of ['fresh','staging'])test('team lifecycle CLI history rejec
  assert.equal(sql(`select count(*) from supabase_migrations.schema_migrations where version='${readVersion}'`,db),'0');
  assert.equal(sql("select has_function_privilege('authenticated','platform_private.usage_summary()','EXECUTE')",db),'t');
  assert.deepEqual(snapshot(db),beforeReads);assert.equal(canonical(db,old),'master_admin');
+ assert.equal(managedSnapshot(),managedBeforeReads);assert.equal(policyCount(),'2');assert.equal(authority(),originalAuthority);
  sql('drop trigger read_history_fault on supabase_migrations.schema_migrations;drop function supabase_migrations.read_history_fault();',db);
  successful(push(db,dir));assert.equal(sql('select count(*) from supabase_migrations.schema_migrations',db),'14');
  assert.equal(sql(`select count(*)=1 and bool_and(cardinality(statements)>0) from supabase_migrations.schema_migrations where version='${readVersion}'`,db),'t');
  assert.equal(canonical(db,old),'master_admin');const complete=snapshot(db);successful(push(db,dir));assert.deepEqual(snapshot(db),complete);
  sql(read('supabase/bootstrap/validate-role-reads.sql'),db);
+ assert.equal(policyCount(),'4');assert.equal(authority(),originalAuthority);
+ assert.equal(sql("select bool_and(permissive='RESTRICTIVE' and roles=array['authenticated']::name[] and cmd='ALL' and qual=with_check) from pg_policies where policyname in ('platform_live_operator','platform_master_read_ceiling') and schemaname in ('storage','realtime')",db),'t');
+ }finally{
+  // Undo only this fixture's stricter caller model before existing runner cleanup.
+  sql('alter role postgres superuser',db,[],'supabase_admin');
+ }
 }));

@@ -7,9 +7,15 @@ do $$ declare t record; begin
  if to_regclass('storage.objects') is null then raise exception 'Storage inventory required'; end if;
  if exists(select 1 from supabase_migrations.schema_migrations where version='20261010233446') then raise exception 'Lifecycle version already applied: preserve applied bytes'; end if;
  if (select count(*) from supabase_migrations.schema_migrations)<>12 or not exists(select 1 from supabase_migrations.schema_migrations where version='20261008191709') then raise exception 'Expected twelve genuine migration records including UUID bootstrap'; end if;
- for t in select c.oid::regclass as relation,c.relowner,c.relrowsecurity from pg_class c where c.oid in(to_regclass('storage.objects'),to_regclass('realtime.messages')) loop
+ for t in select c.oid::regclass as relation,c.relowner,c.relrowsecurity,n.nspname||'.'||c.relname as policy_target
+  from pg_class c join pg_namespace n on n.oid=c.relnamespace where c.oid in(to_regclass('storage.objects'),to_regclass('realtime.messages')) loop
   if not t.relrowsecurity then raise exception 'Managed RLS missing on %',t.relation; end if;
-  if not pg_has_role(current_user,t.relowner,'USAGE') and not pg_has_role(current_user,t.relowner,'SET') then raise exception 'Reviewed managed-policy owner permission required for %; do not transfer ownership or grant application users access',t.relation; end if;
+  -- A registered sighup GUC proves supautils is loaded, not a custom placeholder.
+  -- Its exact caller/table allowlist replaces managed-owner SET ROLE; never edit it.
+  if not pg_has_role(current_user,t.relowner,'USAGE') and not exists(
+   select 1 from pg_settings where name='supautils.policy_grants' and context='sighup'
+    and (setting::jsonb->current_user) ? t.policy_target
+  ) then raise exception 'Managed CREATE POLICY permission unverified for %; require owner authority or provider supautils allowlist, never ownership/membership changes',t.relation; end if;
  end loop;
  if exists(select 1 from public.platform_users group by auth_user_id having auth_user_id is not null and count(*)>1)
   or exists(select 1 from public.platform_users group by lower(trim(email)) having count(*)>1)

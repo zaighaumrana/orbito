@@ -1041,3 +1041,36 @@ syntax and whitespace. No full, browser, PG/Auth/CLI/Deno suites or build were r
 Only forms, its existing test file, this history and the readiness note change.
 No server/SQL/Shop change; safe native-skip checkpoint to Draft PR #4 only.
 Independent review pending; staging/production remain NO-GO.
+
+## 2026-10-13 — Managed policy creation through supported supautils
+
+Branch: feature/platform-team-lifecycle-v2; reviewed base 8909859. The hosted
+membership blocker was an overly restrictive prerequisite. Official Realtime
+documentation explicitly supports non-owner postgres policy statements; official
+Supabase PostgreSQL configuration allowlists both storage.objects and
+realtime.messages through supautils.policy_grants. See [Realtime authorization](https://supabase.com/docs/guides/realtime/authorization),
+[Storage policies](https://supabase.com/docs/guides/storage/security/access-control)
+and [provider configuration](https://github.com/supabase/postgres/blob/develop/ansible/files/postgresql_config/supautils.conf.j2).
+
+Unapplied migrations 13/14 now issue the identical restrictive policies directly
+as the migration caller, with permission errors propagating. Removed managed-owner
+membership gates and SET LOCAL ROLE; retained object/RLS gates. Matching read-only
+preflights accept inherited owner authority or a registered, loaded supautils
+policy_grants setting with the exact caller/table allowlist. These findings
+supersede older documentation's unconditional table-owner permission prerequisite.
+No managed ownership, internal membership, grants or application contracts change.
+
+PASS: two actual CLI 2.120.0 forward scenarios (fresh and staging-style) on cached
+Supabase PostgreSQL 17.6.1.155 with real supautils, non-superuser postgres and no
+USAGE/SET owner memberships. Local-only negative controls reproduce the obsolete
+guard and withhold Realtime policy permission; complete SQL/policy/history rollback,
+history-INSERT rejection, retry, exact genuine history counts and unchanged owner/
+membership/RLS state pass. Initial fixture setup failures were corrected; final
+result 2 PASS, 0 FAIL. Four affected SQL/PostgREST role-isolation groups, syntax,
+whitespace, original twelve migration and frozen Shop integrity checks pass.
+
+SKIP: hosted capability verification and unrelated full frontend/browser/Auth
+suites. No hosted SQL executed. A separately authorized read-only preflight must
+confirm staging's loaded policy allowlist; missing/invisible capability requires
+Supabase confirmation, not rights broadening. Local corrections only, no commit,
+push, deployment or merge. Staging and production remain NO-GO.

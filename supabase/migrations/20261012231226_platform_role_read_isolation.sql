@@ -252,18 +252,15 @@ $$;
 -- No employee Storage/private-channel workflow exists in this Platform. Apply a
 -- restrictive Master-only ceiling alongside provider/user policies, without
 -- editing provider grants or policies. Fail if present managed objects lack RLS.
-do $$ declare t record; original_role text=current_user;begin
+-- Hosted supautils allows postgres CREATE POLICY without managed-owner membership.
+-- Run as the migration caller; missing policy permission must abort the migration.
+do $$ declare t record;begin
  if to_regclass('storage.objects') is null or to_regclass('realtime.messages') is null then
   raise exception 'Managed Storage/Realtime prerequisites missing; run reviewed preflight';
  end if;
- for t in select c.oid::regclass relation,c.relowner,c.relrowsecurity from pg_class c
+ for t in select c.oid::regclass relation,c.relrowsecurity from pg_class c
   where c.oid in (to_regclass('storage.objects'),to_regclass('realtime.messages')) loop
   if not t.relrowsecurity then raise exception 'Managed Storage/Realtime RLS prerequisite is missing';end if;
-  if not pg_has_role(current_user,t.relowner,'USAGE') then
-   if not pg_has_role(current_user,t.relowner,'SET') then raise exception 'Managed policy owner permission required; run reviewed preflight';end if;
-   execute format('set local role %I',pg_get_userbyid(t.relowner));
-  end if;
   execute format('create policy platform_master_read_ceiling on %s as restrictive for all to authenticated using ((public.platform_session_status()->>''role'')=''master_admin'') with check ((public.platform_session_status()->>''role'')=''master_admin'')',t.relation);
-  execute format('set local role %I',original_role);
  end loop;
 end $$;

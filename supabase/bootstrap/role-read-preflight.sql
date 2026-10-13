@@ -20,9 +20,16 @@ do $$ declare t record; count_versions integer;begin
  if exists(select 1 from pg_publication_namespace pn join pg_publication p on p.oid=pn.pnpubid join pg_namespace n on n.oid=pn.pnnspid where p.pubname='supabase_realtime' and n.nspname in ('public','platform_private')) then
   raise exception 'Schema-level Realtime membership requires separate review';
  end if;
- for t in select c.oid::regclass relation,c.relowner,c.relrowsecurity from pg_class c where c.oid in ('storage.objects'::regclass,'realtime.messages'::regclass) loop
-  if not t.relrowsecurity or not (pg_has_role(current_user,t.relowner,'USAGE') or pg_has_role(current_user,t.relowner,'SET')) then
-   raise exception 'Reviewed managed-policy ownership/RLS prerequisite missing on %',t.relation;
+ for t in select c.oid::regclass relation,c.relowner,c.relrowsecurity,n.nspname||'.'||c.relname as policy_target
+  from pg_class c join pg_namespace n on n.oid=c.relnamespace where c.oid in ('storage.objects'::regclass,'realtime.messages'::regclass) loop
+  if not t.relrowsecurity then raise exception 'Managed RLS missing on %',t.relation;end if;
+  -- Require loaded supautils and the exact caller/table policy allowlist, or
+  -- inherited owner authority. SET membership alone is not used by migrations.
+  if not pg_has_role(current_user,t.relowner,'USAGE') and not exists(
+   select 1 from pg_settings where name='supautils.policy_grants' and context='sighup'
+    and (setting::jsonb->current_user) ? t.policy_target
+  ) then
+   raise exception 'Managed CREATE POLICY permission unverified for %; require owner authority or provider supautils allowlist, never ownership/membership changes',t.relation;
   end if;
  end loop;
  if exists(select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname in ('public','platform_private') and c.relkind in ('v','m')) then
