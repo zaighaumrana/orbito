@@ -104,7 +104,7 @@ export function clientModals(type, md) {
                 </select>
               </label>
               <label class="field"><span>Billing Currency (ISO code)</span>
-                <input name="currency" required pattern="[A-Z]{3}" maxlength="3" value="${esc(c.currency || "")}" placeholder="USD / PKR / EUR"></label>
+                <input name="currency" required pattern="[A-Z]{3}" maxlength="3" value="${esc(c.currency || "")}" placeholder="USD / PKR / EUR" ${pState.currentUser.role==='portfolio_manager'?'readonly':''}></label>
               <label class="field" style="grid-column:1/-1"><span>Shop URL</span>
                 <input name="shop_url" value="${esc(c.shop_url || "")}"></label>
             </div>

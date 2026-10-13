@@ -23,6 +23,8 @@ document.addEventListener("submit", async event => {
 
 /* ── Wire up all click/input/keyboard events ── */
 initEvents();
+pState.onRoleChange=()=>{cancelDialogs();render();};
+pState.onDataError=render;
 
 /* ── Browser back/forward navigation ── */
 window.addEventListener("popstate", () => {

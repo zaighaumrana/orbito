@@ -54,7 +54,7 @@ test('fresh full chain: privilege closure, master/role preservation, missing/nul
  assert.throws(()=>sql(service(command(14,'begin_delete').replace(master,billing)),db),/Master administrator required/);
 }));
 
-test('role edits use live SQL role on the existing session; shared operator reads remain the documented inherited contract',()=>fixture('role_edit',db=>{
+test('role edits use live SQL role on the existing session; employee raw reads obey the forward isolation contract',()=>fixture('role_edit',db=>{
  fresh(db);
  assert.equal(JSON.parse(sql(asUser(manager,'select public.platform_operator_identity()'),db).split('\n').at(-1)).role,'portfolio_manager');
  const before=sql(`select session_not_before from public.platform_users where auth_user_id='${manager}'`,db);
@@ -64,7 +64,7 @@ test('role edits use live SQL role on the existing session; shared operator read
  assert.equal(JSON.parse(sql(asUser(manager,'select public.platform_operator_identity()'),db).split('\n').at(-1)).role,'billing_person','unchanged JWT/session loses the old role immediately');
  assert.throws(()=>sql(asUser(manager,'select public.platform_set_paper(-1,true)'),db),/role|authorized/i,'old Manager mutation must be rejected before target processing');
  for(const who of [manager,billing])for(const table of ['platform_users','billing_cycles','payments','support_tickets'])
-  assert.ok(Number(sql(asUser(who,`select count(*) from public.${table}`),db).split('\n').at(-1))>=0,'shared reads are not hidden by UI navigation');
+  assert.equal(sql(asUser(who,`select count(*) from public.${table}`),db).split('\n').at(-1),'0','employee raw reads are denied at the SQL boundary');
 }));
 
 test('staging-style upgrade preserves identities, config and audit; late failure is atomic',()=>fixture('upgrade',db=>{
@@ -214,8 +214,12 @@ test('session claims, Storage/Realtime RLS, fresh password AMR and trusted conti
  fresh(db);
  sql("insert into public.clients(name,supabase_url,supabase_anon) values('Synthetic','https://synthetic.invalid','synthetic-public')",db);
  sql(`insert into storage.objects values('${id(99)}',null);insert into realtime.messages values('${id(99)}');`,db);
- for(const relation of ['storage.objects','realtime.messages'])assert.equal(sql(asUser(manager,'select count(*) from '+relation),db).split('\n').at(-1),'1');
- assert.equal(sql(asUser(manager,'select count(*) from public.clients'),db).split('\n').at(-1),'1');
+ for(const relation of ['storage.objects','realtime.messages']){
+  assert.equal(sql(asUser(manager,'select count(*) from '+relation),db).split('\n').at(-1),'0');
+  assert.equal(sql(asUser(master,'select count(*) from '+relation),db).split('\n').at(-1),'1');
+ }
+ assert.equal(sql(asUser(manager,'select count(*) from public.clients'),db).split('\n').at(-1),'0');
+ assert.equal(JSON.parse(sql(asUser(manager,"select public.platform_read_page('clients')"),db).split('\n').at(-1)).rows.length,1);
  for(const session of ['', 'malformed', sid(billing)])assert.equal(sql(asUser(manager,"select public.platform_session_status()->>'authorized'",session),db).split('\n').at(-1),'false');
  sql(`update auth.sessions set not_after=now()-interval '1 second' where id='${sid(manager)}'`,db);
  assert.equal(sql(asUser(manager,"select public.platform_session_status()->>'authorized'"),db).split('\n').at(-1),'false');
@@ -226,7 +230,8 @@ test('session claims, Storage/Realtime RLS, fresh password AMR and trusted conti
  assert.equal(sql(asUser(manager,"select public.platform_session_status()->>'authorized'",session),db).split('\n').at(-1),'false');
  assert.equal(sql(asUser(manager,"select public.platform_team_setup_context()->>'kind'",session),db).split('\n').at(-1),'active','New native recovery is setup-only; it grants no ordinary role');
  sql(`update auth.mfa_amr_claims set authentication_method='password' where session_id='${session}'`,db);
- for(const relation of ['storage.objects','realtime.messages'])assert.equal(sql(asUser(manager,'select count(*) from '+relation,session),db).split('\n').at(-1),'1');
+ for(const relation of ['storage.objects','realtime.messages'])assert.equal(sql(asUser(manager,'select count(*) from '+relation,session),db).split('\n').at(-1),'0');
+ assert.equal(JSON.parse(sql(asUser(manager,"select public.platform_read_page('clients')",session),db).split('\n').at(-1)).rows.length,1);
  sql(`select platform_private.configure_password_verification('${master}',false,'Explicit fixture shutdown')`,db);
  assert.throws(()=>sql(service(command(83,'begin_delete')),db),/continuity is not approved/);
  assert.equal(sql(`select count(*) from platform_private.team_operations where request_id='${id(83)}'`,db),'0');

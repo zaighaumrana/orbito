@@ -274,6 +274,7 @@ function printInNewWindow(htmlContent) {
 
 // ── Print invoices (called from events.js after invoice generation) ─
 export function printClientInvoices(client, invoices) {
+  if(!pState.authenticated || !['master_admin','billing_person'].includes(pState.currentUser.role) || pState.dataReady===false)return;
   // Get usage logs that belong to these invoices
   const invoiceIds = invoices.map(i => i.id);
   const usageLogs = (pState.data.usage || [])
@@ -294,6 +295,7 @@ export function printClientInvoices(client, invoices) {
 // Returns HTML string for the in-app preview modal (no detailed logs).
 // The modal has a "Confirm & Print with Logs" button that calls printClientInvoices.
 export function getInvoicePreviewHTML(client, invoice) {
+  if(!pState.authenticated || !['master_admin','billing_person'].includes(pState.currentUser.role) || pState.dataReady===false)return '';
   const payments  = getInvoicePayments(invoice.id);
   const totalPaid = getInvoicePaidTotal(invoice.id);
   return buildInvoiceHTML(client, invoice, payments, totalPaid, [], false);
@@ -304,6 +306,7 @@ export function getInvoicePreviewHTML(client, invoice) {
 // Shows a preview in a modal. User confirms → print with logs fires.
 // User cancels → nothing happens (invoice already exists, no rollback needed).
 export function showInvoiceConfirmModal(invoice) {
+  if(!pState.authenticated || !['master_admin','billing_person'].includes(pState.currentUser.role) || pState.dataReady===false)return;
   const client = pState.data.clients.find(c => c.id === invoice.client_id);
   if (!client) return;
 

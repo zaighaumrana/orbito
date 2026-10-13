@@ -13,6 +13,8 @@ export const pState = {
   selectedClient: null,
   clientData:     {},
   authenticated:  false,
+  dataReady:      false,
+  dataError:      null,
   currentUser:    { role: null, username: "" },
   authorityGeneration: 0,
   clientSelectionGeneration: 0,
@@ -44,7 +46,16 @@ export function clearSensitiveState() {
   pState.turnstileToken=null;pState.passwordFlow=null;
   pState.reauthLoading=false;pState.passwordSaving=false;
   pState.loginAttempt=null;pState.loginLoading=false;pState.authRouting=false;
+  pState.dataReady=false;pState.dataError=null;pState.clientView='current';
   PCFG={admin_username:""};
+}
+
+// A live role edit keeps the same verified Auth session while invalidating every
+// cached dataset, view, modal and pending continuation owned by its previous role.
+export function refreshRoleState(identity) {
+  const user={...pState.currentUser,...identity};
+  clearSensitiveState();pState.currentUser=user;pState.authenticated=true;pState.page='overview';
+  pState.onRoleChange?.();
 }
 
 // ── Role-based nav ────────────────────────────────────────────────

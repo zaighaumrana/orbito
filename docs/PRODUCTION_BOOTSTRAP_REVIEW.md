@@ -402,3 +402,28 @@ No environment files were copied. The emitted bundle was checked for the
 synthetic URL/key and absence of both hosted project references or credentials.
 The owned output was removed; normal dist was untouched. This proves build
 compatibility, not a deployable release or hosted/preview backend isolation.
+
+## 2026-10-13 — Forward role-isolation review status
+
+Prior twelve/thirteen-version test statements are dated evidence. The current
+chain is fourteen versions; original twelve and lifecycle-13 bytes are preserved.
+Staging read-only history confirms twelve genuine records; new role permissions
+are not deployed. Forward 20261012231226 adds Master raw-read ceilings, bounded
+role projections/wrappers, private EXECUTE closure and managed/publication guards.
+No binding/configuration default, hosted data, Edge code or Shop artifact changes.
+
+Current regression evidence: original 243 plus seven loader cases; actual DOM
+failure-before/pass-after and role journeys; populated PG17/real Auth/Vault-schema
+and real PostgREST role/negative/write tests; existing bootstrap/canonical/lifecycle,
+GoTrue provider and Support checks; actual pinned CLI forward history-failure
+rollback/retry to fourteen genuine rows; Deno/build/integrity. Exact results,
+intermediate corrections, fixture/provider limits and 31-file manifest are in
+PRODUCTION_READINESS_REPORT. Hosted mail/CAPTCHA/Edge gateway/managed-service/
+GraphQL/custom surface/session settings remain SKIP and release gates.
+
+The current deployment plan is separately approved handlers, **13 then 14**, and
+matching frontend during a freeze, not the older one-version commands. New read
+preflight and structural validator use genuine history and never impersonate a
+browser user. Old employee loaders intentionally fail. Before checkpoint verify
+current trigger safety; use approved native CF-Pages-Skip, update only existing
+Draft PR #4 and inspect its exact provider skip. No merge or hosted deployment.

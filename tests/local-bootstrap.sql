@@ -21,6 +21,9 @@ create trigger fixture_session after insert on auth.users for each row execute f
 create schema storage;
 create table storage.objects(id uuid primary key,owner uuid);
 alter table storage.objects enable row level security;
+create schema realtime;
+create table realtime.messages(id uuid primary key);
+alter table realtime.messages enable row level security;
 grant usage on schema auth to anon,authenticated,service_role;
 grant execute on all functions in schema auth to anon,authenticated,service_role;
 create publication supabase_realtime;

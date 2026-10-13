@@ -46,6 +46,9 @@ export function initEvents() {
 
     const action = el.dataset.pAction;
     if (!action) return;
+    if(action==='reload-platform'){await loadPlatform();if(current())render();return;}
+    if(['generate-invoice','mark-paid','clear-credit','view-invoice','view-logs','print-invoice','edit-client-rates'].includes(action)
+      && (!['master_admin','billing_person'].includes(pState.currentUser.role) || pState.dataReady===false))return;
     if(action==='open-shop-support'){
       if(!clientDataMatches() || pState.currentUser?.role!=='master_admin')return;
       el.disabled=true;
@@ -433,9 +436,7 @@ export function initEvents() {
 
     /* ── Resolve support ticket ── */
     if (action === "resolve-ticket") {
-      const { error } = await pb.from("support_tickets")
-        .update({ status: "Resolved", resolved_at: new Date().toISOString() })
-        .eq("id", el.dataset.pId);
+      const { error } = await pb.rpc('platform_resolve_ticket',{p_ticket:Number(el.dataset.pId)});
       if(!current())return;
       if (error) { notify.error(error); return; }
       await loadPlatform(); if(current())render(); return;

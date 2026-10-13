@@ -239,7 +239,7 @@ From the reviewed Platform checkout, inspect history and the exact dry-run list:
 ```powershell
 supabase migration list --db-url "$env:PLATFORM_DB_URL"
 supabase db push --db-url "$env:PLATFORM_DB_URL" --dry-run --skip-vault
-# Only after confirming the target, empty history and all twelve files:
+# Only after confirming the target, empty history and all fourteen files:
 supabase db push --db-url "$env:PLATFORM_DB_URL" --skip-vault
 supabase migration list --db-url "$env:PLATFORM_DB_URL"
 ```
@@ -247,10 +247,10 @@ supabase migration list --db-url "$env:PLATFORM_DB_URL"
 Use an explicit connection, without `supabase link`. Do not use reset, seed,
 include-seed, include-roles, include-all, migration repair, or a schema-only import
 as an alternative migration history. `--skip-vault` avoids automatic CLI secret
-synchronization; the actual Vault extension remains required. Check twelve
+synchronization; the actual Vault extension remains required. Check fourteen
 genuine applied versions, zero customers/operational records and empty config/
 binding after a fresh chain. Historical defaults existed only as schema defaults:
-no password/config row is inserted, and the final file removes the password
+no password/config row is inserted, and migration 20261008191709 removes the password
 default, clears an existing legacy password, and prohibits any future non-NULL
 value. No default password is ever used for Auth.
 
@@ -599,3 +599,46 @@ References: [PG17 GRANT/MAINTAIN](https://www.postgresql.org/docs/17/sql-grant.h
 Platform uses digest/random bytes/Vault, not the deprecated cipher path. The
 cached local engine is PG17.6; a production engine/version/provider-specific
 baseline is still subject to the target preflight, not assumed from local PASS.
+
+## 2026-10-13 — Current fourteen-version bootstrap and role read ceiling
+
+Earlier twelve-version results describe the protected original bootstrap. The
+current repository chain contains **fourteen** migrations: unchanged original
+12; unchanged, unapplied 20261010233446_platform_team_lifecycle_v2.sql; new
+20261012231226_platform_role_read_isolation.sql. Apply in filename order only
+through the pinned CLI; no seeds, staging imports or invented history records.
+Fresh initialization remains fail-closed until trusted configuration and verified
+real Auth UUID binding. No administrator UUID or default credential is introduced.
+
+Fresh Supabase preflight must additionally verify auth.sessions/AMR,
+storage.objects and realtime.messages, their RLS, existing managed owner-role
+permission, explicit-table postgres-owned supabase_realtime with no application
+schema/ALL-TABLE membership, and no unreviewed public/private views/functions.
+Complete actual provider migrations rather than fabricating those objects on a
+hosted target. Local policy fixtures are test infrastructure only. The current
+team/site/Auth/CAPTCHA/native mail/server-secret requirements still apply; no
+secret, JWT-signing, SMTP or service/Management value belongs in browser code.
+
+For existing staging, read-only history currently confirms twelve genuine rows
+through UUID bootstrap. Run team-lifecycle-preflight.sql and
+role-read-preflight.sql, with current backup and custom surface review, only after
+separate approval. The authorized future dry-run plan must list exactly 13 then
+14. Handlers, database and employee frontend must be coordinated in a freeze:
+legacy employee loaders fail under the new raw-read ceiling. Fourteen genuine
+rows plus validate-role-reads.sql, retained-data and actual signed-in role/API
+smoke are required after commit. Do not fabricate JWT user/session claims.
+
+Migration 14 has only transactional DDL/functions/policies/grants and DO blocks,
+no authored BEGIN/COMMIT or pipeline-incompatible statement. Real CLI tests force
+history INSERT failure after completed SQL and prove complete rollback/retry in
+fresh/staging fixtures. This is per-migration atomicity, not a whole-chain or Auth
+rollback guarantee: immutable historical authored commits and earlier successful
+migrations remain committed. Stop on schema/history mismatch; do not repair/delete
+history, blindly replay files or silently weaken privileges. Post-commit recovery
+requires an independently reviewed restore/reconciliation; old frontend rollback
+cannot restore employee functionality or reverse Auth mutations. Keep reviewed
+backups; provider/Vault portability and restore-rehearsal limits remain.
+
+Role/column/surface inventory: docs/PLATFORM_ROLE_READ_ISOLATION.md. Current tests,
+exact manifest and gates: docs/PRODUCTION_READINESS_REPORT.md. No hosted rollout
+is authorized by this documentation/source checkpoint; production stays NO-GO.

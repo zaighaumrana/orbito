@@ -73,3 +73,30 @@ The read-only bootstrap diagnostic no longer fabricates a user subject/session. 
 Inherited operator_read permits Manager/Billing shared financial/support/team/control-plane SELECT, consistent with the existing STAGING_TEAM_CUTOVER permission matrix. Hidden navigation is not confidentiality. Owner must explicitly accept this or authorize a separate forward per-table policy/loader change. Live role edits remove previous mutation authority immediately without a fresh-login cutoff; suspension/reactivation still impose the cutoff.
 
 Current results and complete correction manifest are in PRODUCTION_READINESS_REPORT. Code is ready for independent re-review after the authorized source checkpoint; staging and production remain NO-GO pending that review and separately approved hosted preflight/journeys.
+
+## 2026-10-13 — Role isolation supersedes shared reads
+
+The owner has now authorized a separate forward role-isolation change. The prior
+shared-read acceptance caveat and ONLY-13 deployment plan above are historical.
+Migration 20261010233446 remains unchanged and read-only staging history confirms
+it is absent. New 20261012231226 follows it; final history must have fourteen
+genuine CLI records. Neither is applied by this local correction.
+
+Manager retains required operational/support/summary access; Billing receives
+minimum client identity and explicit financial fields. No raw team/support/
+provider/audit leak through hidden navigation or indirect RPCs. Owner confirmed
+Manager invoice summaries while View/print is Master/Billing-only. Exact matrix
+and all indirect boundaries are in PLATFORM_ROLE_READ_ISOLATION.md. Live role
+edits retain the session but clear old browser data on detection; permanent
+Deactivate/Reactivate cutoffs and original UUID/email/password/no-email restore
+remain unchanged. Native Supabase email architecture is preserved.
+
+Only after independent review and separate hosted approval: current backup,
+team and role preflight, verified managed owners/RLS/publication/custom surfaces,
+freeze, reviewed handlers first, actual CLI dry run listing ONLY 13 then 14,
+controlled migrations, structural/retained-data checks and matching frontend.
+Old employee loaders intentionally cannot run against new raw SELECT RLS. Verify
+actual role and account journeys before resuming. Failures stay contained; never
+repair history or downgrade to insecure handlers. Native continuity/destructive
+approval, mail/CAPTCHA, managed services, recovery/Vault/legal/Shop gates remain.
+Keep PR #4 Draft; staging/production remain NO-GO.

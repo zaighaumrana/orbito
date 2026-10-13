@@ -7,11 +7,17 @@ import { pageBilling }   from "./pages/billing.js";
 import { pageSupport }   from "./pages/support.js";
 import { pageSettings }  from "./pages/settings.js";
 import { esc } from './operations.js';
+import { captureView, viewCurrent } from './async-context.js';
+
+let editView;
 
 const verification = () => `<div id="verification-widget"></div><p id="verification-status" class="muted" role="status" aria-live="polite"></p><button type="button" class="secondary-button" data-p-action="retry-verification">Retry verification</button>`;
 
 // ── Role-gated page router ────────────────────────────────────────
 function platformPage() {
+  const ownSettings=pState.page==='settings' && ['portfolio_manager','billing_person'].includes(pState.currentUser.role);
+  if(pState.dataError && !ownSettings)return `<div class="card" role="alert">${esc(pState.dataError)} <button class="secondary-button" data-p-action="reload-platform">Refresh</button></div>`;
+  if(pState.dataReady===false && !ownSettings)return '<div class="card" role="status">Loading authorized Platform data…</div>';
   const role    = pState.currentUser.role;
   const blocked = () => `
     <div class="empty" style="min-height:300px">
@@ -170,6 +176,13 @@ function resetPasswordPage() {
 export function render() {
   const app = document.getElementById("platform-app");
   if (!app) return;
+  // Background reads may redraw details, but must retain the actual unsaved form.
+  // A departed authority/view/client/modal can never retain its private DOM.
+  const editRoot=editView && viewCurrent(editView) && pState.modal?.type==='edit-client'
+    ? app.querySelector?.('form[data-p-form="edit-client"]')?.closest('.modal-backdrop') : null;
+  const active=editRoot?.contains(document.activeElement)?document.activeElement:null;
+  const selection=active && Number.isInteger(active.selectionStart)
+    ? [active.selectionStart,active.selectionEnd,active.selectionDirection] : null;
   cleanupTurnstile();
   document.documentElement.dataset.theme = pState.theme;
   /* Sync URL with current page state */
@@ -189,6 +202,7 @@ export function render() {
   }
 
   if (!pState.authenticated) {
+    editView=null;
     if (pState.authRouting) {
       app.innerHTML='<main class="auth-wait" role="status" style="padding:32px">Verifying your account…</main>';
       return;
@@ -276,6 +290,13 @@ export function render() {
     </div>
     ${pModal()}
   `;
+
+  if(editRoot){
+    app.querySelector('form[data-p-form="edit-client"]')?.closest('.modal-backdrop')?.replaceWith(editRoot);
+    active?.focus({preventScroll:true});
+    if(selection)active.setSelectionRange(...selection);
+  }
+  editView=pState.modal?.type==='edit-client'?captureView():null;
 
   if (document.getElementById("verification-widget")) void mountTurnstile();
   const menuBtn = document.getElementById("p-menu-btn");

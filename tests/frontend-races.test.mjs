@@ -17,10 +17,11 @@ function fixture(){
   serverConfigOperation:async(_id,_changes,readStatus,send)=>{await readStatus();return send('synthetic-request');},
   window:{addEventListener(){}},document:{getElementById:()=>null,addEventListener:(name,fn)=>{if(name==='click')click=fn;}},setInterval(){},validateSession(){},rpc:async(...args)=>{calls.push(args);return{};}};
  vm.createContext(ctx);for(const p of ['src/state.js','src/async-context.js','src/supabase.js','src/forms.js','src/events.js','src/provisioning.js'])vm.runInContext(strip(read(p))+(p==='src/state.js'?'\nglobalThis.pState=pState;':''),ctx);
- ctx.initEvents();ctx.pState.authenticated=true;ctx.pState.currentUser={auth_user_id:'master',role:'master_admin',session_id:'session-one'};ctx.pState.page='clients';
+ ctx.initEvents();ctx.pState.authenticated=true;ctx.pState.dataReady=true;ctx.pState.currentUser={auth_user_id:'master',role:'master_admin',session_id:'session-one'};ctx.pState.page='clients';
  return {ctx,calls,messages,pending,submit:(type,values={})=>ctx.handleFormSubmit({preventDefault(){},target:{dataset:{pForm:type},values}}),
   click:async dataset=>{click({target:{closest:s=>s.includes('data-auth-form')?null:{dataset,disabled:false}},preventDefault(){}});await tick();}};
 }
+function clientWrite(f,result){const original=f.ctx.transport.rpc;f.ctx.transport.rpc=(name,args)=>name==='platform_save_client'?result:original(name,args);}
 test('client A/B reversed responses cannot replace B details with A data',async()=>{
  const f=fixture(),a={id:1},b={id:2};f.ctx.pState.page='client-detail';const first=f.ctx.loadClientData(a);const second=f.ctx.loadClientData(b);
  f.pending.get(2)[0].resolve({data:{client:2}});await second;f.pending.get(1)[0].resolve({data:{client:1}});await first;
@@ -28,7 +29,7 @@ test('client A/B reversed responses cannot replace B details with A data',async(
 });
 test('successful or failed late Add Client after logout never restores private state or starts follow-up reads',async()=>{
  for(const failure of [false,true]){
-  const f=fixture(),gate=deferred();f.ctx.transport.from=()=>({insert:()=>({select:()=>({single:()=>gate.promise})})});
+  const f=fixture(),gate=deferred();clientWrite(f,gate.promise);
   const submit=f.submit('add-client',{name:'Fixture',owner_name:'Owner',owner_email:'private@example.test',plan:'Basic'});
   f.ctx.clearSensitiveState();f.ctx.pState.page='login';gate.resolve(failure?{error:{message:'fixture failure'}}:{data:{id:42,owner_email:'private@example.test'}});await submit;
   assert.equal(f.ctx.pState.authenticated,false);assert.equal(f.ctx.pState.selectedClient,null);assert.equal(f.ctx.pState.page,'login');assert.equal(f.calls.length,0);assert.equal(f.messages.length,0);
@@ -54,7 +55,7 @@ test('newer same-client request wins; navigation cancels pending load; failures 
 });
 test('Add Client responses are discarded on canonical revocation, a different login, same-UUID new session, navigation or modal replacement',async()=>{
  for(const change of ['revoked','new-login','new-session','navigation','modal']){
-  const f=fixture(),gate=deferred();f.ctx.transport.from=()=>({insert:()=>({select:()=>({single:()=>gate.promise})})});
+  const f=fixture(),gate=deferred();clientWrite(f,gate.promise);
   const work=f.submit('add-client',{name:'Fixture',owner_name:'Owner',owner_email:'private@example.test'});
   if(change==='revoked'){
    vm.runInContext(strip(read('src/helpers.js')),f.ctx);f.ctx.transport.rpc=async()=>({data:{authorized:false}});f.ctx.transport.auth={signOut:async()=>({})};await f.ctx.validateSession(()=>{});
@@ -68,7 +69,7 @@ test('Add Client responses are discarded on canonical revocation, a different lo
 });
 test('late Edit Client never overwrites another target or starts plan/config follow-ups',async()=>{
  for(const change of ['logout','selection','modal']){
-  const f=fixture(),gate=deferred();loaded(f);f.ctx.transport.from=()=>({update:()=>({eq:()=>gate.promise})});
+  const f=fixture(),gate=deferred();loaded(f);clientWrite(f,gate.promise);
   const work=f.submit('edit-client',{currency:'PKR',name:'late-private-name'});
   if(change==='logout')f.ctx.clearSensitiveState();else if(change==='selection')f.ctx.selectClient({id:2});else f.ctx.pState.modal={type:'new'};
   gate.resolve({});await work;assert.notEqual(f.ctx.pState.selectedClient?.name,'late-private-name');assert.equal(f.calls.length,0);
@@ -88,7 +89,7 @@ test('config preflight cannot dispatch another write after target switch; succes
  const f=fixture(),status=deferred();loaded(f);f.ctx.transport.rpc=()=>status.promise;let sent=0;f.ctx.transport.functions={invoke:async()=>{sent++;return{data:{state:'applied'}};}};
  const work=f.ctx.updateClientConfig(f.ctx.pState.selectedClient,{ems_enabled:true});f.ctx.selectClient({id:2});status.resolve({data:{config_jobs:[]}});
  await assert.rejects(work,/view changed/);assert.equal(sent,0);
- const normal=fixture();normal.ctx.loadPlatform=async()=>{};normal.ctx.transport.from=()=>({insert:()=>({select:()=>({single:async()=>({data:{id:42,name:'New'}})})})});
+ const normal=fixture();normal.ctx.loadPlatform=async()=>{};clientWrite(normal,Promise.resolve({data:{id:42,name:'New'}}));
  const added=normal.submit('add-client',{name:'New',owner_name:'Owner',owner_email:'owner@example.test'});await tick();normal.pending.get(42)[0].resolve({data:{client:42}});await added;
  assert.equal(normal.ctx.pState.page,'client-detail');assert.equal(normal.ctx.pState.clientData.clientId,42);assert.equal(normal.ctx.pState.selectedClient.id,42);
 });

@@ -429,3 +429,186 @@ Owner authorizes only the existing Draft PR #4 update after deployment-trigger i
 Read-only pre-push trigger review completed: refreshed retrasellsaas settings still link zaighaumrana/orbito, development serves staging at 0dbde676, npm run build/dist/root, no deploy hooks. Prior exact 65429db is provider-recorded skipped. Source/base contain no Actions workflows; no repository webhooks or active local hooks; GitHub Pages disabled; installed integrations remain Codex/Cloudflare/Cursor. A stuck existing browser target was recovered with a fresh tab in the same browser, without settings changes. The verified native skip prefix is required because this feature branch remains preview-eligible. This is no-deployment verification, not proof of preview/backend isolation.
 
 Pending: focused independent re-review, owner shared-read/immediate-role-edit acceptance, separately authorized read-only staging Auth/backup/configuration preflight, and later separate coordinated rollout/disposable-account validation. Current-password enforcement, Master refresh continuity/default-off destructive approval, native sender limits, managed policies, backup/Vault portability, legal/provider and separate Shop session-hardening gates remain open.
+
+## 2026-10-13 — Edit Client DOM and role-specific database read correction
+
+This dated correction supersedes the preceding shared-read acceptance gate. The
+owner requires real role-specific confidentiality and confirmed that Manager
+keeps invoice dates/totals/status summaries, with View/print limited to Master and
+Billing. Reviewed base: 6ea96cbc6cddda1b07b37646dba7e3456e45d52f. Existing Draft
+PR #4 stays unmerged. **Independent source review: ready after safe checkpoint;
+STAGING and PRODUCTION: NO-GO.**
+
+### Findings and implementation
+
+The old renderer preserved modal state while replacing the actual form inputs.
+The pinned reviewed renderer loses typed fields after the actual pending Shop
+read. The correction retains the owned Edit Client backdrop/form DOM and restores
+focus/caret. Authority/page/client/selection/modal ownership remains strict;
+logout, role change, target switch and close/reopen cannot retain stale DOM.
+Routine refresh, successful/failed/rejected reads, save/cancel and responsive
+layout have real browser coverage. Saving an unverified client keeps the draft,
+reports the required refresh and sends no write.
+
+Seventeen inherited operator_read policies and all-role loaders exposed raw team,
+support, financial and provider/audit rows. Real populated SQL fixtures reproduce
+Billing ticket contents and Manager private invoice notes before the correction.
+Indirect client/provision/overhaul RPCs and executable private helpers were also
+part of the leak surface.
+
+New migration **20261012231226_platform_role_read_isolation.sql** changes all 17
+raw policies to Master-only, adds restrictive PUBLIC read ceilings, supplies
+explicit canonical role-selected projections and closes private helper execution.
+Checked definer wrappers preserve legitimate mutations; Manager client/support
+writes use bounded RPCs because direct UPDATE/RETURNING needs SELECT RLS.
+Billing retains approved financial fields but no support, team, provider or audit
+contents. Manager gets approved summaries and operational/paper/thermal data.
+Storage/private channels gain a live-Master ceiling; application table streams
+are removed to avoid DELETE/RLS leakage. Schema-level/ALL-TABLE publication and
+missing managed prerequisites fail closed. Migration 13 and all twelve applied
+historical files remain byte-identical.
+
+Employee loaders request only permitted datasets/aggregates and own identity.
+They validate UUID/session/role, paginate and publish only current responses.
+Canonical role changes immediately clear old data/navigation/modal/selection and
+invalidate pending continuations while keeping the same Auth session. A failed
+native refresh cannot retain the previous role's records. The final audit also
+reproduced a changed-role page followed by a failed native identity retry; the
+loader now clears its old role cache before that retry, with a seventh focused
+failure-before/pass-after regression. Read failures render an
+explicit unavailable state and block dependent actions, never an empty successful
+financial ledger; own employee password Settings remains available.
+
+Browser validation caught a selected-client refresh scope error during the new
+implementation; it was fixed and given a regression. Failed post-write refresh
+now renders its error instead of leaving stale form UI. The final audit also
+preserves archived client financial records instead of silently dropping them
+through an operational-client join. A permissive-policy/PUBLIC-grant regression
+proves the additional restrictive read ceiling cannot be OR-bypassed.
+
+Complete effective matrix, explicit column lists and every versioned direct/
+indirect surface: [PLATFORM_ROLE_READ_ISOLATION.md](PLATFORM_ROLE_READ_ISOLATION.md).
+No role-contract owner decision remains pending. Unknown hosted custom APIs,
+provider settings and actual deployment behavior still require the live gate.
+
+### Validation and honest limits
+
+- **PASS 250 regressions:** original 243 plus seven actual loader/validator groups;
+  previous R1/R2 and F1–F4 retained. Zero final failures/skips.
+- **Expected FAIL baseline:** actual Chrome pending Shop read with exact reviewed
+  6ea96cb renderer replaces typed name. Current **seven browser groups PASS**:
+  Edit Client at 320/768/1440px, Manager/Billing journeys at those widths, and stale
+  target/logout/revocation. Actual Vite modules/DOM, synthetic SDK transport,
+  zero external traffic/page errors. **Twelve existing dialog/Team groups PASS**.
+- **PASS six PG17 bootstrap, two canonical and nine lifecycle groups.** Canonical
+  invocation reports 50 overlapping handler/SQL tests, not extra unique groups.
+  Overbroad read assertions were updated to the explicit owner contract.
+- **PASS four populated real PG17/real Auth/Vault-schema/PostgREST groups:**
+  positive/negative role fields, invalid identities/live edits, legitimate
+  mutations/rollback and authenticated HTTP. Pending/inactive/archive/deleted/
+  revoked/expired/stale sessions, forged metadata, joins, private-schema RPCs,
+  Storage/channel policy and publication boundaries covered. Real PostgREST
+  13.0.8 uses locally signed synthetic fixture JWTs; it is not a mocked gateway.
+- **PASS eight actual CLI 2.120.0 groups.** Forward fresh/staging cases now include
+  migration 14: forced history INSERT failure after SQL completion rolls back
+  objects/policies/grants/data; old authority survives; clean retry creates one
+  genuine row and fourteen total versions. New read preflight/validator execute
+  against genuine CLI history. Final affected forward cases rerun after audit.
+- **PASS six real GoTrue 2.197.0/PG17 groups:** current password, refresh/cleanup,
+  owned ban, retained identity/password, cutoff and setup/link expiry/reuse. Its
+  SQL adapter is explicit; separate PostgREST tests cover HTTP authorization.
+  Single-session interruption reproduces the existing destructive-release gate.
+- **PASS real PG17 Support Access authorization/rebinding/replay/concurrency.**
+  Its older support-specific fixture uses synthetic Auth/Vault helpers; separate
+  PG17/native Auth suites use real provider schemas. No Vault portability claim.
+- **PASS ten frozen native Deno entrypoints; synthetic Vite build.** Four dummy
+  public variables, ignored output. Existing Vite CJS deprecation remains.
+- **PASS** syntax/whitespace/sensitive checks, unchanged twelve historical plus
+  lifecycle-13 bytes, frozen artifact, protected refs and clean Shop. Five existing
+  import-cycle participants unchanged. Repeat staged/committed checks before push.
+- **SKIP** hosted account/Auth writes, real mail/CAPTCHA, full Edge gateway,
+  provider Storage/Realtime services/public channels, hosted GraphQL/custom APIs
+  and hosted session policies. SQL policy fixtures are not provider-service proof.
+
+Intermediate expected baseline failure, two stale transport/auth fixtures,
+inherited Storage expectations, mobile offscreen-navigation fixture and the new
+selected-client scope error were resolved without weakening security. The final
+added invoice fixture initially violated the existing client foreign key; it was
+removed without altering the constraint, retaining archived-client coverage.
+The browser explicitly dismisses its verified failure notification before the
+next pointer action instead of forcing a click through it. The final
+results above supersede intermediate failures. No missing dependency is a pass.
+
+Reproduction: run all non-database *.test.mjs suites, run-platform-team-local.mjs,
+auth-provider-local.mjs, run-support-local.mjs and production-bootstrap-cli.test.mjs
+with the absolute pinned CLI path. Existing Playwright/Chrome paths run
+client-modal-browser.mjs (--baseline expects failure), dialogs-browser.mjs and
+team-lifecycle-browser.mjs. Owned random labelled resources only; no hosted target
+accepted. Official cached postgrest/postgrest:v13.0.8 observed manifest digest:
+sha256:d09618df2b7b9547c80a076c2f4045b326be8d7ac06060d263caefec1334e3c9.
+Use synthetic public build overrides and --frozen Deno checks on all ten entries.
+
+### Exact correction manifest — 31 files
+
+| File | Purpose |
+| --- | --- |
+| src/render.js | Actual owned Edit Client DOM/focus/caret and explicit read-error/loading view. |
+| src/state.js | Role cache/generation invalidation and read readiness/error state. |
+| src/supabase.js | Canonical role-aware projections, scoped detail and explicit errors. |
+| src/helpers.js | Clear previous role records before canonical refresh. |
+| src/main.js | Render role invalidation and read errors through app callbacks. |
+| src/events.js | Financial action/View/print guards, support RPC and refresh. |
+| src/forms.js | Bounded client writes, verified-data gating and post-write refresh failure. |
+| src/billing.js | Master/Billing preview/print guards. |
+| src/pages/clients.js | Manager summaries, restricted private panels/history, setup guidance. |
+| src/pages/overview.js | Billing aggregate support count and financial navigation; no Shop URL. |
+| src/modals/client.js | Manager currency readonly, matching existing server authority. |
+| supabase/migrations/20261012231226_platform_role_read_isolation.sql (new) | Forward confidentiality, projections/wrappers, managed ceilings/publication. |
+| supabase/bootstrap/role-read-preflight.sql (new) | Read-only count/order, managed/publication/custom-view prerequisites. |
+| supabase/bootstrap/validate-role-reads.sql (new) | Post-migration structure/history check, no impersonation. |
+| tests/platform-role-reads-postgres.test.mjs (new) | Populated SQL/PostgREST boundaries, compatibility and rollback. |
+| tests/platform-role-loaders.test.mjs (new) | Seven actual loader/validator/cache/pagination/failure cases. |
+| tests/client-modal-browser.mjs (new) | Actual DOM baseline/current, adjacent refresh and role journeys. |
+| tests/run-platform-team-local.mjs | Integrate isolated role reads and focus option. |
+| tests/team-lifecycle-postgres.test.mjs | Update intentionally overbroad inherited read assertions. |
+| tests/production-bootstrap-cli.test.mjs | Preserve original harness; extend forward history failure/retry. |
+| tests/auth-provider-local.mjs | Explicit managed Realtime policy fixture prerequisite. |
+| tests/local-bootstrap.sql | SQL-only managed Realtime fixture prerequisite. |
+| tests/frontend-races.test.mjs | New client-RPC transport doubles; preserve ownership assertions. |
+| tests/platform-auth-dialogs.test.mjs | Legitimate authenticated Billing print fixture. |
+| docs/PLATFORM_ROLE_READ_ISOLATION.md (new) | Role/field/surface inventory and architecture/limits. |
+| docs/PRODUCTION_READINESS_REPORT.md | Dated findings, evidence and exact manifest. |
+| docs/STAGING_TEAM_CUTOVER.md | Superseding effective matrix and two-version rollout gate. |
+| docs/PLATFORM_TEAM_LIFECYCLE_REVIEW.md | Current sequence and old-loader incompatibility. |
+| docs/PRODUCTION_BOOTSTRAP.md | Fourteen-version order and recovery requirements. |
+| docs/PRODUCTION_BOOTSTRAP_REVIEW.md | Current migration/test/checkpoint correction. |
+| ENGINEERING_HISTORY.md | Dated owner decision, fixes, evidence and boundaries. |
+
+### Current hosted state and release gates
+
+One authorized read-only staging migration-history query confirmed twelve genuine
+records through 20261008191709, with lifecycle 20261010233446 absent. No customer/
+Auth/credential data was read or changed. Production was not contacted. New rights
+are local only. Current backup, managed ownership/custom catalog and actual CLI
+plan must be reviewed again before separately approved hosted execution.
+
+Future cutover requires migration **13 then 14**, matching backend replacements
+and frontend in a maintenance freeze. Old employee loaders deliberately fail
+under stricter raw RLS. Do not deploy frontend early, fabricate/delete history or
+restore broad reads as an automatic rollback. Migration-14 SQL/history rollback
+is tested; the full chain and committed Auth/earlier migrations are not one undoable
+transaction. Reverting JavaScript cannot reverse those changes.
+
+Read-only trigger review confirms current Cloudflare repository/build/staging
+branch/no deploy hooks and prior exact native skips. This feature is preview-
+eligible: use approved **[CF-Pages-Skip]** prefix, push only its ref, and inspect
+its exact provider skip afterward. GitHub workflows, hooks, Pages and installed
+integrations are checked before checkpoint. Record final SHA/provider result in
+PR/final evidence. Preview access never proves backend isolation.
+
+Remaining gates: independent source re-review; separately approved hosted catalog,
+GraphQL/public-channel/managed-policy/backup preflight; native current-password/
+refresh continuity before destructive policy approval; real mail/CAPTCHA/role/
+lifecycle journeys with approved disposable accounts; coordinated backend/13/14/
+frontend authorization; backup/Vault recovery, legal/provider and separate frozen
+Shop/session gates. No merge, deployment or real account operation is authorized.

@@ -946,3 +946,52 @@ SKIP hosted Auth/CAPTCHA/email/gateway/Storage/Realtime and real account writes.
 Nine-file manifest and reproduction commands are in PRODUCTION_READINESS_REPORT. Owner authorizes safe commit/push to existing Draft PR #4 only after trigger verification, using the approved CF-Pages-Skip prefix. Final SHA/provider skip belongs to Git/PR/final checkpoint evidence after execution; no automatic merge or hosted rollout. No generated evidence, credentials or build artifacts are eligible for commit.
 
 Read-only trigger review completed before checkpoint: same Cloudflare staging build/branch/no hooks and prior 65429db skip; no source/base Actions, repository/local hooks; GitHub Pages disabled and same installed apps. Recovered an unresponsive browser target using a fresh same-browser tab, without environment or provider changes. Publish only the feature ref with native skip and verify exact new provider record afterward; preview access is not backend isolation.
+
+## 2026-10-13 — Client form DOM continuity and canonical employee read isolation
+
+Branch: feature/platform-team-lifecycle-v2; reviewed base 6ea96cbc. Existing PR #4
+remains Draft. Owner supersedes inherited shared reads and confirms Manager keeps
+invoice date/total/status summaries, while View/print is Master/Billing-only.
+
+The renderer retains owned actual Edit Client DOM, typed values/options and
+focus/caret during Shop and normal refreshes; logout/role/selection/modal changes
+invalidate retention. Strict prior read/request/mutation ownership stays.
+Forward 20261012231226 changes 17 raw-table policies and adds restrictive read
+ceilings, explicit per-role projections, private helper EXECUTE closure and
+scoped indirect RPCs. Bounded client/support RPCs preserve legitimate Manager
+writes; checked financial wrappers preserve Billing operations without private
+metadata. Storage/private channels require live Master; app publication membership
+is removed, with schema/ALL-TABLE and managed-prerequisite failure gates.
+
+Employee loaders fetch only approved datasets and own identity. Canonical role
+changes clear prior records/navigation/modal/continuations before native refresh,
+without a new-login role-edit contract. Read denial is explicit and blocks
+mutations rather than masquerading as empty finance. Unverified client save keeps
+its draft and reports refresh. Real browser testing found/fixed a selected-client
+refresh scope error; the final audit protects archived client financial records
+and adds permissive-policy/PUBLIC-grant and publication-schema regressions. A
+changed-role page followed by a failed native identity retry also reproduced old
+cached support retention; clearing the cache before retry now passes its actual
+production-loader regression without signing out or replacing the session.
+
+PASS: 250 regressions; baseline DOM expected FAIL then seven corrected real-browser
+groups plus twelve existing groups; six PG17 bootstrap, two canonical and nine
+lifecycle groups; four populated PG17/PostgREST groups; six native GoTrue provider
+groups; real Support concurrency/security; eight actual CLI groups extended for
+14 history failure/retry and read preflight/validator; ten Deno entries, synthetic
+Vite build and integrity checks. Final affected checks rerun before checkpoint.
+Explicit synthetic transport/SQL fixtures and hosted SKIPs remain documented;
+Single-session interruption continues to block destructive approval until hosted
+continuity is proven. Existing Vite CJS warning/five cycle participants unchanged.
+
+Only read-only staging migration history was accessed: twelve genuine records,
+13 absent. No customer/Auth/credential read, hosted mutation or production access.
+The twelve historical migrations, unapplied 13, Edge sources/config, frozen Shop
+artifact and protected refs are unchanged. New full-chain count is fourteen;
+future separately approved maintenance plan requires handlers, 13 then 14 and
+matching frontend, with real role/managed/custom surface/backup checks. No history
+repair or automatic rights broadening/redeployment rollback. Complete 31-file
+manifest/matrix/reproduction/limits are in PRODUCTION_READINESS_REPORT and
+PLATFORM_ROLE_READ_ISOLATION. Safe source commit/push uses the approved native
+CF-Pages-Skip prefix after trigger inspection and exact post-push verification;
+final SHA is Git/PR checkpoint evidence. No staging/production GO is declared.

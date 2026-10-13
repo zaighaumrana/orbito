@@ -92,7 +92,7 @@ test('activation and rotation await decisions without changing request identitie
 });
 test('billing confirmation cancellation never prints and confirmation prints once',()=>{
  const handlers={};let prints=0;const client={id:42,currency_symbol:'USD'},invoice={id:7,client_id:42};
- const ctx={pState:{data:{clients:[client],usage:[],payments:[]}},esc:String,getInvoicePayments:()=>[],getInvoicePaidTotal:()=>0,buildInvoiceHTML:()=>'<p>Synthetic preview</p>',printInNewWindow:()=>prints++,
+ const ctx={pState:{authenticated:true,currentUser:{role:'billing_person'},dataReady:true,data:{clients:[client],usage:[],payments:[]}},esc:String,getInvoicePayments:()=>[],getInvoicePaidTotal:()=>0,buildInvoiceHTML:()=>'<p>Synthetic preview</p>',printInNewWindow:()=>prints++,
   document:{getElementById:selector=>({addEventListener:(type,fn)=>handlers[selector]=fn}),createElement:()=>({style:{},addEventListener(){},remove(){}}),body:{appendChild(){}}}};
  vm.createContext(ctx);vm.runInContext(read('src/async-context.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ctx);const source=read('src/billing.js');vm.runInContext(source.slice(source.indexOf('function showInvoiceConfirmModal')),ctx);
  ctx.showInvoiceConfirmModal(invoice);handlers['invoice-confirm-cancel']();assert.equal(prints,0);ctx.showInvoiceConfirmModal(invoice);handlers['invoice-confirm-print']();assert.equal(prints,1);

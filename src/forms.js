@@ -23,11 +23,13 @@ export async function handleFormSubmit(event) {
   const type = form.dataset.pForm;
   const context=captureView(),current=()=>viewCurrent(context);
   if(!current())return;
+  if(pState.dataReady===false && !['change-username','change-password','change-own-password'].includes(type)){notify.error('Authorized Platform data is unavailable. Refresh before making changes.');return;}
   const selected=pState.selectedClient;
   const refresh=async(detail=false)=>{
     if(!current())return;
     pState.modal=null;const refreshed=captureView();
-    await loadPlatform();if(!viewCurrent(refreshed))return;
+    try{await loadPlatform();}catch{if(viewCurrent(refreshed)){render();notify.error(pState.dataError);}return;}
+    if(!viewCurrent(refreshed))return;
     if(detail && !await loadClientData(pState.selectedClient))return;
     if(viewCurrent(refreshed))render();
   };
@@ -71,26 +73,22 @@ export async function handleFormSubmit(event) {
     let owner;
     try { owner = validateOwner(data.owner_name, data.owner_email); } catch (error) { notify.error(error.message); return; }
     if (data.ems_track_breaks === 'true' && data.plan !== 'Pro Plus') { notify.error('Break Tracking requires Pro Plus / EMS.'); return; }
-    const { data: savedClient, error } = await pb.from("clients").insert({
+    const { data: savedClient, error } = await pb.rpc('platform_save_client',{p_client:null,p_data:{
       ...owner,
-      onboarding_version: 2,
       pairing_mode: data.pairing_mode,
       ems_track_breaks: data.ems_track_breaks === 'true',
       paper_resupply_enabled: data.paper_resupply_enabled === 'true',
       name:               data.name,
       industry:           data.industry || "Mobile Repair Shop",
       plan:               data.plan     || "Basic",
-      status:             "Active",
       currency:           data.currency,
       currency_symbol:    data.currency,
       event_rate:         Number(data.event_rate || 0),
       inventory_rate:     Number(data.inventory_rate || 0),
-      bill_billable:      true,
       inventory_billable: data.inventory_addon === "true",
       supabase_url:       `https://${data.project_ref}.supabase.co`,
-      supabase_anon:      "",
       shop_url:           data.shop_url || "",
-    }).select().single();
+    }});
     if(!current())return;
     if (error) { notify.error(error); return; }
 
@@ -104,16 +102,16 @@ export async function handleFormSubmit(event) {
 
   /* ── Edit Client ── */
   if (type === "edit-client") {
-    if(!clientDataMatches(selected))return;
+    if(!clientDataMatches(selected)){notify.error('Refresh the selected client before saving changes. Your draft has been kept.');return;}
     if(data.currency!==selected.currency){await rpc('platform_set_currency',{p_client:selected.id,p_currency:data.currency});if(!current())return;}
-    const { error } = await pb.from("clients").update({
+    const { error } = await pb.rpc('platform_save_client',{p_client:selected.id,p_data:{
       name:            data.name,
       industry:        data.industry,
       plan:            data.plan,
       shop_url:        data.shop_url,
       ...(selected.onboarding_version === 2 ? { pairing_mode:data.pairing_mode } : {}),
 
-    }).eq("id", selected.id);
+    }});
     if(!current())return;
     if (error) { notify.error(error); return; }
     pState.selectedClient = { ...selected, ...data,id:selected.id };

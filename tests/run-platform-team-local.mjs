@@ -4,7 +4,8 @@ import {randomBytes} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
 const nonce=randomBytes(8).toString('hex'),container='orbito-bootstrap-team-'+nonce,network=container+'-network';
 const lifecycleOnly=process.argv.length===3 && process.argv[2]==='--lifecycle-only';
-assert.ok(process.argv.length===2 || lifecycleOnly,'This runner accepts only --lifecycle-only, never a target or external container');
+const readsOnly=process.argv.length===3 && process.argv[2]==='--reads-only';
+assert.ok(process.argv.length===2 || lifecycleOnly || readsOnly,'This runner accepts only --lifecycle-only or --reads-only, never a target or external container');
 const password=randomBytes(32).toString('hex'),jwt=randomBytes(32).toString('hex'),label='com.retrasell.team-test='+nonce;
 let ownedContainer=false,ownedNetwork=false;
 const env={...process.env};for(const key of Object.keys(env))if(key.startsWith('SUPABASE_') || key.startsWith('PG') || key.startsWith('ORBITO_BOOTSTRAP_'))delete env[key];
@@ -22,7 +23,7 @@ try{
  }assert.ok(ready,'Disposable PG17 readiness timeout');
  run('docker',['exec','-i',container,'psql','-X','-q','-v','ON_ERROR_STOP=1','-U','supabase_admin','-d','postgres','-f','-'],{input:`alter role supabase_auth_admin password '${password}';`});
  run('docker',['run','--rm','--network',network,'-e','GOTRUE_DB_DRIVER=postgres','-e',`GOTRUE_DB_DATABASE_URL=postgres://supabase_auth_admin:${password}@${container}:5432/postgres`,'-e','GOTRUE_SITE_URL=http://localhost:4180','-e','API_EXTERNAL_URL=http://localhost:9999','-e','GOTRUE_JWT_SECRET='+jwt,'public.ecr.aws/supabase/gotrue:v2.197.0','auth','migrate']);
- for(const file of lifecycleOnly?['tests/team-lifecycle-postgres.test.mjs']:['tests/production-bootstrap.test.mjs','tests/platform-team-database.test.mjs','tests/team-lifecycle-postgres.test.mjs']){
+ for(const file of readsOnly?['tests/platform-role-reads-postgres.test.mjs']:lifecycleOnly?['tests/team-lifecycle-postgres.test.mjs']:['tests/production-bootstrap.test.mjs','tests/platform-team-database.test.mjs','tests/team-lifecycle-postgres.test.mjs','tests/platform-role-reads-postgres.test.mjs']){
   console.log(run(process.execPath,['--test',file],{env:{...env,ORBITO_BOOTSTRAP_TEST_CONTAINER:container}}));
  }
  console.log('PASS: owned local PG17/Auth/Vault fixtures; no hosted Auth/SMTP/gateway validation claimed.');

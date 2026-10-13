@@ -268,4 +268,33 @@ for(const scenario of ['fresh','staging'])test('team lifecycle CLI history rejec
  successful(push(db,dir));assert.equal(sql('select count(*) from supabase_migrations.schema_migrations',db),'13');
  assert.equal(sql(`select count(*)=1 and bool_and(cardinality(statements)>0) from supabase_migrations.schema_migrations where version='${teamVersion}'`,db),'t');
  assert.equal(canonical(db,old),'master_admin');const committed=snapshot(db);successful(push(db,dir));assert.deepEqual(snapshot(db),committed);
+ // Additional forward-14 proof. The original bootstrap/history harness above
+ // retains its pinned CLI and original six regression scenarios unchanged.
+ sql('create schema storage;create table storage.objects(id uuid primary key,owner uuid);alter table storage.objects enable row level security;create schema realtime;create table realtime.messages(id uuid primary key);alter table realtime.messages enable row level security;',db);
+ const readVersion='20261012231226',readFile=readVersion+'_platform_role_read_isolation.sql',beforeReads=snapshot(db);
+ sql(read('supabase/bootstrap/role-read-preflight.sql'),db);
+ copyFileSync(join(root,'supabase/migrations',readFile),join(dir,'supabase/migrations',readFile));
+ sql(`create function supabase_migrations.read_history_fault() returns trigger language plpgsql as $$declare s text;begin
+ if new.version='${readVersion}' then
+  if to_regprocedure('public.platform_read_page(text,integer)') is null
+   or has_function_privilege('authenticated','platform_private.usage_summary()','EXECUTE')
+   or (select count(*) from pg_policies where policyname='platform_master_read_ceiling' and schemaname in ('storage','realtime'))<>2
+   then raise exception 'Role-isolation SQL did not complete';end if;
+  foreach s in array new.statements loop
+   s:=upper(regexp_replace(s,'^([[:space:]]|--[^\\n]*\\n)*','','g'));
+   if s !~ '^(CREATE (OR REPLACE )?(FUNCTION|POLICY) |ALTER (POLICY|FUNCTION) |REVOKE |GRANT |DO[[:space:]])' then raise exception 'Pipeline-incompatible role-isolation statement: %',left(s,70);end if;
+  end loop;
+  raise exception 'Injected role-isolation history rejection after completed SQL';
+ end if;return new;end$$;
+ create trigger read_history_fault before insert on supabase_migrations.schema_migrations for each row execute function supabase_migrations.read_history_fault();`,db);
+ const failedReads=push(db,dir);assert.notEqual(failedReads.status,0);assert.match(failedReads.stderr+failedReads.stdout,/Injected role-isolation history rejection after completed SQL/);
+ assert.equal(sql("select to_regprocedure('public.platform_read_page(text,integer)') is null",db),'t');
+ assert.equal(sql(`select count(*) from supabase_migrations.schema_migrations where version='${readVersion}'`,db),'0');
+ assert.equal(sql("select has_function_privilege('authenticated','platform_private.usage_summary()','EXECUTE')",db),'t');
+ assert.deepEqual(snapshot(db),beforeReads);assert.equal(canonical(db,old),'master_admin');
+ sql('drop trigger read_history_fault on supabase_migrations.schema_migrations;drop function supabase_migrations.read_history_fault();',db);
+ successful(push(db,dir));assert.equal(sql('select count(*) from supabase_migrations.schema_migrations',db),'14');
+ assert.equal(sql(`select count(*)=1 and bool_and(cardinality(statements)>0) from supabase_migrations.schema_migrations where version='${readVersion}'`,db),'t');
+ assert.equal(canonical(db,old),'master_admin');const complete=snapshot(db);successful(push(db,dir));assert.deepEqual(snapshot(db),complete);
+ sql(read('supabase/bootstrap/validate-role-reads.sql'),db);
 }));
