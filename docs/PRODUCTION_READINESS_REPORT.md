@@ -653,3 +653,14 @@ session behavior and UI journeys remain unverified this round. All existing host
 release gates remain. Safe checkpoint requires current trigger inspection, native
 CF-Pages-Skip and exact provider verification. Keep Draft PR #4 unmerged;
 **independent re-review pending; STAGING / PRODUCTION remain NO-GO.**
+
+### 2026-10-13 — Same-plan Edit Client correction
+
+Automatic entitlement sync now requires a successfully saved plan different from
+the captured original plan. Same-plan name/industry/Shop URL edits send no Shop
+configuration request and preserve custom modules. Master/Manager plan changes,
+Billing reconciliation and uncertainty/ownership guards remain intact. Name-only
+FAIL before / PASS after; both focused cases and 19 affected form/config checks,
+syntax/whitespace PASS. No build, full/browser/PG/Auth/CLI/Deno suites were run;
+no SQL/server contract changed. Hosted behavior remains unverified. Draft PR #4
+stays unmerged; staging/production remain NO-GO.

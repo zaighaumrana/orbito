@@ -1026,3 +1026,18 @@ All fourteen migrations, frozen Shop artifact and protected branches are preserv
 Update only existing Draft PR #4 after current trigger inspection, native skip
 and exact provider confirmation. No merge, hosted change or deployment;
 independent review pending, staging/production remain NO-GO.
+
+## 2026-10-13 — Sync Edit Client entitlements only for a changed plan
+
+Branch: feature/platform-team-lifecycle-v2; base 7acc88b. A successful Edit Client
+save now compares its saved plan input with the captured original client plan
+before automatic Shop sync. Name, industry and Shop URL edits with the same plan
+therefore preserve customized Shop modules. Master/Manager plan synchronization,
+Billing addon reconciliation, ownership and uncertain-operation handling stay intact.
+
+Name-only regression failed before; both focused cases pass after, including the
+correct saved-plan entitlement request. PASS: 19 affected form/config checks,
+syntax and whitespace. No full, browser, PG/Auth/CLI/Deno suites or build were run.
+Only forms, its existing test file, this history and the readiness note change.
+No server/SQL/Shop change; safe native-skip checkpoint to Draft PR #4 only.
+Independent review pending; staging/production remain NO-GO.

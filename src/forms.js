@@ -129,7 +129,7 @@ export async function handleFormSubmit(event) {
     if(!current())return;
     if (error) { notify.error(error); return; }
     pState.selectedClient = { ...selected, ...data,id:selected.id };
-    const notice=selected.onboarding_version===2?await syncEntitlements(selected,data.plan,selected.inventory_billable):null;
+    const notice=selected.onboarding_version===2 && data.plan!==selected.plan?await syncEntitlements(selected,data.plan,selected.inventory_billable):null;
     if(!current())return;
     await refresh(true);
     if(notice && viewCurrent(context,false))notify.warning(notice);

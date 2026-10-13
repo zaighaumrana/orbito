@@ -51,10 +51,21 @@ function entitlementFixture(role,outcome='applied'){
  f.ctx.loadPlatform=async()=>{};f.ctx.loadClientData=async()=>true;
  return f;
 }
-test('Manager and Master plan saves dispatch legitimate Shop entitlements without private provisioning reads',async()=>{
+test('name-only edits save Platform changes without resetting customized Shop entitlements',async()=>{
+ for(const role of ['portfolio_manager','master_admin']){
+  const f=entitlementFixture(role);f.ctx.pState.clientData.config.technician_module_enabled=true;
+  await f.submit('edit-client',{currency:'PKR',name:'Renamed client',plan:'Basic'});
+  assert.equal(f.requests.filter(c=>c[0]==='platform_save_client').length,1);
+  assert.equal(f.requests.filter(c=>c[0]==='platform_plan_entitlements').length,0);assert.equal(f.sends.length,0);
+  assert.equal(f.ctx.pState.selectedClient.name,'Renamed client');assert.equal(f.ctx.pState.clientData.config.technician_module_enabled,true);
+  assert.equal(f.ctx.pState.modal,null);assert.equal(f.messages.length,0);
+ }
+});
+test('Manager and Master actual plan changes dispatch the saved plan entitlements without private provisioning reads',async()=>{
  for(const role of ['portfolio_manager','master_admin']){
   const f=entitlementFixture(role);await f.submit('edit-client',{currency:'PKR',name:'Client',plan:'Pro'});
   assert.equal(f.requests.filter(c=>c[0]==='platform_save_client').length,1);assert.equal(f.sends.length,1);
+  assert.equal(f.requests.find(c=>c[0]==='platform_plan_entitlements')[1].p_plan,'Pro');
   assert.equal(f.sends[0][0],'platform-config');assert.equal(f.sends[0][1].body.client_id,1);assert.equal(f.sends[0][1].body.changes.technician_module_enabled,true);
   assert.equal(f.ctx.pState.modal,null);assert.equal(f.ctx.pState.clientData.provisioning,null);assert.equal(f.messages.length,0);
  }
