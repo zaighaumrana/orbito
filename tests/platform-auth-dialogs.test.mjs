@@ -8,14 +8,19 @@ const strip=s=>s.replace(/^import[\s\S]*?;\s*/gm,'').replace(/^export /gm,'').re
 const identity={auth_user_id:'master-uuid',email:'actual-auth@example.test',role:'master_admin',password_verification_safe:true};
 function authFixture({failure,stale,role='master_admin',afterRole=role,mismatch=false,cleanupError=false,continuityApproved=true}={}) {
  const calls=[],options=[],messages=[],writes=[];let verified=0;
+ const initialContext=vm.createContext({localStorage:{getItem:()=>null},navigator:{onLine:true}});
+ vm.runInContext(strip(read('src/state.js'))+'\nglobalThis.initialState=pState;',initialContext);
+ const initialState=initialContext.initialState;
+ Object.assign(initialState,{authenticated:true,dataReady:true,page:'settings',turnstileToken:'fresh-captcha',currentUser:{...identity,username:'original',sessionToken:'original-session-marker'}});
+ Object.assign(initialState.data,{teamArchive:[],teamOperations:[]}); // Loaded Master datasets.
  const original={auth:{signInWithPassword:async()=>{calls.push(['original-signin']);throw Error('Original session must not be replaced');},signOut:async()=>{calls.push(['original-signout']);throw Error('Original session must not be revoked');},getUser:async()=>{verified++;return stale?{error:{status:401},data:{}}:{data:{user:{id:identity.auth_user_id}}};}},rpc:async()=>({data:{...identity,password_verification_safe:continuityApproved,role:verified>1?afterRole:role}}),
   from:table=>({update:value=>({eq:()=>({select:()=>({maybeSingle:async()=>{writes.push({table,value});return {data:{id:1,...value}};}})})})})};
  const verifier={auth:{signInWithPassword:async input=>{calls.push(['verify',input]);if(failure==='network')throw new TypeError('offline');return failure?{error:{code:failure},data:{}}:{data:{session:{},user:{id:mismatch?'other-uuid':identity.auth_user_id}}};},signOut:async options=>{calls.push(['cleanup',options]);if(cleanupError==='throw')throw Error('Synthetic cleanup failure');return cleanupError?{error:{}}:{};}}};
  let clients=0;
  const ctx={TypeError,testEnv:{VITE_PLATFORM_URL:'https://example.invalid',VITE_PLATFORM_ANON:'synthetic-public'},createClient:(...args)=>{options.push(args);return clients++?verifier:original;},
-  pState:{authenticated:true,turnstileToken:'fresh-captcha',currentUser:{...identity,username:'original',sessionToken:'original-session-marker'}},PCFG:{admin_username:'original'},clearSensitiveState(){ctx.pState.authenticated=false;ctx.pState.currentUser={role:null};},captchaBusy(){},resetTurnstile(){ctx.pState.turnstileToken=null;calls.push(['reset']);},render(){},
+  pState:initialState,PCFG:{admin_username:'original'},clearSensitiveState(){ctx.pState.authenticated=false;ctx.pState.currentUser={role:null};},captchaBusy(){},resetTurnstile(){ctx.pState.turnstileToken=null;calls.push(['reset']);},render(){},
   notify:Object.fromEntries(['error','success','info'].map(t=>[t,v=>messages.push([t,v?.userMessage || v])])),cancelDialogs(){},FormData:class{constructor(f){this.f=f;}entries(){return Object.entries(this.f.values);}}};
- vm.createContext(ctx);vm.runInContext(read('src/async-context.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ctx);vm.runInContext(strip(read('src/supabase.js')),ctx);vm.runInContext(strip(read('src/forms.js')),ctx);
+ vm.createContext(ctx);vm.runInContext(read('src/async-context.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ctx);vm.runInContext(strip(read('src/team-errors.js')),ctx);vm.runInContext(strip(read('src/supabase.js')),ctx);vm.runInContext(strip(read('src/forms.js')),ctx);
  const form={dataset:{pForm:'change-username'},values:{current:'synthetic-password',new_username:'new-alias'},reset(){calls.push(['form-reset']);}};
  return {ctx,calls,options,messages,writes,original,submit:()=>ctx.handleFormSubmit({target:form,preventDefault(){}})};
 }
@@ -66,6 +71,30 @@ test('team invitation/edit handlers retain server boundaries, role denial and id
  for(const role of ['portfolio_manager','billing_person']){f.ctx.pState.currentUser={role};await submit('add-platform-user',{});await submit('edit-platform-user',{});}assert.equal(invocations.length,0);
  f.ctx.pState.currentUser=identity;f.ctx.pState.modal={data:{requestId:'synthetic-request'}};await submit('add-platform-user',{email:'fixture@example.test',name:'Fixture',role:'billing_person'});assert.equal(invocations[0].name,'create-platform-user');assert.match(f.messages.at(-1)[1],/No new invitation email/);
  f.ctx.pState.modal={data:{requestId:'synthetic-edit-request'}};await submit('edit-platform-user',{id:'row-42',name:'Fixture',email:'fixture@example.test',role:'portfolio_manager'});assert.equal(invocations[1].name,'update-platform-user');assert.equal(invocations[1].body.id,'row-42');
+});
+test('F3 invitation fixture uses real initial state and only confirms the latest retired predecessor',async()=>{
+ for(const kind of ['ordinary','retired-approved','retired-cancelled','live-duplicate','wrong-predecessor','unloaded-malformed']){
+  const f=authFixture(),sent=[],confirmed=[];const email='fixture@example.test';
+  const archive=[{id:'latest-retired',email,deleted_at:'2026-10-14'},{id:'older-retired',email:email.toUpperCase(),deleted_at:'2026-10-13'}];
+  if(kind==='wrong-predecessor')archive[0].id='stale-predecessor';
+  f.ctx.pState.modal={data:{requestId:'synthetic-request'}};f.ctx.loadPlatform=async()=>{};
+  if(kind.startsWith('retired') || kind==='wrong-predecessor')f.ctx.pState.data.teamArchive=structuredClone(archive);
+  if(kind==='live-duplicate')f.ctx.pState.data.platformUsers=[{id:'live',email,status:'Active'}];
+  if(kind==='unloaded-malformed'){f.ctx.pState.dataReady=false;delete f.ctx.pState.data;}
+  f.ctx.confirmDialog=async options=>{confirmed.push(options);return kind!=='retired-cancelled';};
+  f.original.functions={invoke:async(name,{body})=>{
+   sent.push({name,body});
+   const denied=kind==='live-duplicate' || (kind==='wrong-predecessor' && body.retired_employee_id!=='latest-retired');
+   return denied?{data:{code:'invitation_unavailable',review_required:false}}:{data:{success:true}};
+  }};
+  await f.ctx.handleFormSubmit({target:{dataset:{pForm:'add-platform-user'},values:{email,name:'Fixture',role:'billing_person'}},preventDefault(){}});
+  if(['retired-cancelled','unloaded-malformed'].includes(kind)){assert.equal(sent.length,0);continue;}
+  assert.equal(sent.length,1);assert.equal(sent[0].name,'create-platform-user');assert.equal(sent[0].body.request_id,'synthetic-request');
+  if(kind==='ordinary' || kind==='live-duplicate'){assert.equal(confirmed.length,0);assert.equal(sent[0].body.retired_employee_id,undefined);}
+  else{assert.equal(confirmed.length,1);assert.equal(confirmed[0].confirmLabel,'Invite fresh employee');assert.equal(sent[0].body.retired_employee_id,kind==='wrong-predecessor'?'stale-predecessor':'latest-retired');assert.deepEqual(JSON.parse(JSON.stringify(f.ctx.pState.data.teamArchive)),archive);}
+  assert.equal(f.messages.some(m=>m[0]==='success'),!['live-duplicate','wrong-predecessor'].includes(kind));
+  if(['live-duplicate','wrong-predecessor'].includes(kind))assert.match(f.messages.at(-1)[1],/Review request/);
+ }
 });
 function removalFixture() {
  let click,resolve,calls=0;const element={dataset:{pAction:'delete-platform-user',pId:'row-42'},isConnected:true,disabled:false};

@@ -33,6 +33,70 @@ function seed(db){sql(`begin;select set_config('platform.team_transition','trust
  insert into auth.mfa_amr_claims(id,session_id,authentication_method,created_at,updated_at) select gen_random_uuid(),id,'password',now(),now() from auth.sessions;commit;`,db);}
 function fresh(db){assert.match(sql('show server_version',db),/^17\./);chain(db,files);sql(`insert into auth.users(id,email,email_confirmed_at) values('${master}','master@example.test',now());select platform_private.initialize_config('Synthetic Platform','Reviewed fixture');select platform_private.bind_master('${master}',null,'Reviewed fixture');select platform_private.configure_password_verification('${master}',true,'Verified isolated multi-session fixture');`,db);seed(db);}
 
+test('retirement and fresh onboarding preserve UUID tombstones across generations; late migration failure rolls back',()=>fixture('retirement',db=>{
+ const forward=files.at(-1);assert.match(forward,/platform_team_retirement_reonboarding/);
+ chain(db,files.slice(0,-1));
+ const definition=()=>sql("select pg_get_functiondef('public.platform_team_command(uuid,uuid,text,uuid,jsonb,uuid)'::regprocedure)",db);
+ const before=definition();assert.throws(()=>sql('begin;'+read('supabase/migrations/'+forward)+'select 1/0;commit;',db),/division by zero/);
+ assert.equal(definition(),before);assert.equal(sql("select to_regclass('public.platform_team_archive_email_unique') is not null",db),'t');chain(db,[forward]);
+ sql(`insert into auth.users(id,email,email_confirmed_at) values('${master}','master@example.test',now());select platform_private.initialize_config('Synthetic Platform','Reviewed fixture');select platform_private.bind_master('${master}',null,'Reviewed fixture');select platform_private.configure_password_verification('${master}',true,'Verified isolated multi-session fixture');`,db);seed(db);
+ // Retire an unaccepted Pending identity, then retain a dangling legacy UUID.
+ sql(service(command(101,'begin_delete',pending)),db);sql(service(command(101,'dispatch_delete',pending)),db);
+ assert.throws(()=>sql(service(command(101,'finish_delete',pending)),db),/absence not verified/);
+ sql(`delete from auth.users where id='${pending}'`,db);sql(service(command(101,'reconcile_delete',pending)),db);
+ assert.throws(()=>sql(asUser(pending,'select public.platform_team_setup_context()'),db),/Verified live Auth/);
+ sql(`begin;select set_config('platform.team_transition','trusted',true);update public.platform_users set auth_user_id='${id(999)}' where id='${legacy}';commit;`,db);
+ sql(`insert into auth.users(id,email) values('${id(998)}','legacy@example.test')`,db);
+ assert.throws(()=>sql(service(command(102,'begin_delete',legacy)),db),/inconsistent Auth identity/);
+ sql(`delete from auth.users where id='${id(998)}'`,db);sql(service(command(102,'begin_delete',legacy)),db);sql(service(command(102,'dispatch_delete',legacy)),db);sql(service(command(102,'finish_delete',legacy)),db);
+ let predecessor=pending;
+ for(const generation of [1,2]){
+  const request=110+generation,employee=id(request),authId=id(210+generation),email='pending@example.test';
+  const data={name:'Fresh employee',email,role:'billing_person',retired_employee_id:predecessor};
+  assert.throws(()=>sql(service(command(request,'begin_create',employee,{...data,retired_employee_id:legacy})),db),/retirement approval/);
+  const op=JSON.parse(sql(service(command(request,'begin_create',employee,data)),db));
+  assert.equal(sql(service(command(request,'begin_create',employee,data)),db).includes('"new_operation": false'),true);
+  assert.throws(()=>sql(service(command(request+30,'begin_create',id(request+30),data)),db),/unique|duplicate/i);
+  // A returned existing/unrelated Auth user cannot satisfy the private nonce.
+  sql(`insert into auth.users(id,email,email_confirmed_at,created_at,invited_at) values('${authId}','${email}',now(),clock_timestamp(),clock_timestamp())`,db);
+  assert.throws(()=>sql(service(command(request,'finish_create',employee,{auth_user_id:authId})),db),/Fresh invitation identity/);
+  sql(`update auth.users set raw_user_meta_data=jsonb_build_object('retrasell_invite_nonce','${op.requested.invite_nonce}') where id='${authId}';insert into auth.sessions(id,user_id,created_at,updated_at) values('${sid(authId)}','${authId}',now(),now());insert into auth.mfa_amr_claims(id,session_id,authentication_method,created_at,updated_at) values(gen_random_uuid(),'${sid(authId)}','otp',now(),now());`,db);
+  sql(service(command(request,'finish_create',employee,{auth_user_id:authId})),db);
+  const context=JSON.parse(sql(asUser(authId,'select public.platform_team_setup_context()'),db).split('\n').at(-1));assert.equal(context.kind,'pending');
+  for(const step of ['begin','saved','finish'])sql(service(password(310+generation,step,null,authId)),db);
+  assert.equal(JSON.parse(sql(asUser(authId,'select public.platform_operator_identity()'),db).split('\n').at(-1)).role,'billing_person');
+  assert.throws(()=>sql(asUser(pending,'select public.platform_operator_identity()'),db),/Operator not authorized/);
+  sql(service(command(410+generation,'begin_delete',employee)),db);sql(service(command(410+generation,'dispatch_delete',employee)),db);
+  assert.throws(()=>sql(service(command(510+generation,'begin_create',id(510+generation),data)),db),/Auth identity|Invitation identity|unique|duplicate/i);
+  sql(`delete from auth.users where id='${authId}'`,db);sql(service(command(410+generation,'reconcile_delete',employee)),db);predecessor=employee;
+ }
+ assert.equal(sql("select count(*) from public.platform_team_archive where email='pending@example.test'",db),'3');
+ assert.throws(()=>sql('update public.platform_team_archive set reason=\'rewritten\'',db),/immutable/);
+ assert.equal(sql(`select auth_user_id from platform_private.master_identity`,db),master);
+ assert.equal(sql("select count(*) from public.operator_audit where action='platform_team_begin_create' and detail->>'predecessor_employee_id' is not null",db),'2');
+}));
+
+test('resend reservation verifies Pending identity, denies employees/inactive targets and blocks competing dispatches',()=>fixture('resend',db=>{
+ fresh(db);
+ const resend=(step,request=601,target=pending)=>`select public.platform_team_resend_command('${master}','${id(request)}','${target}','${step}','${sid(master)}')`;
+ for(const who of [manager,billing])assert.throws(()=>sql(asUser(who,resend('begin')),db),/permission denied/);
+ assert.throws(()=>sql(service(resend('begin',602,legacy)),db),/Pending employee/);
+ assert.throws(()=>sql(service(resend('begin',603,master)),db),/no rows|Pending employee/);
+ sql(service(resend('begin')),db);assert.equal(JSON.parse(sql(service(resend('begin')),db)).new_operation,false);
+ assert.throws(()=>sql(service(resend('begin',604)),db),/Outstanding operation/);
+ sql(service(resend('dispatch')),db);assert.throws(()=>sql(service(resend('dispatch')),db),/requires reconciliation/);
+ assert.equal(JSON.parse(sql(service(resend('finish')),db)).stage,'completed');
+ assert.equal(JSON.parse(sql(service(resend('begin')),db)).new_operation,false);
+ assert.throws(()=>sql(service(resend('begin',605)),db),/Wait before/);
+ // Advance only the fixture's dispatch record to exercise the next legitimate
+ // request without sleeping or sending another email.
+ sql(`update platform_private.team_operations set created_at=now()-interval '2 minutes' where request_id='${id(601)}'`,db);
+ sql(service(resend('begin',606)),db);sql(service(resend('dispatch',606)),db);sql(service(resend('mark_review',606)),db);
+ assert.throws(()=>sql(service(resend('begin',607)),db),/Outstanding operation/);
+ assert.equal(sql(`select status from public.platform_users where id='${pending}'`,db),'Pending');
+ assert.equal(sql(`select auth_user_id from public.platform_users where id='${pending}'`,db),pending);
+}));
+
 test('fresh full chain: privilege closure, master/role preservation, missing/null operation fail closed',()=>fixture('fresh',db=>{
  fresh(db);
  sql(`begin;select set_config('platform.team_transition','trusted',true);insert into public.platform_users(id,name,email,role,status) values('${id(9)}','Legacy master alias','master@example.test','billing_person','Inactive');commit;`,db);
@@ -143,6 +207,10 @@ test('durable delete, partial failure, immutable archive, tombstones and Storage
  assert.equal(sql(`select status from public.platform_users where id='${manager}'`,db),'Active');
  assert.equal(sql(`select count(*) from platform_private.team_operations where request_id='${id(41)}'`,db),'0');sql('drop trigger fixture_audit_failure on public.operator_audit',db);
  sql(service(command(41,'begin_delete')),db);sql(service(command(41,'dispatch_delete')),db);
+ assert.throws(()=>sql(service(command(41,'reconcile_delete',pending)),db),/Conflicting operation identity/);
+ assert.throws(()=>sql(service(command(45,'begin_delete')),db),/Outstanding operation/);
+ assert.throws(()=>sql(service(command(41,'reconcile_delete').replace(master,billing)),db),/not authorized|required/i);
+ assert.equal(sql(`select stage from platform_private.team_operations where request_id='${id(41)}'`,db),'auth_delete_dispatched');
  assert.throws(()=>sql(asUser(manager,'select public.platform_operator_identity()'),db),/Operator not authorized/);
  assert.throws(()=>sql(service(command(41,'finish_delete')),db),/absence not verified/);
  assert.equal(sql('select count(*) from public.platform_team_archive',db),'0');
@@ -160,7 +228,7 @@ test('durable delete, partial failure, immutable archive, tombstones and Storage
  assert.equal(sql(asUser(billing,'select count(*) from public.platform_team_archive'),db).split('\n').at(-1),'0');
  assert.throws(()=>sql('update public.platform_team_archive set reason=\'changed\'',db),/immutable/);
  assert.throws(()=>sql('delete from public.operator_audit',db),/immutable/i);
- assert.throws(()=>sql(service(command(42,'begin_create',id(42),{name:'New',email:'manager@example.test',role:'billing_person'})),db),/unavailable/);
+ assert.throws(()=>sql(service(command(42,'begin_create',id(42),{name:'New',email:'manager@example.test',role:'billing_person'})),db),/retirement approval required/);
  assert.throws(()=>sql(service(command(43,'begin_reactivate')),db),/live team/);
  assert.throws(()=>sql(asUser(manager,'select public.platform_team_setup_context()'),db),/Verified live Auth/);
  // Null-linked legacy remnants can be archived safely without recreating Auth.

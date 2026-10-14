@@ -1074,3 +1074,89 @@ suites. No hosted SQL executed. A separately authorized read-only preflight must
 confirm staging's loaded policy allowlist; missing/invisible capability requires
 Supabase confirmation, not rights broadening. Local corrections only, no commit,
 push, deployment or merge. Staging and production remain NO-GO.
+
+## 2026-10-14 — Verified employee retirement, fresh re-onboarding and setup renewal
+
+Branch: feature/platform-team-lifecycle-v2; clean base 357775f. Draft PR #4 remains
+open/unmerged. Owner requested targeted deletion/reuse and sticky confirmation
+fixes, then added renewal from the Pending invitation status popup.
+
+Read-only staging metadata confirmed 14 migrations and disabled continuity approval:
+both legacy Auth mappings are absent with no same-email replacement; the Pending
+identity exists, is email-confirmed, has signed in and has no open operation. No
+deletion operations exist for those records. The 503 safety rejection happens before
+password verification/reservation; login alone does not justify enabling the gate.
+
+New forward 20261013214541 preserves all fourteen applied migrations. Immutable
+employee/Auth UUID tombstones remain; explicit latest-predecessor approval and Auth
+absence allow an email to start another fresh lifecycle. Live uniqueness/open-operation
+constraints remain. A private reservation nonce plus native creation/invitation
+evidence prevents adopting unrelated existing Auth identities. Exact-UUID deletion,
+dependency checks, default-off continuity, password/CAPTCHA, audit and reconciliation
+are preserved; mismatched email/UUID mappings fail closed at reservation/dispatch.
+
+Server codes distinguish definite pre-operation denials from later uncertainty.
+Deletion dialogs alone ignore backdrop clicks and preserve verification inputs.
+Pending renewal uses a new Master/JWT-only endpoint and durable single-dispatch
+request: native invite for unconfirmed identities, native recovery for confirmed
+Pending identities, retaining UUID/role/Pending status. No third-party sender or
+separate reset button; unknown sends require review, never blind replay.
+
+PASS: 17 focused server-source, two frontend, four dialog and four real PG17 groups;
+one native GoTrue group verifies hard deletion/new UUID/retired invite and recovery
+denial; one local Chromium group verifies sticky inputs, focus, cleanup and one-shot
+confirmation. Deno, syntax, synthetic build and integrity pass. Initial SQL-anchor
+and fixture failures corrected. SKIP: hosted continuity/CAPTCHA/email acceptance,
+wall-clock expiry and unrelated suites; mocks/local native behavior are distinguished.
+The existing lifecycle review records exact ordered rollout, backup, approval and
+recovery gates. No hosted writes, credentials/users changed, scheduler/Shop/Cloudflare
+modification, commit/push or merge. Source review pending; staging/production NO-GO.
+
+## 2026-10-14 — Independent review F1/F2/F3 corrections
+
+Branch/base: feature/platform-team-lifecycle-v2 / 357775f; local, unstaged,
+uncommitted. The complete independent report and reproduction logs/source were
+read before edits. All eighteen files matched its reviewed ZIP. Both F1 defect
+reproductions and the reported 121 PASS / 2 FAIL frontend run were reproduced.
+Independent FAIL remains prior evidence; this checkpoint is not independent approval.
+
+F1: the old uncertainty override knew only an operation loaded by the current
+invocation. Early retry failures could falsely deny an earlier Auth dispatch.
+Deletion errors now always retain review_required=true and unverified operation
+state; an explicit marker describes only rejection of this attempt. No privileged
+history query is added before canonical/session/password/continuity gates. The
+decoder preserves prior uncertainty and request IDs even for legacy false flags.
+Only existing exact-owned SQL reconciliation can confirm completion. No provider
+replay, account modification, permissions/RPC change or migration edit is introduced.
+
+F2: native "Resend invitation" is permitted while precise SDK/API/dependency/secret/
+legacy-transport checks reject deliberately inserted provider integrations. Commented
+native SMTP examples are distinguished from active configuration. Reusable handler
+fixtures moved to a side-effect-free helper; database tests no longer register the
+unit suite. Mock request ownership/completion now reflects existing SQL constraints.
+
+F3: invitation tests use the real state initializer plus loaded Master archive data;
+ordinary, approved/cancelled retirement, latest predecessor, duplicate/stale identity
+denials and unloaded state are exercised without production fallback changes.
+
+PASS: 125 focused tests, 14 new actual-handler/decoder regressions, corrected two-case
+independent reproduction, four retirement/rollback SQL groups, six native Auth groups,
+six actual Chromium groups (320/768/1440 light/dark), Deno, syntax and synthetic build.
+The complete PostgreSQL rerun passed 23/23 groups (6 bootstrap, 2 canonical,
+11 lifecycle, 4 role/API); the separate role-read run passed 4/4. All final runs
+exit 0. Overlapping selectors/reproductions are not
+added to unique totals. The first general runner passed eight groups but hit its old
+180-second eleven-group lifecycle deadline; only that suite receives a bounded
+480-second allowance. Initial fixture/guard conditions and sandbox build EPERM were
+resolved and retained in evidence, with no skipped assertions. Exact commands, exits,
+logs and hashes are outside Git in RetraSellReviewEvidence/2026-10-14-F1-F3.
+
+Applied migrations 1–14, reviewed forward 15, original Master/security contracts,
+frozen Shop artifact and protected refs are unchanged. Current set: 23 files (prior
+eighteen plus two affected test modules and three new test/helper files). Prior ZIP
+is preserved, not updated. SKIP/pending: hosted email/CAPTCHA/continuity/journeys,
+elapsed expiry, migration-15 CLI history/connection-loss fault test and unrelated
+Shop tests. No hosted access, policy enablement, scheduler change, deployment, Git
+checkpoint or PR modification. Fresh independent review and separate rollout approval
+remain required. Local corrections implemented and validated; ready for fresh
+independent review, with no staging deployment authorized. Staging/production NO-GO.

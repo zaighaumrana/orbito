@@ -2,8 +2,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.108.2";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const email = (s: string) => s.trim().toLowerCase();
-class Failure extends Error { constructor(public status: number, message: string) { super(message); } }
-function requireThat(ok: unknown, status: number, message: string): asserts ok { if (!ok) throw new Failure(status, message); }
+class Failure extends Error { constructor(public status: number, message: string, public code = "operation_unconfirmed", public reviewRequired = true) { super(message); } }
+function requireThat(ok: unknown, status: number, message: string, code?: string, reviewRequired = true): asserts ok { if (!ok) throw new Failure(status, message, code, reviewRequired); }
 const options = { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } };
 function environment() {
   const origin = new URL(Deno.env.get("PLATFORM_TEAM_SITE_URL") || "");
@@ -23,23 +23,31 @@ async function bodyOf(req: Request, allowed: string[]) {
 }
 async function rpc(client: any, name: string, args: any) {
   const result = await client.rpc(name, args);
+  // These exact SQL exceptions reject this command before reservation/dispatch.
+  // They do not establish absence of a durable operation from an earlier request.
+  if (name === "platform_team_command" && result.error?.code === "P0001") {
+    if (args.p_action === "begin_delete" && ["Deletion identity drift", "Unlinked Auth identity requires reviewed reconciliation; never adopt or delete by email", "Unlinked or inconsistent Auth identity requires review; never adopt or delete by email"].includes(result.error.message))
+      throw new Failure(409, "Employee identity requires administrator review. This deletion attempt was rejected.", "identity_conflict", false);
+    if (args.p_action === "begin_create" && ["Explicit verified retirement approval required", "Retired predecessor does not match", "Existing Auth identity cannot be adopted", "Invitation identity unavailable"].includes(result.error.message))
+      throw new Failure(409, "Invitation identity or retirement approval could not be verified. No invitation requested.", "invitation_unavailable", false);
+  }
   requireThat(!result.error && result.data !== null && result.data !== undefined, 409, "Operation not authorized, expired or requires reconciliation.");
   return result.data;
 }
 async function master(caller: any, token: string, original?: any) {
   const result = await caller.auth.getUser(token);
-  requireThat(!result.error && verified(result.data?.user), 401, "Verified Auth session required.");
+  requireThat(!result.error && verified(result.data?.user), 401, "Verified Auth session required.", "session_expired", false);
   const user = result.data.user;
   const identity = await caller.rpc("platform_operator_identity");
-  requireThat(!identity.error && identity.data?.role === "master_admin" && identity.data?.auth_user_id === user.id && (!original || original.id === user.id), 403, "Master administrator required.");
-  requireThat(uuid.test(identity.data?.session_id || ""), 403, "Live master session required.");
+  requireThat(!identity.error && identity.data?.role === "master_admin" && identity.data?.auth_user_id === user.id && (!original || original.id === user.id), 403, "Master administrator required.", "authorization_denied", false);
+  requireThat(uuid.test(identity.data?.session_id || ""), 403, "Live master session required.", "session_expired", false);
   return { ...user, session_id: identity.data.session_id, password_verification_safe:identity.data.password_verification_safe === true };
 }
 function bearer(req: Request) {
   const value = req.headers.get("Authorization") || "";
   requireThat(/^Bearer \S+$/i.test(value), 401, "Verified Auth session required."); return value.slice(7);
 }
-function publicHandler(work: (req: Request, env: ReturnType<typeof environment>) => Promise<any>) {
+function publicHandler(work: (req: Request, env: ReturnType<typeof environment>) => Promise<any>, action?: string) {
   return async (req: Request) => {
     const headers: Record<string, string> = { "Content-Type": "application/json", "Cache-Control": "no-store", "Vary": "Origin", "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info", "Access-Control-Allow-Methods": "POST, OPTIONS" };
     try {
@@ -50,7 +58,11 @@ function publicHandler(work: (req: Request, env: ReturnType<typeof environment>)
       requireThat(req.method === "POST", 405, "POST required.");
       return new Response(JSON.stringify(await work(req, env)), { status: 200, headers });
     } catch (error) {
-      return new Response(JSON.stringify({ error: error instanceof Failure ? error.message : "Operation unavailable; review before retrying.", review_required: true }), { status: error instanceof Failure ? error.status : 503, headers });
+      // Preflight rejection proves only what THIS invocation did. It cannot
+      // establish absence of a prior durable request, including a completed one.
+      const rejectedAttempt = error instanceof Failure && error.reviewRequired === false;
+      return new Response(JSON.stringify({ error: error instanceof Failure ? error.message : "Operation unavailable; review before retrying.", code: error instanceof Failure ? error.code : "operation_unconfirmed", review_required: action === "delete" || !rejectedAttempt,
+        ...(action === "delete" ? { current_attempt_rejected: rejectedAttempt, operation_state: "unverified" } : {}) }), { status: error instanceof Failure ? error.status : 503, headers });
     }
   };
 }
@@ -58,54 +70,62 @@ async function linked(admin: any, row: any, allowMissing = false, allowBan = fal
   if (!row.auth_user_id) { requireThat(allowMissing, 409, "Legacy unlinked identity requires review."); return null; }
   const result = await admin.auth.admin.getUserById(row.auth_user_id);
   if (result.error?.status === 404 && allowMissing) return null;
-  requireThat(!result.error && result.data?.user, 409, "Auth identity lookup failed; absence is not proven.");
+  requireThat(!result.error && result.data?.user, 409, "Auth identity lookup failed; absence is not proven.", "identity_unavailable", false);
   const user = result.data.user;
-  requireThat(user.id === row.auth_user_id && user.email && email(user.email) === email(row.email) && !user.deleted_at && !user.is_anonymous && (allowBan || !user.banned_until || Date.parse(user.banned_until) <= Date.now()), 409, "Auth identity is blocked or has drifted.");
+  requireThat(user.id === row.auth_user_id && user.email && email(user.email) === email(row.email) && !user.deleted_at && !user.is_anonymous && (allowBan || !user.banned_until || Date.parse(user.banned_until) <= Date.now()), 409, "Auth identity is blocked or has drifted.", "identity_conflict", false);
   return user;
 }
 
-export function teamV2Handler(action: "create" | "update" | "delete" | "deactivate" | "reactivate", factory = createClient) {
+export function teamV2Handler(action: "create" | "update" | "delete" | "deactivate" | "reactivate" | "resend", factory = createClient) {
   return publicHandler(async (req, env) => {
     const token = bearer(req), caller = factory(env.url, env.anon, { ...options, global: { headers: { Authorization: `Bearer ${token}` } } });
     const actor = await master(caller, token);
-    const body = await bodyOf(req, ["id", "request_id", "name", "email", "role", "password", "captchaToken", "acknowledged", "reason", "reconcile"]);
+    const body = await bodyOf(req, ["id", "request_id", "name", "email", "role", "password", "captchaToken", "acknowledged", "reason", "reconcile", "retired_employee_id"]);
     requireThat(uuid.test(body.request_id || "") && (action === "create" || uuid.test(body.id || "")), 400, "Stable operation and target UUID required.");
     const requestId = body.request_id, targetId = action === "create" ? requestId : body.id;
+    if (body.retired_employee_id !== undefined) requireThat(action === "create" && uuid.test(body.retired_employee_id), 400, "Verified retired employee UUID required.");
     if (body.email !== undefined) requireThat(typeof body.email === "string" && body.email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email), 400, "Invalid email.");
     if (body.name !== undefined) requireThat(typeof body.name === "string" && body.name.trim() && body.name.length <= 160, 400, "Invalid name.");
     if (body.role !== undefined) requireThat(["portfolio_manager", "billing_person"].includes(body.role), 400, "Unsupported team role.");
     if (body.reason !== undefined) requireThat(typeof body.reason === "string" && body.reason.length <= 500, 400, "Invalid reason.");
     requireThat(action === "delete" || body.password === undefined, 400, "Team passwords are employee-controlled.");
     if (action === "delete") {
-      requireThat(actor.password_verification_safe, 503, "Master session continuity must be verified before deletion is enabled.");
-      requireThat(body.acknowledged === true && typeof body.password === "string" && body.password.length > 0 && body.password.length <= 256 && typeof body.captchaToken === "string" && body.captchaToken, 400, "Password, fresh CAPTCHA and acknowledgment required.");
+      requireThat(actor.password_verification_safe, 503, "This deletion attempt was rejected because Master session continuity is not approved.", "deletion_disabled", false);
+      requireThat(body.acknowledged === true && typeof body.password === "string" && body.password.length > 0 && body.password.length <= 256 && typeof body.captchaToken === "string" && body.captchaToken, 400, "Password, fresh CAPTCHA and acknowledgment required.", "verification_required", false);
       const verifier = factory(env.url, env.anon, options);
       let verification: any;
       try {
         verification = await verifier.auth.signInWithPassword({ email: actor.email, password: body.password, options: { captchaToken: body.captchaToken } });
-        requireThat(!verification.error && verification.data?.session && verified(verification.data?.user) && verification.data.user.id === actor.id, 403, "Password or CAPTCHA verification failed. Complete fresh verification before retrying.");
+        if (verification.error?.code === "captcha_failed") throw new Failure(403, "Verification expired or was rejected. Complete fresh CAPTCHA verification.", "captcha_failed", false);
+        if (verification.error?.code === "invalid_credentials") throw new Failure(403, "The administrator password was not accepted.", "password_invalid", false);
+        requireThat(!verification.error && verification.data?.session && verified(verification.data?.user) && verification.data.user.id === actor.id, 403, "This deletion attempt was rejected because password or CAPTCHA verification failed.", "verification_failed", false);
       } finally {
         delete body.password; delete body.captchaToken;
         if (verification?.data?.session) {
-          const cleanup = await verifier.auth.signOut({ scope: "local" }); requireThat(!cleanup.error, 503, "Verification session cleanup failed; no deletion started.");
+          const cleanup = await verifier.auth.signOut({ scope: "local" }); requireThat(!cleanup.error, 503, "This deletion attempt was rejected because verification session cleanup failed.", "verification_cleanup_required", false);
         }
       }
-      await master(caller, token, actor);
+      const repeated = await master(caller, token, actor);
+      requireThat(repeated.password_verification_safe && repeated.session_id === actor.session_id, 503, "This deletion attempt was rejected because its safety approval or original session is unavailable.", "deletion_disabled", false);
     }
     const admin = factory(env.url, env.service, options);
-    const command = (step: string, data = {}) => rpc(admin, "platform_team_command", { p_actor: actor.id, p_request: requestId, p_action: step, p_target: targetId, p_data: data, p_session: actor.session_id });
+    const command = (step: string, data = {}) => action === "resend"
+      ? rpc(admin, "platform_team_resend_command", {p_actor:actor.id,p_request:requestId,p_target:targetId,p_step:step,p_session:actor.session_id})
+      : rpc(admin, "platform_team_command", { p_actor: actor.id, p_request: requestId, p_action: step, p_target: targetId, p_data: data, p_session: actor.session_id });
     let operation: any, owned=false;
     try {
       if (action === "create") {
         requireThat(body.email && body.name && body.role && email(body.email) !== email(actor.email), 400, "Employee name, email and role required.");
         await master(caller, token, actor);
-        operation = await command("begin_create", { name: body.name.trim(), email: email(body.email), role: body.role });
+        operation = await command("begin_create", { name: body.name.trim(), email: email(body.email), role: body.role, ...(body.retired_employee_id ? {retired_employee_id:body.retired_employee_id} : {}) });
         owned=operation.new_operation===true;
         if (operation.stage === "completed") return { success: true, already_invited: true, operation_id: requestId };
         // Only the transaction that CREATED the reservation may dispatch Auth.
         requireThat(operation.stage === "reserved" && operation.new_operation === true, 409, "Existing invitation requires reconciliation; do not resend.");
-        const result = await admin.auth.admin.inviteUserByEmail(email(body.email), { redirectTo: `${env.origin}/?reset=true` });
-        requireThat(!result.error && result.data?.user?.id && result.data.user.id !== actor.id && email(result.data.user.email || "") === email(body.email), 503, "Invitation outcome requires reconciliation.");
+        const nonce = operation.requested?.invite_nonce;
+        requireThat(typeof nonce === "string" && /^[a-f0-9]{64}$/.test(nonce), 503, "Invitation reservation requires the current server migration.");
+        const result = await admin.auth.admin.inviteUserByEmail(email(body.email), { redirectTo: `${env.origin}/?reset=true`, data:{retrasell_invite_nonce:nonce} });
+        requireThat(!result.error && result.data?.user?.id && result.data.user.id !== actor.id && email(result.data.user.email || "") === email(body.email) && result.data.user.user_metadata?.retrasell_invite_nonce === nonce, 503, "Invitation outcome requires reconciliation.");
         await master(caller, token, actor);
         operation = await command("finish_create", { auth_user_id: result.data.user.id });
       } else {
@@ -113,12 +133,22 @@ export function teamV2Handler(action: "create" | "update" | "delete" | "deactiva
         if ((!found.data || found.data.length !== 1) && action === "delete" && body.reconcile === true) {
           operation = await command("reconcile_delete"); return { success: operation.stage === "completed", operation_id: requestId };
         }
-        requireThat(!found.error && found.data?.length === 1, 404, "Unique live employee required.");
+        requireThat(!found.error && found.data?.length === 1, 404, "Unique live employee required.", "identity_unavailable", false);
         const row = found.data[0];
-        requireThat(row.auth_user_id !== actor.id && email(row.email) !== email(actor.email) && ["portfolio_manager", "billing_person"].includes(row.role), 403, "Master account is protected.");
+        requireThat(row.auth_user_id !== actor.id && email(row.email) !== email(actor.email) && ["portfolio_manager", "billing_person"].includes(row.role), 403, "Master account is protected.", "master_protected", false);
         const target = await linked(admin, row, action === "delete", ["deactivate", "reactivate", "delete"].includes(action));
         await master(caller, token, actor);
-        if (action === "deactivate" || action === "reactivate") {
+        if (action === "resend") {
+          operation = await command("begin"); owned = operation.new_operation === true;
+          if (operation.stage === "completed") return {success:true,already_sent:true,operation_id:requestId};
+          requireThat(operation.stage === "reserved" && owned, 409, "Existing setup email requires reconciliation; do not resend blindly.");
+          await master(caller, token, actor); operation = await command("dispatch");
+          const sent = target!.email_confirmed_at
+            ? await admin.auth.resetPasswordForEmail(row.email, {redirectTo:`${env.origin}/?reset=true`})
+            : await admin.auth.admin.inviteUserByEmail(row.email, {redirectTo:`${env.origin}/?reset=true`});
+          requireThat(!sent.error, 503, "Setup email outcome requires reconciliation.");
+          await linked(admin,row); await master(caller, token, actor); operation = await command("finish");
+        } else if (action === "deactivate" || action === "reactivate") {
           operation = await command(action === "deactivate" ? "deactivate" : "begin_reactivate");
           owned = operation.new_operation === true;
           if (operation.stage === "completed") return { success: true, operation_id: requestId, already_completed: true };
@@ -169,11 +199,14 @@ export function teamV2Handler(action: "create" | "update" | "delete" | "deactiva
       requireThat(operation.stage === "completed", 503, "Operation incomplete; reconcile the same request.");
       return { success: true, operation_id: requestId };
     } catch (error) {
+      // A local durable operation also prevents classifying this invocation as
+      // pre-operation. The outer handler retains unknown history on early failures.
+      if (operation && error instanceof Failure) error.reviewRequired = true;
       if (owned && operation.stage !== "completed") { try { await command("mark_review"); } catch { /* Required durable operation/start audit remains. */ } }
       // Sanitized errors deliberately exclude provider payloads, credentials and links.
       throw error;
     }
-  });
+  }, action);
 }
 
 export function passwordHandler(factory = createClient, transport = fetch) {

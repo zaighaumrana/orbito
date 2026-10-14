@@ -16,12 +16,31 @@ function fixture(){
   FormData:class{constructor(form){this.form=form;}entries(){return Object.entries(this.form.values||{});}},validateOwner:(name,email)=>({owner_name:name,owner_email:email}),
   serverConfigOperation:async(_id,_changes,readStatus,send)=>{await readStatus();return send('synthetic-request');},
   window:{addEventListener(){}},document:{getElementById:()=>null,addEventListener:(name,fn)=>{if(name==='click')click=fn;}},setInterval(){},validateSession(){},rpc:async(...args)=>{calls.push(args);return{};}};
- vm.createContext(ctx);for(const p of ['src/state.js','src/async-context.js','src/supabase.js','src/forms.js','src/events.js','src/provisioning.js'])vm.runInContext(strip(read(p))+(p==='src/state.js'?'\nglobalThis.pState=pState;':''),ctx);
+ vm.createContext(ctx);for(const p of ['src/state.js','src/async-context.js','src/team-errors.js','src/supabase.js','src/forms.js','src/events.js','src/provisioning.js'])vm.runInContext(strip(read(p))+(p==='src/state.js'?'\nglobalThis.pState=pState;':''),ctx);
  ctx.initEvents();ctx.pState.authenticated=true;ctx.pState.dataReady=true;ctx.pState.currentUser={auth_user_id:'master',role:'master_admin',session_id:'session-one'};ctx.pState.page='clients';
  return {ctx,calls,messages,pending,submit:(type,values={})=>ctx.handleFormSubmit({preventDefault(){},target:{dataset:{pForm:type},values}}),
   click:async dataset=>{click({target:{closest:s=>s.includes('data-auth-form')?null:{dataset,disabled:false}},preventDefault(){}});await tick();}};
 }
 function clientWrite(f,result){const original=f.ctx.transport.rpc;f.ctx.transport.rpc=(name,args)=>name==='platform_save_client'?result:original(name,args);}
+test('targeted retirement approval and Pending popup dispatch only explicit Master-owned invitations',async()=>{
+ const f=fixture();f.ctx.pState.page='settings';f.ctx.pState.data.teamArchive=[{id:'old-employee',email:'again@example.test',deleted_at:'2026-10-13'}];
+ f.ctx.pState.modal={type:'add-platform-user',data:{requestId:'fresh-request'}};let approved=false;const sent=[],dialogs=[];
+ f.ctx.confirmDialog=async options=>{dialogs.push(options);return approved;};f.ctx.loadPlatform=async()=>{};
+ f.ctx.transport.functions={invoke:async(name,args)=>{sent.push([name,args.body]);return {data:{success:true}};}};
+ const values={name:'New employee',email:'again@example.test',role:'billing_person'};
+ await f.submit('add-platform-user',values);assert.equal(sent.length,0);approved=true;await f.submit('add-platform-user',values);
+ assert.equal(sent[0][1].retired_employee_id,'old-employee');assert.equal(sent[0][1].request_id,'fresh-request');
+ f.ctx.pState.data.platformUsers=[{id:'pending',name:'Pending employee',status:'Pending'}];await f.click({pAction:'invitation-status',pId:'pending'});
+ assert.equal(dialogs.at(-1).confirmLabel,'Resend invitation');assert.equal(sent.at(-1)[0],'resend-platform-invitation');assert.equal(sent.at(-1)[1].id,'pending');
+ f.ctx.pState.currentUser.role='billing_person';const count=sent.length;await f.click({pAction:'invitation-status',pId:'pending'});assert.equal(sent.length,count);
+});
+test('targeted deletion response decoding never replaces uncertainty with a late or unverified rejection',async()=>{
+ const f=fixture();
+ const legacy=await f.ctx.teamErrorMessage(null,{context:{clone:()=>({json:async()=>({code:'deletion_disabled',review_required:false})})}},'request');
+ assert.match(legacy,/Deletion is disabled.*earlier attempt may still require reconciliation.*Review request request/);assert.doesNotMatch(legacy,/No (employee )?deletion started/);
+ assert.match(await f.ctx.teamErrorMessage({code:'deletion_disabled',review_required:true},null,'request'),/Review request request/);
+ assert.match(await f.ctx.teamErrorMessage({code:'unknown',review_required:false},null,'request'),/Review request request/);
+});
 test('client A/B reversed responses cannot replace B details with A data',async()=>{
  const f=fixture(),a={id:1},b={id:2};f.ctx.pState.page='client-detail';const first=f.ctx.loadClientData(a);const second=f.ctx.loadClientData(b);
  f.pending.get(2)[0].resolve({data:{client:2}});await second;f.pending.get(1)[0].resolve({data:{client:1}});await first;

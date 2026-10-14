@@ -1,6 +1,6 @@
 // Verified-session doubles plus REAL PostgreSQL canonical RPC and RLS boundaries.
-// Import also runs the explicitly mocked handler/frontend cases. No hosted proof.
-import {fixture} from './platform-team.test.mjs';
+// Shared fixture registers no unit tests. No hosted proof.
+import {fixture} from './helpers/platform-team-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync,readdirSync} from 'node:fs';

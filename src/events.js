@@ -10,6 +10,7 @@ import { generateInvoice, printClientInvoices } from "./billing.js";
 import { validateSession }                 from "./helpers.js";
 import { rpc } from "./operations.js";
 import { openShopSupport } from './support-handoff.js';
+import { teamErrorMessage } from './team-errors.js';
 
 export function initEvents() {
 
@@ -405,7 +406,18 @@ export function initEvents() {
 
     if (action === 'invitation-status') {
       const user=pState.data.platformUsers.find(u=>u.id===el.dataset.pId);if(!user)return;
-      await showMessage({title:'Invitation status',message:`${user.name}: ${user.status}. Pending means password setup has not completed; sending an email is not acceptance.`});return;
+      if(pState.currentUser?.role!=='master_admin' || user.status!=='Pending')return;
+      const requestId=crypto.randomUUID();el.disabled=true;
+      try {
+        const resend=await confirmDialog({title:'Invitation status',message:`${user.name}: Pending. Password setup has not completed. If the setup link expired, request a fresh email for this existing account. Sending an email does not activate the employee.`,confirmLabel:'Resend invitation'});
+        if(!resend || !current())return;
+        const {data,error}=await pb.functions.invoke('resend-platform-invitation',{body:{id:user.id,request_id:requestId}});
+        if(!current())return;
+        if(error || data?.success!==true){const message=await teamErrorMessage(data,error,requestId);if(current())notify.error(message);}
+        else notify.success(data.already_sent?'The setup email request was already recorded.':'Setup email requested. Delivery and link acceptance must still be verified.');
+        await loadPlatform();if(current())render();
+      }finally{if(el.isConnected)el.disabled=false;}
+      return;
     }
     /* ── Audited team lifecycle; server independently verifies every request. ── */
     if (['deactivate-platform-user','reactivate-platform-user','delete-platform-user','reconcile-platform-user'].includes(action)) {
@@ -427,8 +439,8 @@ export function initEvents() {
         if(!current())return;
         const {data,error}=await pb.functions.invoke(deletion?'delete-platform-user':action,{body:{id:user.id,request_id:requestId,...(confirmation || {}),...(action==='reconcile-platform-user'?{reconcile:true}:{})}});
         if(!current())return;
-        if(error || data?.success!==true){notify.error(`Operation could not be confirmed. Review request ${requestId}; do not retry an uncertain Auth operation blindly.`);await loadPlatform();if(current())render();return;}
-        notify.success('Team operation verified. Reactivated employees must sign in again.');
+        if(error || data?.success!==true){const message=await teamErrorMessage(data,error,requestId);if(!current())return;notify.error(message);await loadPlatform();if(current())render();return;}
+        notify.success(deletion?'Employee permanently retired. Auth absence was verified and historical evidence retained.':'Team operation verified. Reactivated employees must sign in again.');
         await loadPlatform(); if(current())render();
       } finally {if(confirmation){confirmation.password='';confirmation.captchaToken='';}if(el.isConnected)el.disabled=false;if(document.getElementById('verification-widget'))void mountTurnstile();}
       return;

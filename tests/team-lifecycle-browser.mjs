@@ -5,6 +5,8 @@ import {createServer} from 'node:http';
 import {pathToFileURL} from 'node:url';
 import assert from 'node:assert/strict';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
+const focused=process.argv.length===3 && process.argv[2]==='--delete-dialog-only';
+assert.ok(process.argv.length===2 || focused,'Only the focused local selector is accepted');
 let chromium;
 try{({chromium}=await import(process.env.PLAYWRIGHT_MODULE_PATH?pathToFileURL(process.env.PLAYWRIGHT_MODULE_PATH).href:'playwright'));}
 catch{console.log('SKIP: existing Playwright unavailable; no installation attempted.');process.exitCode=2;}
@@ -35,7 +37,7 @@ import {notify,confirmDialog,showMessage,deleteUserDialog,cancelDialogs} from '/
   try{browser=await chromium.launch({headless:true,...(process.env.CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.CHROMIUM_EXECUTABLE_PATH}:{})});}
   catch{console.log('SKIP: local Chromium unavailable; no tooling repair attempted.');process.exitCode=2;}
   if(browser){const context=await browser.newContext();await context.route('**/*',route=>route.request().url().startsWith(origin+'/')?route.continue():(external.push(route.request().url()),route.abort()));const page=await context.newPage();page.setDefaultTimeout(6000);page.on('pageerror',e=>errors.push(e.message));
-   for(const width of [320,768,1440])for(const theme of ['light','dark']){
+   for(const width of focused?[768]:[320,768,1440])for(const theme of focused?['dark']:['light','dark']){
     await page.setViewportSize({width,height:900});await page.goto(origin);await page.waitForFunction(()=>window.ready);await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
     for(const title of ['Active Users','Pending Invitations','Inactive Users','Archived Users'])await page.getByRole('heading',{name:title,exact:true}).waitFor();
     assert.equal(await page.locator('img').count(),0);assert.equal(await page.getByRole('button',{name:'Send Password Reset Email'}).count(),0);
@@ -44,7 +46,7 @@ import {notify,confirmDialog,showMessage,deleteUserDialog,cancelDialogs} from '/
     await opener().click();await dialog.waitFor();assert.equal(await page.locator('input[name=password]').getAttribute('type'),'password');assert.equal(await page.locator('#platform-app').evaluate(n=>n.inert),true);
     await page.keyboard.press('Escape');await dialog.waitFor({state:'detached'});assert.equal(await page.evaluate(()=>window.writes),0);
     await opener().click();await dialog.waitFor();await dialog.getByRole('button',{name:'Cancel',exact:true}).click();assert.equal(await page.evaluate(()=>window.writes),0);
-    await opener().click();await dialog.waitFor();await page.locator('.platform-dialog-backdrop').click({position:{x:2,y:2}});assert.equal(await page.evaluate(()=>window.writes),0);
+    await opener().click();await dialog.waitFor();await page.locator('input[name=password]').fill('Preserved fixture');await page.locator('.platform-dialog-backdrop').click({position:{x:2,y:2}});assert.equal(await page.evaluate(()=>window.writes),0);assert.equal(await dialog.count(),1);assert.equal(await page.locator('input[name=password]').inputValue(),'Preserved fixture');await dialog.getByRole('heading',{name:'Permanently Delete User'}).click();assert.equal(await dialog.count(),1);await dialog.getByRole('button',{name:'Cancel',exact:true}).click();
     await opener().click();await dialog.waitFor();const box=await dialog.boundingBox();assert.ok(box.x>=0 && box.x+box.width<=width+1);
     for(let i=0;i<12;i++){await page.keyboard.press('Tab');assert.equal(await dialog.evaluate(n=>n.contains(document.activeElement)),true);}
     await page.locator('input[name=password]').fill('SyntheticDelete1!');await dialog.locator('input[type=checkbox]').check();
@@ -54,7 +56,7 @@ import {notify,confirmDialog,showMessage,deleteUserDialog,cancelDialogs} from '/
     await page.getByRole('region',{name:'Pending Invitations'}).getByRole('button',{name:'Delete Permanently'}).click();await dialog.waitFor();await page.evaluate(()=>{window.revoked=true;window.dispatchEvent(new Event('focus'));});await dialog.waitFor({state:'detached'});await page.getByRole('heading',{name:'Sign in'}).waitFor();assert.equal(await page.evaluate(()=>window.writes),1);assert.equal(await page.evaluate(()=>window.state.data.platformUsers.length),0);assert.equal(await page.evaluate(()=>window.state.currentUser.role),null);assert.equal(await page.evaluate(()=>window.logoutScope),'local');
     console.log('PASS: actual Team/secure deletion dialog at '+width+'px '+theme+'; escaped identity, four states, cancellation, focus, CAPTCHA gate, one-shot confirmation, rerender and canonical focus revocation clearing private state.');
    }
-   assert.deepEqual(external,[]);assert.deepEqual(errors,[]);await context.close();console.log('PASS: six synthetic browser groups; no external traffic.');
+   assert.deepEqual(external,[]);assert.deepEqual(errors,[]);await context.close();console.log('PASS: '+(focused?'one focused':'six')+' synthetic browser groups; no external traffic.');
   }
  }catch(error){console.error('FAIL: local browser — '+error.message);process.exitCode=1;}
  finally{await browser?.close();await new Promise(r=>server.close(r));}

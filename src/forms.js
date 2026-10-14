@@ -6,7 +6,8 @@ import { rpc, recordPayment, retryOperation } from "./operations.js";
 import { pState, PCFG, clearSensitiveState } from "./state.js";
 import { pb, reauthenticateMaster, loadPlatform, loadClientData, updateClientConfig } from "./supabase.js";
 import { resetTurnstile, captchaBusy } from './turnstile.js';
-import { notify, showMessage, cancelDialogs } from './dialogs.js';
+import { notify, showMessage, confirmDialog, cancelDialogs } from './dialogs.js';
+import { teamErrorMessage } from './team-errors.js';
 import { render } from "./render.js";
 
 function validatePassword(pw) {
@@ -166,11 +167,15 @@ export async function handleFormSubmit(event) {
     if (pState.currentUser.role !== "master_admin") {
       notify.error("Only Master Admin can add users."); return;
     }
+    const retired=(pState.data.teamArchive || []).filter(u=>u.email.trim().toLowerCase()===data.email.trim().toLowerCase())
+      .sort((a,b)=>b.deleted_at.localeCompare(a.deleted_at) || b.id.localeCompare(a.id))[0];
+    if(retired && !await confirmDialog({title:'Invite as a fresh employee?',message:'This email belonged to a permanently retired employee. Create a new account and role assignment without restoring the old identity, password, permissions or sessions?',confirmLabel:'Invite fresh employee'}))return;
+    if(!current())return;
     const { data: invitation, error: fnErr } = await pb.functions.invoke("create-platform-user", {
-      body: { email: data.email, name: data.name, role: data.role, request_id:pState.modal.data.requestId },
+      body: { email: data.email, name: data.name, role: data.role, request_id:pState.modal.data.requestId,...(retired?{retired_employee_id:retired.id}:{}) },
     });
     if(!current())return;
-    if (fnErr || invitation?.success!==true) { notify.error('Invitation could not be confirmed. Review the server audit before retrying.'); return; }
+    if (fnErr || invitation?.success!==true) { const message=await teamErrorMessage(invitation,fnErr,pState.modal.data.requestId);if(current())notify.error(message); return; }
     if (invitation?.already_invited) notify.info('This invitation was already recorded. No new invitation email was sent.');
     else notify.success("Invite sent. They'll receive an email to set up their account.");
     await refresh(); return;

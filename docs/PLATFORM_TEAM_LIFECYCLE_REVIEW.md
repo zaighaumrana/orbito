@@ -15,11 +15,11 @@ Historical local audit checkpoint: `fix/pr4-security-stabilization` at `a0dae0fc
 | Fresh access | Former Active employees use original password. Pre-cutoff sessions remain denied forever. A new native OTP recovery session may set a password but cannot gain normal authority after suspension; fresh password login is required. |
 | Legacy Inactive | Unknown origin or missing/unlinked Auth stays review-required. Never adopt/create/delete by email. |
 | Permanent deletion | Verified Master, approved continuity, current password, fresh CAPTCHA and acknowledgment. Durable revocation before exact-UUID Auth deletion. Archive/removal/final audit only after database-proven absence. |
-| Archived | Immutable Master-only retained identity/dates/actor/request/reason. No ordinary restoration/reinvitation. |
+| Archived | Immutable Master-only retained identity/dates/actor/request/reason. The identity is terminal; forward 15 permits explicit fresh onboarding of its email after verified absence. |
 
 Canonical operator authority requires confirmed/nonanonymous/undeleted/unbanned Auth, valid bound Master/configuration, matching team email/role, live owned `auth.sessions`, session cutoff and no tombstone. Missing/malformed/expired/mismatched/removed sessions fail closed. Ordinary browsers cannot read Auth sessions or modify cutoffs/identity/operations. Existing RLS, RPCs and privileged Edge checks inherit this boundary.
 
-Restrictive authenticated Storage/private Realtime policies overlay existing policies without granting new permissions. Managed RLS and table-owner permission are prerequisites. Public buckets, anonymous/public channels and already-joined authorization caches need separate hosted inventory; this is not a claim of immediate transport disconnection. Current Platform source has no Realtime subscriptions.
+Restrictive authenticated Storage/private Realtime policies overlay existing policies without granting new permissions. Managed RLS and supported policy-creation authority (owner authority or the loaded supautils allowlist) are prerequisites. Public buckets, anonymous/public channels and already-joined authorization caches need separate hosted inventory; this is not a claim of immediate transport disconnection. Current Platform source has no Realtime subscriptions.
 
 Browser authority checks run every minute, on focus and when visible. Confirmed denial cancels dialogs, clears private state and returns to login with local logout. Network/ambiguous failures do not declare deactivation. Generation checks discard late authorization/config/client/username responses. JavaScript cannot erase previously copied/downloaded information.
 
@@ -46,6 +46,118 @@ Delete checks Storage owner/owner_id, custom Auth FKs and team FKs at reservatio
 Ban/unban is not a provider compare-and-set API. Independent/changed bans block Reactivate; concurrent dashboard/provider changes must be frozen. Failure/uncertainty keeps Inactive and an audited review-required request. Do not automatically reban/unban/resend/recreate/redelete. Trusted recovery must independently compare current Auth/SQL against recorded UUID/ban and approve a narrowly audited reconciliation before any correction. No public automatic reconciliation exists for ambiguous ban/unban.
 
 Delete reconciliation rechecks the same durable request and UUID/email absence without repeating deletion. If Auth still exists or dependencies are unknown, stop. Never fabricate history or restore vulnerable handlers. Pinned GoTrue has no verified admin-UUID logout-all endpoint: ban blocks password/refresh while applied; SQL cutoff permanently protects retained session rows. No forged employee JWT or manual production Auth-session deletion.
+
+## 2026-10-14 — Forward 15 retirement, fresh onboarding and invitation renewal
+
+Current local base: `357775fd563eb1df8abc74326de61ec9d2ce0f25`, clean before this
+correction. PR #4 remains Draft/unmerged. Read-only staging checks found fourteen
+genuine migrations, continuity approval **disabled**, two legacy mapped Auth UUIDs
+absent (with no replacement Auth identity at either email), and one Pending
+employee with a matching confirmed Auth identity, a recorded sign-in and no open
+lifecycle operation. Auth confirmation/sign-in does not prove Platform onboarding.
+These are sanitized metadata findings, not approval to change any account.
+
+The disabled policy causes a definite pre-operation HTTP 503. There are no deletion
+operations for the three inspected records. The server now returns an explicit
+sanitized `deletion_disabled` code with `review_required=false`; the frontend
+distinguishes password/CAPTCHA/session/identity rejections. An error after a durable
+operation still reports uncertainty and preserves the same-request reconciliation.
+The continuity gate stays disabled; successful login or a second tab cannot enable it.
+
+`20261013214541_platform_team_retirement_reonboarding.sql` is a new forward
+migration. All fourteen preceding migrations remain immutable. Employee IDs and
+archived Auth UUIDs stay unique/terminal; only archive email uniqueness becomes a
+history lookup index. Add User explicitly confirms the latest retired predecessor.
+The server independently checks that predecessor and absence of previous Auth
+identities before reserving a fresh employee UUID. Live-email/UUID uniqueness and
+open-operation constraints prevent duplicate/concurrent onboarding and cleanup.
+An immutable audit entry records the predecessor; old archives are never edited.
+
+New invitations carry a private reservation nonce into native Auth metadata.
+Binding requires that exact nonce, fresh creation/invitation timestamps and a UUID
+absent from retirement history. Metadata alone grants no role. This prevents the
+native invite API's existing-unconfirmed-user behavior from adopting another
+identity. Unknown invite outcomes remain reserved/review-required, never resent
+or adopted automatically. Unrelated/mismatched Auth identities block deletion;
+verified dangling/NULL mappings may be retired without an Auth delete call.
+
+The Pending status popup now offers **Resend invitation**. Its new JWT-protected
+`resend-platform-invitation` endpoint independently requires live Master authority,
+a matching Pending Auth UUID, no conflicting operation and a one-minute cooldown.
+Unconfirmed identities receive a renewed native invitation; confirmed Pending
+identities receive native recovery for the same Set New Password screen. Both keep
+the existing UUID, role and Pending status until normal verified password setup.
+The server records reservation/dispatch/final audit; duplicate or uncertain requests
+cannot dispatch another email. In-progress/uncertain setup or resend requires
+operator reconciliation, not automatic cancellation. Provider acceptance is not
+proof of delivery. No third-party sender, new secret or separate reset button exists.
+
+The permanent deletion dialog alone ignores backdrop clicks, preserves inputs and
+requires explicit Cancel/Escape or a valid single confirmation. Close/logout still
+cleans Turnstile and restores focus. Other dialog dismissal behavior is preserved.
+
+Exact local correction manifest (18 files; unstaged, not committed or pushed):
+
+- Frontend: `src/dialogs.js`, `src/events.js`, `src/forms.js`,
+  `src/pages/settings.js`, new `src/team-errors.js`.
+- Server/configuration: `supabase/functions/_shared/platform-team-v2.ts`,
+  new `supabase/functions/resend-platform-invitation/index.ts`, `supabase/config.toml`.
+- Forward migration: new
+  `supabase/migrations/20261013214541_platform_team_retirement_reonboarding.sql`.
+- Focused tests/runners: `tests/auth-provider-local.mjs`, `tests/dialogs.test.mjs`,
+  `tests/frontend-races.test.mjs`, `tests/platform-team.test.mjs`,
+  `tests/run-platform-team-local.mjs`, `tests/team-lifecycle-browser.mjs`,
+  `tests/team-lifecycle-postgres.test.mjs`.
+- Documentation: `ENGINEERING_HISTORY.md`, `docs/PLATFORM_TEAM_LIFECYCLE_REVIEW.md`.
+
+Focused PASS: 17 actual server-source regressions, two actual frontend-handler/error
+cases, four dialog groups, four disposable PG17 lifecycle/rollback/security groups,
+one real GoTrue hard-delete/fresh-UUID/retired-link group and one real Chromium
+dialog group (768px, dark, synthetic transport/CAPTCHA, no external page traffic).
+Shared/new-handler Deno checks, JS syntax, synthetic Vite build and integrity pass.
+Initial migration-anchor/DOM-fixture failures were corrected. SKIP: actual email
+delivery, hosted CAPTCHA/continuity/endpoint acceptance, wall-clock link expiry,
+other browser sizes/themes and unrelated full suites. No hosted mutation occurred.
+
+### Ordered staging approval gate
+
+1. Obtain independent source approval and separate checkpoint/deployment approval.
+   Take a fresh recoverable backup, then freeze team/identity/provider changes and
+   drain in-flight requests. Do not change the scheduler without separate approval.
+2. Reconfirm staging project, reviewed SHA, fourteen genuine versions, exact Master
+   binding, target mappings, dependencies and no unresolved operations. Run CLI
+   2.120.0 dry run: **only forward 15**. Do not replay migrations 13/14.
+3. After separate authorization, apply forward 15 transactionally and verify the
+   genuine fifteenth history row, unchanged Master/roles/RLS/audit and immutable
+   retirement records. Unexpected stored function definitions abort the migration.
+4. While frozen, deploy reviewed `create-platform-user`, `delete-platform-user` and
+   new `resend-platform-invitation`, all with JWT verification enabled. The create
+   handler and forward 15 must be coordinated; old handlers cannot finalize new
+   nonce-protected invitations. Confirm deployed source/origin/redirect configuration.
+5. Separately deploy the matched staging frontend through the approved Cloudflare
+   process; do not merge PR #4 or deploy production as part of this correction.
+6. Prove actual original Master refresh during/after independent password verification
+   and local verifier cleanup, including repetition and failure paths, under hosted
+   Auth session policies and fresh CAPTCHA. Only then separately authorize the
+   existing audited `configure_password_verification` call for the verified bound
+   UUID. Never infer continuity from login alone or reset the Master password.
+7. Authorize disposable-account acceptance first: renewal, expired/retired links,
+   retirement, same-email fresh onboarding, role denials and original Master refresh.
+   Only after that passes separately authorize cleanup of the three real obsolete
+   employees. Verify each exact UUID/email absence/archive/audit before reinviting.
+
+Before commit, a SQL failure rolls back forward 15; never repair history. After
+commit, old email-embargo code is not a safe rollback once an email has been reused.
+Keep writes frozen on a partial function/frontend rollout. Reconcile interrupted
+deletion with the same request and verified Auth absence; do not repeat deletion.
+For an uncertain invitation or resend, compare the exact operation, Auth metadata
+and provider/audit evidence. A separately approved, narrowly audited trusted recovery
+decision is required before releasing a reservation; no generic public SQL cleanup
+or automatic provider replay is supplied. Auth deletion cannot be undone by source
+rollback. Backup/provider portability and email delivery limitations still apply.
+
+Local implementation only. No policy enablement, real user/email change, hosted
+migration, deployment, commit/push or merge. Staging and production remain NO-GO.
 
 ## Ordered staging plan — all hosted steps require separate approval
 
@@ -100,3 +212,125 @@ actual role and account journeys before resuming. Failures stay contained; never
 repair history or downgrade to insecure handlers. Native continuity/destructive
 approval, mail/CAPTCHA, managed services, recovery/Vault/legal/Shop gates remain.
 Keep PR #4 Draft; staging/production remain NO-GO.
+
+## 2026-10-14 — Independent F1/F2/F3 correction checkpoint
+
+The independent REPORT.md and both reproduction sources/logs were read before
+application edits. The eighteen local files exactly matched the independently
+reviewed ZIP; branch/base remain feature/platform-team-lifecycle-v2 / 357775f.
+The review's FAIL verdict was investigated, not treated as independent approval.
+Before correction, its two actual-handler/decoder reproductions demonstrated F1;
+the requested eight-file test run reproduced 121 PASS / 2 FAIL (F2 and F3).
+Those reproduction assertions demonstrated defects, not security passes.
+
+### F1: invocation rejection never proves prior operation absence
+
+The old catch override knew only the operation obtained in the current invocation.
+Auth/session/password/continuity failures before that assignment could label a
+previously dispatched deletion as never started. All deletion failures now retain
+`review_required=true` and `operation_state="unverified"`. An explicit
+`current_attempt_rejected=true` identifies a known pre-operation rejection of THIS
+invocation only; late failures after a local reservation do not receive that marker.
+Neither field claims the absence, unresolved stage or completion of a prior request.
+
+No new durable lookup/RPC/permission is introduced: an early failed canonical session
+or disabled continuity gate cannot safely establish historical state. Creating a
+privileged client before that gate would violate the existing verification boundary.
+Even an initial wrong-password/policy rejection therefore retains uncertainty about
+possible earlier attempts. Tests separately verify zero operations/dispatches for
+those controlled first-attempt fixtures. Completed deletion is reported only from
+the existing exact-actor/request/target SQL reconciliation returning completed.
+
+The decoder uses whitelisted static reasons and always retains the request/review
+warning. It also handles old `review_required=false` responses conservatively; none
+claims "No deletion started." Unknown, contradictory or unreadable responses remain
+uncertain. No provider replay, authorization bypass, credential logging or operation
+detail exposure is added. Existing UUID/session, password/CAPTCHA, durable revocation,
+dependency/absence checks, audit and one-dispatch SQL remain intact.
+
+Fourteen actual-handler/decoder regressions cover initial rejection, uncertain dispatch,
+same-ID Auth/continuity/session/password/dependency/target failures, completed repeats,
+different/mismatched requests, verified-absence reconciliation and legacy/error decoding.
+The independent two-case reproductions were copied outside Git and changed to assert
+the corrected behavior, preserving their originals. Both corrected cases pass. Real
+SQL also denies conflicting target/actor/request attempts while preserving the original
+dispatched stage. No duplicate deletion is observed in these controlled tests.
+
+### F2: precise native-email guard and side-effect-free fixtures
+
+The guard allows "Resend invitation" and native invite/recovery. It rejects actual
+known provider SDK imports/dependencies/constructors, API domains, sender-specific
+variables and rejected custom-hook/recovery endpoints. Deliberate SDK (including
+remote/npm imports), API, environment and legacy-endpoint insertions are detected.
+Inactive commented native Supabase SMTP examples are not runtime integration.
+
+Reusable Auth/REST fixtures now live in tests/helpers/platform-team-fixture.mjs,
+which imports no test runner and registers no tests. The canonical PostgreSQL test
+imports that helper directly; its two groups no longer register the unit suite.
+The helper's operation identity/open-operation/completion behavior was aligned with
+the existing SQL for meaningful negative tests. A separate test imports it in a new
+Node process and verifies no TAP/test registration. No production dependency changes.
+
+### F3: realistic archive state without production fallback changes
+
+The invitation fixture uses the real state initializer, then adds the loaded Master
+archive/operation datasets. Actual forms are exercised for ordinary invitations,
+latest normalized-email predecessor selection and explicit confirmation/cancellation,
+live-email denial, stale predecessor rejection, unchanged archive history and unloaded
+malformed data failing closed. Mocked server denials are distinguished from the real
+SQL retirement/uniqueness checks. No production form/state fallback was added.
+
+### Executed validation and evidence
+
+Exact commands, exit statuses, timestamps and full outputs are preserved OUTSIDE Git
+under Development/RetraSellReviewEvidence/2026-10-14-F1-F3. commands.jsonl is the command
+ledger; source-integrity.json records the final manifest/hashes and protected refs.
+Before/after reproduction sources and logs are retained. No totals below combine
+overlapping selectors or mock tests with end-to-end journeys.
+
+| Executed command/scope | Observed result |
+|---|---|
+| Requested eight-file `node --test` command from the task | 125/125 PASS, exit 0; original 123 plus provider-fixture isolation and archive cases. Final archive fixture refinement also rerun narrowly: 2/2 PASS. |
+| `node --test tests/team-deletion-errors.test.mjs` | 14/14 PASS, exit 0; actual server/decoder with controlled transport/durable-state doubles. |
+| Corrected independent two-case reproduction | 2/2 PASS, exit 0; overlaps the fourteen cases, not an additional distinct coverage claim. |
+| `node tests/run-platform-team-local.mjs` | Final run: 23/23 PASS, exit 0 (6 bootstrap, 2 canonical, 11 lifecycle, 4 role/API groups); 534 seconds overall. No imported unit-test registrations. |
+| `node tests/run-platform-team-local.mjs --retirement-only` | 4/4 PASS, exit 0; real PG17, migration failure rollback, resend and durable deletion/roles. Overlaps general runner. |
+| `node tests/run-platform-team-local.mjs --reads-only` | 4/4 PASS, exit 0; real SQL/RLS and local signed-JWT PostgREST at migration-14 baseline. Overlaps general runner. |
+| `node tests/auth-provider-local.mjs` | Six native GoTrue groups PASS, exit 0; synthetic accounts, password/refresh/ban/recovery/invite setup, forced expiry, single-session negative control. No SMTP. |
+| `node tests/team-lifecycle-browser.mjs` | Six actual Chromium groups PASS, exit 0; 320/768/1440, light/dark, synthetic Auth/CAPTCHA and blocked external traffic. |
+| Deno 2.4.5 `check --no-config --no-lock` | PASS, exit 0: shared team source plus create/delete/resend entrypoints. |
+| Changed JS/MJS `node --check`; synthetic Vite 5.4.21 build | PASS, exit 0; private env loading disabled, synthetic values and temporary output only. |
+| Whitespace/source/secret-format integrity | PASS: applied migrations 1–14 and frozen Shop match HEAD; forward 15 byte-identical to reviewed ZIP; no staged files/protected-ref changes. |
+
+Transient validation failures were retained: two overly strict test-double/guard
+conditions were corrected (new invitation fixture row and commented SMTP example).
+The initial general runner passed six bootstrap plus two canonical groups, then its
+existing 180-second child-process deadline killed the eleven-group lifecycle file.
+Only that local file's deadline is now bounded at 480 seconds; Docker command deadlines,
+assertions and test selection are unchanged. The complete rerun passed every group;
+no test was skipped to pass the runner.
+The initial synthetic build hit sandbox EPERM; the same synthetic helper passed with
+local file access. Existing Node typeless/experimental and Vite CJS-helper warnings are
+tooling warnings, not suppressed or represented as application failures.
+
+SKIP/pending: actual SMTP acceptance/delivery, hosted original Master refresh/continuity,
+real CAPTCHA/iframe accessibility, elapsed wall-clock expiry, hosted endpoint/journeys,
+migration-15 CLI history-insert/connection-loss fault injection, and unrelated sibling-Shop
+tests. Native forced expiry is tested, not elapsed wall-clock expiry. Existing independent
+concurrency findings remain evidence, not a new rerun here. No hosted project was contacted.
+
+The current local correction set is 23 files: the prior eighteen, plus modified
+tests/platform-auth-dialogs.test.mjs and tests/platform-team-database.test.mjs, and new
+tests/helpers/native-email-guard.mjs, tests/helpers/platform-team-fixture.mjs and
+tests/team-deletion-errors.test.mjs. This checkpoint further changes shared team errors,
+the decoder, affected tests and documentation; forward 15 remains unchanged.
+
+Keep the preceding forward-15-only backup/freeze/dry-run/coordinated rollout and recovery
+gates. Retain/reconcile pre-15 open create reservations before cutover; they lack nonce
+receipts and cannot be blindly replayed. Original reviewed ZIP is preserved as prior
+evidence and has not been updated to contain this checkpoint. No stage/commit/push,
+PR modification/merge, policy enablement, scheduler/Shop/Cloudflare change, real email,
+employee mutation or hosted SQL/deployment occurred. Fresh independent review is required;
+this is not self-issued independent approval. Local corrections implemented and
+validated. Ready for fresh independent review. No staging deployment authorized.
+Staging and production remain NO-GO.

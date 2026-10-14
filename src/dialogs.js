@@ -101,9 +101,9 @@ function next() {
     }
   }
   cancel.addEventListener('click',()=>finish(cancelValue()));
-  backdrop.addEventListener('click',event=>{if(event.target===backdrop)finish(cancelValue());});
+  backdrop.addEventListener('click',event=>{if(kind!=='delete-user' && event.target===backdrop)finish(cancelValue());});
   form.addEventListener('submit',event=>{
-    event.preventDefault();event.stopPropagation();if(done)return;
+    event.preventDefault();event.stopPropagation();if(done || (kind==='delete-user' && accept.disabled))return;
     if(kind==='delete-user'){
       const captchaToken=options.captchaToken?.();
       if(!input.value || !acknowledgment.checked || !captchaToken){error.textContent='Password, acknowledgment and fresh verification are required.';return;}

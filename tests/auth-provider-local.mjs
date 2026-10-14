@@ -6,7 +6,8 @@ import {readFileSync,readdirSync} from 'node:fs';
 import {spawnSync} from 'node:child_process';
 import {stripTypeScriptTypes} from 'node:module';
 import vm from 'node:vm';
-assert.equal(process.argv.length,2,'No external target is accepted');
+const retirementOnly=process.argv.length===3 && process.argv[2]==='--retirement-only';
+assert.ok(process.argv.length===2 || retirementOnly,'No external target is accepted');
 const nonce=randomBytes(8).toString('hex'),name='orbito-bootstrap-auth-'+nonce,network=name+'-network';
 const password=randomBytes(32).toString('hex'),secret=randomBytes(32).toString('hex'),label='com.retrasell.auth-test';
 const env={...process.env};for(const k of Object.keys(env))if(k.startsWith('SUPABASE_')||k.startsWith('PG'))delete env[k];
@@ -65,6 +66,28 @@ try{
   const source=read('supabase/migrations/'+f);sql(/^begin;/i.test(source.replace(/^\s*--.*$/gm,'').trim())?source:'begin;'+source+'commit;');
  }
  const multi=await startAuth(false);
+ if(retirementOnly){
+  // Generate native links locally without a sender; never print the transient
+  // token/link response. This tests GoTrue OTP retirement, not email delivery.
+  const address='retirement@example.test';
+  const generated=await api('/admin/generate_link',{type:'invite',email:address});assert.equal(generated.status,200);
+  const oldId=generated.data.id || generated.data.user?.id,oldToken=generated.data.hashed_token;
+  assert.ok(oldId && oldToken);
+  assert.equal((await api('/admin/users/'+oldId,null,service,'DELETE')).status,200);
+  assert.equal((await api('/admin/users/'+oldId,null,service,'GET')).status,404);
+  const fresh=await api('/admin/generate_link',{type:'invite',email:address});assert.equal(fresh.status,200);
+  const newId=fresh.data.id || fresh.data.user?.id;assert.ok(newId && newId!==oldId);
+  const obsolete=await api('/verify',{type:'invite',token_hash:oldToken},jwt('anon'));assert.ok(obsolete.status>=400);
+  const current=await api('/verify',{type:'invite',token_hash:fresh.data.hashed_token},jwt('anon'));assert.equal(current.status,200);assert.equal(current.data.user.id,newId);
+  const recovery=await api('/admin/generate_link',{type:'recovery',email:address});assert.equal(recovery.status,200);
+  const recoveryToken=recovery.data.hashed_token;
+  assert.equal((await api('/admin/users/'+newId,null,service,'DELETE')).status,200);
+  const third=await api('/admin/generate_link',{type:'invite',email:address});assert.equal(third.status,200);
+  assert.ok((third.data.id || third.data.user?.id)!==newId);
+  assert.ok((await api('/verify',{type:'recovery',token_hash:recoveryToken},jwt('anon'))).status>=400);
+  console.log('PASS: one focused real GoTrue group: hard Auth deletion, fresh UUID reinvitation, rejected retired invite/recovery links, valid current invite; no emails sent.');
+  console.log('SKIP: SMTP delivery, hosted CAPTCHA/session continuity and expired-link wall-clock timing.');
+ }else{
  const create=async email=>{const r=await api('/admin/users',{email,password,email_confirm:true});assert.equal(r.status,200,'Synthetic Auth creation failed');return r.data.id;};
  const master=await create('master@example.test'),team=await create('team@example.test');
  sql(`select platform_private.initialize_config('Local Auth fixture','Reviewed isolated fixture');select platform_private.bind_master('${master}',null,'Reviewed isolated fixture');begin;select set_config('platform.team_transition','trusted',true);insert into public.platform_users(id,auth_user_id,name,email,role,status) values('${team}','${team}','Synthetic','team@example.test','portfolio_manager','Active');commit;`);
@@ -134,6 +157,7 @@ try{
  const after=await refresh(original);assert.equal(after.status,200);assert.equal(after.data.user.id,master);
  console.log('PASS: real single-session policy rejects original refresh DURING verification and resumes AFTER local cleanup; a browser may already discard its session on that rejection. Default-off database gate blocks destructive operations. BLOCKED: destructive rollout until staging continuity configuration is verified.');
  console.log('SKIP: real SMTP/invitation email delivery, hosted CAPTCHA, PostgREST JWT gateway, provider timebox/inactivity settings and hosted session continuity. No external connection or email was attempted.');
+ }
 } finally {
  for(const item of owned.reverse()){assert.equal(run(['inspect','-f','{{index .Config.Labels "'+label+'"}}',item]),nonce);run(['rm','-f',item]);}
  if(net){assert.equal(run(['network','inspect','-f','{{index .Labels "'+label+'"}}',network]),nonce);run(['network','rm',network]);}

@@ -431,6 +431,9 @@ verify_jwt = false
 [functions.create-platform-user]
 verify_jwt = true
 
+[functions.resend-platform-invitation]
+verify_jwt = true
+
 [functions.update-platform-user]
 verify_jwt = true
 
