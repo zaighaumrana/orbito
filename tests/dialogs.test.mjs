@@ -79,6 +79,12 @@ test('toast variants, safe text, independent timers, persistent errors and manua
 test('styles use both theme variables, small-screen modal rules and reduced-motion override',()=>{
  const css=read('src/styles.css');assert.match(css,/\[data-theme="dark"\]/);assert.match(css,/\.platform-toast[\s\S]*background: var\(--surface\); color: var\(--text\)/);assert.match(css,/width: min\(390px, calc\(100vw - 32px\)\)/);assert.match(css,/prefers-reduced-motion: reduce/);assert.match(css,/\.modal-actions button \{ width: 100%/);
 });
+
+test('authority cancellation removes old notifications while routine rerender preserves confirmed outcomes',()=>{
+ const f=fixture();f.api.notify.success('Employee role updated.',{duration:0});
+ f.app.textContent='Refreshed team';assert.match(f.doc.getElementById('platform-notifications').textContent,/role updated/);
+ f.api.cancelDialogs();assert.equal(f.doc.getElementById('platform-notifications'),undefined);assert.equal(f.timers.size,0);
+});
 test('fresh Turnstile expiry/reset and busy state work in both themes without retaining old challenges',async()=>{
  for(const theme of ['dark','light']){
   const button={},status={},target={isConnected:true};let callbacks,resets=0,removes=0;

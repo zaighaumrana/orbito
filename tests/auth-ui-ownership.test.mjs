@@ -33,13 +33,28 @@ async function fixture({boot=Promise.resolve({data:{session:null}})}={}){
  for(const p of ['src/state.js','src/async-context.js','src/helpers.js','src/events.js'])vm.runInContext(strip(read(p))+(p==='src/state.js'?'\nglobalThis.pState=pState;':''),ctx);
  vm.runInContext(strip(read('src/main.js')),ctx);await tick();
  const click=async dataset=>{const button={dataset,disabled:false,isConnected:true,closest:selector=>selector.includes('data-auth-form')?null:button};for(const fn of listeners.get('click')||[])fn({target:button,preventDefault(){}});await tick();};
- return {ctx,loads,reads,messages,click,get signins(){return signins;},get signouts(){return signouts;},
+ return {ctx,loads,reads,messages,nodes,click,get signins(){return signins;},get signouts(){return signouts;},
   login:async()=>{ctx.pState.turnstileToken='synthetic-captcha';await click({pAction:'do-login'});},
   revoke:async()=>{denied=true;await ctx.validateSession(ctx.render);denied=false;},
   emitSignedOut:()=>authChange('SIGNED_OUT',null),holdSignIn:()=>signInGate=deferred(),
  };
 }
 const settle=async(gate,failure=false)=>{if(failure)gate.reject(Error('Synthetic rejected config'));else gate.resolve();await tick();};
+
+test('native recovery reports definite rate limits and failures privately; late recovery cannot redraw a successor login',async()=>{
+ for(const [error,message] of [[{status:429},/Too many requests/],[{code:'over_email_send_rate_limit'},/Too many requests/],[{code:'captcha_failed'},/fresh verification/],[{code:'unavailable'},/could not be confirmed/],[null,/if recovery is available/]]){
+  const f=await fixture(),status={textContent:'',style:{},classList:{remove(){}}};
+  f.nodes.set('forgot-email',{value:'unknown@example.test'});f.nodes.set('forgot-status',status);
+  f.ctx.pState.page='forgot-password';f.ctx.pState.turnstileToken='synthetic-captcha';
+  f.ctx.pb.auth.resetPasswordForEmail=async(_email,options)=>{assert.equal(options.captchaToken,'synthetic-captcha');return{error};};
+  await f.click({pAction:'send-reset-link'});assert.match(status.textContent,message);assert.equal(f.ctx.pState.resetLoading,false);
+  assert.doesNotMatch(status.textContent,/email (was |has been )?sent|account (exists|not found)/i);
+ }
+ const f=await fixture(),gate=deferred();f.nodes.set('forgot-email',{value:'unknown@example.test'});
+ f.ctx.pState.page='forgot-password';f.ctx.pState.turnstileToken='synthetic-captcha';f.ctx.pb.auth.resetPasswordForEmail=()=>gate.promise;
+ await f.click({pAction:'send-reset-link'});f.ctx.clearSensitiveState();f.ctx.pState.authenticated=true;f.ctx.pState.page='overview';
+ const count=f.reads.length;gate.resolve({error:{status:429}});await tick();assert.equal(f.reads.length,count);assert.equal(f.ctx.pState.authenticated,true);
+});
 
 test('canonical revocation during login releases its lock; late config success/failure cannot prevent a fresh login',async()=>{
  for(const failure of [false,true]){

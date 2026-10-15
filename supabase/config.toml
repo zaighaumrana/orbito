@@ -448,3 +448,6 @@ verify_jwt = true
 
 [functions.platform-password-setup]
 verify_jwt = true
+
+[functions.clear-failed-platform-invitation]
+verify_jwt = true

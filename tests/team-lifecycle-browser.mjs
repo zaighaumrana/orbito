@@ -1,63 +1,126 @@
-// Real local browser + actual Settings/dialog/event sources. Synthetic transports,
-// mocked CAPTCHA, zero hosted navigation, real emails or Auth writes.
-import {readFileSync} from 'node:fs';
-import {createServer} from 'node:http';
+// Actual application modules, synthetic Auth/REST/CAPTCHA and blocked external
+// I/O. --baseline renders the exact starting source solely for before images.
+import {createServer} from 'vite';
+import {execFileSync} from 'node:child_process';
+import {mkdirSync,writeFileSync} from 'node:fs';
+import {resolve,relative} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import assert from 'node:assert/strict';
-const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const focused=process.argv.length===3 && process.argv[2]==='--delete-dialog-only';
-assert.ok(process.argv.length===2 || focused,'Only the focused local selector is accepted');
+import {installPlatformFixture} from './helpers/platform-browser-fixture.mjs';
+const baseline=process.argv[2]==='--baseline',focused=process.argv[2]==='--delete-dialog-only',actionsOnly=process.argv[2]==='--actions-only';
+assert.ok(process.argv.length===2 || process.argv.length===3 && (baseline || focused || actionsOnly),'Only local baseline/focused selectors are accepted');
+const evidence=process.env.ORBITO_UI_EVIDENCE?resolve(process.env.ORBITO_UI_EVIDENCE):null;
+if(evidence){assert.ok(relative(process.cwd(),evidence).startsWith('..'),'Evidence must be outside Git');mkdirSync(evidence,{recursive:true});}
 let chromium;
 try{({chromium}=await import(process.env.PLAYWRIGHT_MODULE_PATH?pathToFileURL(process.env.PLAYWRIGHT_MODULE_PATH).href:'playwright'));}
 catch{console.log('SKIP: existing Playwright unavailable; no installation attempted.');process.exitCode=2;}
 if(chromium){
- const fixture=`import { captureView, viewCurrent, selectClient, clientDataMatches } from '/async-context.js';
-import {notify,confirmDialog,showMessage,deleteUserDialog,cancelDialogs} from '/dialogs.js';
- import {pState,PCFG,setPCFG,clearSensitiveState} from '/state.js';
- const esc=value=>String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- const tit=(title,description)=>'<h1>'+esc(title)+'</h1><p>'+esc(description)+'</p>';
- setPCFG({admin_username:'Synthetic'});
- const master='97000000-0000-4000-8000-000000000001';
- Object.assign(pState,{authenticated:true,currentUser:{role:'master_admin',auth_user_id:master,email:'master@example.test'},data:{clients:[],support:[],teamOperations:[],teamArchive:[],platformUsers:['Active','Pending','Inactive'].map((status,n)=>({id:'97000000-0000-4000-8000-00000000000'+(n+2),name:n?'Synthetic '+status:'<img src=x onerror=alert(1)>',email:status.toLowerCase()+'@example.test',role:'billing_person',status,suspended_from:'Active',created_at:'2026-10-11'}))}});
- window.writes=0;window.state=pState;
- const loadOperatorIdentity=async()=>pState.currentUser,loadPlatform=async()=>{};
- const pb={rpc:async()=>({data:{authorized:!window.revoked,auth_user_id:master}}),auth:{signOut:async options=>{window.logoutScope=options.scope;}},functions:{invoke:async(name,{body})=>{if(name==='delete-platform-user'){window.writes++;const row=pState.data.platformUsers.find(u=>u.id===body.id);pState.data.teamArchive.push({...row,joined_at:row.created_at,deleted_at:'2026-10-11',deleted_by:master,operation_id:body.request_id,final_status:'Auth absence verified'});pState.data.platformUsers=pState.data.platformUsers.filter(u=>u!==row);}return{data:{success:true}};}}};
- const cleanupTurnstile=()=>pState.turnstileToken=null;
- const mountTurnstile=async(options={})=>{pState.turnstileToken='synthetic-verification';const button=document.querySelector(options.buttonSelector || '[data-captcha-submit]');if(button)button.disabled=false;};
- const setInterval=()=>{};
- `+read('src/helpers.js').slice(read('src/helpers.js').indexOf('let checking;')).replace(/^export /gm,'')+read('src/pages/settings.js').replace(/^import .*$/gm,'').replace(/^export /gm,'')+`
- const render=()=>document.getElementById('platform-app').innerHTML=pState.authenticated?'<div class="platform-main">'+pageSettings()+'</div>':'<h1>Sign in</h1>';
- `+read('src/events.js').replace(/^import[\s\S]*?;\s*/gm,'')+`
- initEvents();render();window.rerender=render;window.logout=async()=>{window.revoked=true;await validateSession(render);};window.ready=true;`;
- const resources={'/':{type:'text/html',body:'<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/styles.css"></head><body><main id="platform-app"></main><script type="module" src="/fixture.js"></script></body></html>'},'/fixture.js':{type:'text/javascript',body:fixture},'/async-context.js':{type:'text/javascript',body:read('src/async-context.js')},'/state.js':{type:'text/javascript',body:read('src/state.js')},'/dialogs.js':{type:'text/javascript',body:read('src/dialogs.js')},'/styles.css':{type:'text/css',body:read('src/styles.css')}};
- const server=createServer((req,res)=>{const item=resources[req.url];res.writeHead(item?200:404,{'Content-Type':item?.type || 'text/plain'});res.end(item?.body || 'Not found');});
- await new Promise(r=>server.listen(0,'127.0.0.1',r));const origin='http://127.0.0.1:'+server.address().port;
- let browser;const external=[],errors=[];
+ const cache=new Map(),prior=path=>{if(!cache.has(path))cache.set(path,execFileSync('git',['show','71136819abbf36ef4fc36b69702c14a471582792:'+path],{encoding:'utf8'}));return cache.get(path);};
+ const server=await createServer({configFile:false,envFile:false,root:process.cwd(),server:{host:'127.0.0.1',port:0},
+  define:{'import.meta.env.VITE_PLATFORM_URL':JSON.stringify('https://synthetic.invalid'),'import.meta.env.VITE_PLATFORM_ANON':JSON.stringify('synthetic-public-fixture'),'import.meta.env.VITE_PLATFORM_AUTH_EMAIL':JSON.stringify('master@example.test'),'import.meta.env.VITE_TURNSTILE_KEY':JSON.stringify('synthetic-site')},
+  plugins:[{name:'synthetic-platform-transport',enforce:'pre',resolveId:id=>id==='@supabase/supabase-js'?'\0fixture-supabase':null,
+   load:id=>id==='\0fixture-supabase'?'export const createClient=(...args)=>window.fixtureClientFactory(...args);':null,
+   transform:(_code,id)=>{const path=relative(process.cwd(),id.split('?')[0]).replaceAll('\\','/');return baseline && /^src\/.*\.(js|css)$/.test(path)?prior(path):null;},
+   transformIndexHtml:html=>baseline?prior('index.html'):html}]});
+ let browser;const errors=[],external=[],checks=[];
  try{
-  try{browser=await chromium.launch({headless:true,...(process.env.CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.CHROMIUM_EXECUTABLE_PATH}:{})});}
-  catch{console.log('SKIP: local Chromium unavailable; no tooling repair attempted.');process.exitCode=2;}
-  if(browser){const context=await browser.newContext();await context.route('**/*',route=>route.request().url().startsWith(origin+'/')?route.continue():(external.push(route.request().url()),route.abort()));const page=await context.newPage();page.setDefaultTimeout(6000);page.on('pageerror',e=>errors.push(e.message));
-   for(const width of focused?[768]:[320,768,1440])for(const theme of focused?['dark']:['light','dark']){
-    await page.setViewportSize({width,height:900});await page.goto(origin);await page.waitForFunction(()=>window.ready);await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
-    for(const title of ['Active Users','Pending Invitations','Inactive Users','Archived Users'])await page.getByRole('heading',{name:title,exact:true}).waitFor();
-    assert.equal(await page.locator('img').count(),0);assert.equal(await page.getByRole('button',{name:'Send Password Reset Email'}).count(),0);
-    const opener=()=>page.getByRole('region',{name:'Active Users',exact:true}).getByRole('button',{name:'Delete Permanently',exact:true});
-    const dialog=page.getByRole('alertdialog');
-    await opener().click();await dialog.waitFor();assert.equal(await page.locator('input[name=password]').getAttribute('type'),'password');assert.equal(await page.locator('#platform-app').evaluate(n=>n.inert),true);
-    await page.keyboard.press('Escape');await dialog.waitFor({state:'detached'});assert.equal(await page.evaluate(()=>window.writes),0);
-    await opener().click();await dialog.waitFor();await dialog.getByRole('button',{name:'Cancel',exact:true}).click();assert.equal(await page.evaluate(()=>window.writes),0);
-    await opener().click();await dialog.waitFor();await page.locator('input[name=password]').fill('Preserved fixture');await page.locator('.platform-dialog-backdrop').click({position:{x:2,y:2}});assert.equal(await page.evaluate(()=>window.writes),0);assert.equal(await dialog.count(),1);assert.equal(await page.locator('input[name=password]').inputValue(),'Preserved fixture');await dialog.getByRole('heading',{name:'Permanently Delete User'}).click();assert.equal(await dialog.count(),1);await dialog.getByRole('button',{name:'Cancel',exact:true}).click();
-    await opener().click();await dialog.waitFor();const box=await dialog.boundingBox();assert.ok(box.x>=0 && box.x+box.width<=width+1);
-    for(let i=0;i<12;i++){await page.keyboard.press('Tab');assert.equal(await dialog.evaluate(n=>n.contains(document.activeElement)),true);}
-    await page.locator('input[name=password]').fill('SyntheticDelete1!');await dialog.locator('input[type=checkbox]').check();
-    await page.evaluate(()=>window.state.turnstileToken=null);await dialog.locator('form').dispatchEvent('submit');assert.equal(await page.evaluate(()=>window.writes),0);assert.equal(await dialog.count(),1);
-    await page.evaluate(()=>window.state.turnstileToken='synthetic-verification');await dialog.getByRole('button',{name:'Delete Permanently',exact:true}).focus();await page.keyboard.press('Enter');await page.keyboard.press('Enter');await page.waitForFunction(()=>window.writes===1);assert.equal(await page.getByRole('region',{name:'Archived Users',exact:true}).getByRole('button').count(),0);
-    await page.getByRole('region',{name:'Pending Invitations'}).getByRole('button',{name:'Delete Permanently'}).click();await dialog.waitFor();await page.evaluate(()=>window.rerender());await page.keyboard.press('Escape');assert.equal(await page.locator('#platform-app').evaluate(n=>!n.inert),true);
-    await page.getByRole('region',{name:'Pending Invitations'}).getByRole('button',{name:'Delete Permanently'}).click();await dialog.waitFor();await page.evaluate(()=>{window.revoked=true;window.dispatchEvent(new Event('focus'));});await dialog.waitFor({state:'detached'});await page.getByRole('heading',{name:'Sign in'}).waitFor();assert.equal(await page.evaluate(()=>window.writes),1);assert.equal(await page.evaluate(()=>window.state.data.platformUsers.length),0);assert.equal(await page.evaluate(()=>window.state.currentUser.role),null);assert.equal(await page.evaluate(()=>window.logoutScope),'local');
-    console.log('PASS: actual Team/secure deletion dialog at '+width+'px '+theme+'; escaped identity, four states, cancellation, focus, CAPTCHA gate, one-shot confirmation, rerender and canonical focus revocation clearing private state.');
+  await server.listen();const origin='http://127.0.0.1:'+server.httpServer.address().port;
+  browser=await chromium.launch({headless:true,...(process.env.CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.CHROMIUM_EXECUTABLE_PATH}:{})});
+  const context=await browser.newContext();await context.route('**/*',route=>route.request().url().startsWith(origin+'/')?route.continue():(external.push(route.request().url()),route.abort()));
+  await context.addInitScript(installPlatformFixture);
+  const page=await context.newPage();page.setDefaultTimeout(8000);page.on('pageerror',error=>errors.push(error.message));
+  const state=fn=>page.evaluate(async fn=>{const {pState}=await import('/src/state.js');return (new Function('state','return ('+fn+')(state)'))(pState);},fn.toString());
+  const setPage=async name=>page.evaluate(async name=>{const {pState}=await import('/src/state.js');(await import('/src/async-context.js')).selectClient();pState.modal=null;pState.page=name;pState.filter='';(await import('/src/render.js')).render();},name);
+  const snapshot=async(label,width,theme)=>{if(evidence)await page.screenshot({path:resolve(evidence,(baseline?'before-':'after-')+label+'-'+width+'-'+theme+'.png'),fullPage:true});};
+  const nav=async name=>{const link=page.locator('[data-p-page="'+name+'"]').first();if((await link.boundingBox()).x<0)await page.locator('#p-menu-btn').click();await link.click();};
+  const noOverflow=async()=>{
+   const overflow=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,path:location.pathname,nodes:[...document.querySelectorAll('#platform-app *')].filter(n=>n.getBoundingClientRect().right>innerWidth+1 && getComputedStyle(n).position!=='fixed' && !n.closest('.table-wrap,.platform-sidebar')).slice(0,8).map(n=>({tag:n.tagName,cls:n.className,width:n.getBoundingClientRect().width}))}));
+   if(overflow.scroll>overflow.width+1 && evidence)await page.screenshot({path:resolve(evidence,'browser-overflow.png'),fullPage:true});
+   assert.ok(overflow.scroll<=overflow.width+1,'No whole-page horizontal overflow: '+JSON.stringify(overflow));
+  };
+  const manage=async name=>page.getByRole('row').filter({has:page.getByText(name,{exact:true})}).getByRole('button',{name:'Manage',exact:true}).click();
+  const panel=()=>page.locator('.employee-detail');
+  for(const width of actionsOnly?[]:focused?[768]:[320,768,1440])for(const theme of focused?['dark']:['light','dark']){
+   await page.setViewportSize({width,height:960});await page.goto(origin);await page.waitForFunction(async()=>{const s=(await import('/src/state.js')).pState;return s.authenticated && s.dataReady;});
+   await page.evaluate(async theme=>{const {pState}=await import('/src/state.js');pState.theme=theme;localStorage.setItem('retailos-platform-theme',theme);(await import('/src/render.js')).render();},theme);
+   for(const name of baseline?['overview','clients','billing','support','settings']:['overview','clients','billing','support','settings','team']){
+    await setPage(name);if(!baseline)await noOverflow();await snapshot(name,width,theme);
+    if(name==='clients'){
+     await page.getByRole('button',{name:'Manage',exact:true}).first().click();await page.waitForFunction(async()=>{const s=(await import('/src/state.js')).pState;return s.page==='client-detail' && !s.clientData.loading;});
+     if(!baseline)await noOverflow();await snapshot('client-detail',width,theme);
+    }
    }
-   assert.deepEqual(external,[]);assert.deepEqual(errors,[]);await context.close();console.log('PASS: '+(focused?'one focused':'six')+' synthetic browser groups; no external traffic.');
+   if(baseline){
+    await page.evaluate(async()=>{const {pState}=await import('/src/state.js');pState.authenticated=false;pState.page='login';(await import('/src/render.js')).render();});await snapshot('login',width,theme);
+    checks.push({width,theme,baseline:true});continue;
+   }
+   assert.equal(await page.locator('.sidebar-role').textContent(),'Master Admin');
+   assert.equal(await page.locator('.platform-sidebar').evaluate(n=>getComputedStyle(n).backgroundColor),'rgb(11, 18, 40)');
+   assert.equal(await page.locator('.sidebar-brand img').getAttribute('src'),'/brand/logos/retrasell-horizontal-reversed.svg');
+   await page.getByRole('tab',{name:/Active users/}).focus();await page.keyboard.press('End');assert.equal(await page.getByRole('tab',{name:/Archived users/}).getAttribute('aria-selected'),'true');await page.keyboard.press('Home');
+   await page.getByRole('tab',{name:/Pending invitations/}).click();await page.getByRole('searchbox',{name:'Search employees'}).fill('Failed');
+   assert.equal(await page.getByRole('button',{name:'Manage',exact:true}).count(),1);await manage('Failed Invitation');await panel().waitFor();
+   assert.equal(await panel().getByRole('button',{name:'Delete Permanently'}).count(),0);
+   await panel().getByRole('button',{name:'View invitation status'}).click();await page.getByRole('heading',{name:'Invitation needs review',exact:true}).waitFor();
+   assert.equal(await page.getByRole('button',{name:'Resend invitation',exact:true}).count(),0);await page.keyboard.press('Escape');await page.keyboard.press('Escape');
+   await page.getByRole('tab',{name:/Active users/}).click();await manage('Active Employee');
+   for(let n=0;n<10;n++){await page.keyboard.press('Tab');assert.ok(await panel().evaluate(n=>n.contains(document.activeElement)));}
+   const dialog=page.getByRole('alertdialog');
+   const open=async()=>{await panel().getByRole('button',{name:'Delete Permanently',exact:true}).click();await dialog.waitFor();};
+   await open();assert.equal(await page.locator('#platform-app').evaluate(n=>n.inert),true);
+   await page.locator('input[name=password]').fill('SyntheticDelete1!');await page.locator('.platform-dialog-backdrop').click({position:{x:2,y:2}});
+   assert.equal(await page.locator('input[name=password]').inputValue(),'SyntheticDelete1!');
+   for(let n=0;n<12;n++){await page.keyboard.press('Tab');assert.ok(await dialog.evaluate(n=>n.contains(document.activeElement)));}
+   await page.keyboard.press('Escape');assert.equal(await dialog.count(),0);await open();await dialog.getByRole('button',{name:'Cancel',exact:true}).click();
+   await open();await page.locator('input[name=password]').fill('SyntheticDelete1!');await dialog.locator('input[type=checkbox]').check();
+   await page.evaluate(async()=>{(await import('/src/state.js')).pState.turnstileToken=null;});await dialog.locator('form').dispatchEvent('submit');assert.equal(await state(s=>s.data.platformUsers.length),4);
+   await page.evaluate(async()=>{(await import('/src/state.js')).pState.turnstileToken='synthetic-captcha';});
+   await dialog.getByRole('button',{name:'Delete Permanently',exact:true}).focus();await page.keyboard.press('Enter');await page.keyboard.press('Enter');
+   await page.getByText(/No deletion operation was recorded at the verified history check/).waitFor();
+   assert.equal(await page.evaluate(()=>window.fixtureWrites.filter(w=>w.name==='delete-platform-user').length),1);
+   if(!await panel().count())await manage('Active Employee');await open();await page.evaluate(()=>{window.fixtureRevoked=true;window.dispatchEvent(new Event('focus'));});
+   await page.getByRole('heading',{name:'Sign in to your workspace',exact:true}).waitFor();
+   assert.equal(await dialog.count(),0);assert.equal(await state(s=>s.data.platformUsers.length),0);assert.equal(await state(s=>s.currentUser.role),null);
+   await snapshot('login',width,theme);await noOverflow();checks.push({width,theme,pass:true});console.log('PASS: Team/search, review/resend guard, modal focus, sticky deletion inputs, cancel/one-shot and canonical revocation; '+width+'px '+theme);
+   await page.getByRole('button',{name:'Forgot password?'}).click();await snapshot('recovery',width,theme);await noOverflow();
+   await page.evaluate(async()=>{const {pState}=await import('/src/state.js');pState.page='reset-password';pState.recoveryEmail='pending@example.test';(await import('/src/render.js')).render();});await snapshot('password-setup',width,theme);await noOverflow();
   }
- }catch(error){console.error('FAIL: local browser — '+error.message);process.exitCode=1;}
- finally{await browser?.close();await new Promise(r=>server.close(r));}
+  if(!baseline && !focused){
+   await page.setViewportSize({width:1440,height:960});await page.goto(origin+'/team');await page.getByRole('heading',{name:'Team Management',exact:true}).waitFor();
+   await page.getByRole('tab',{name:/Pending invitations/}).click();await manage('Failed Invitation');await panel().getByRole('button',{name:'Clear Failed Invitation'}).click();
+   await page.getByRole('dialog').filter({has:page.getByRole('heading',{name:'Clear Failed Invitation?',exact:true})}).getByRole('button',{name:'Clear Failed Invitation',exact:true}).click();
+   await page.getByText(/Failed invitation cleared\. Audit history/).waitFor();assert.equal(await page.getByRole('row').filter({hasText:'Failed Invitation'}).count(),0);
+   await manage('Pending Employee');await panel().getByRole('button',{name:'View invitation status'}).click();await page.getByRole('button',{name:'Resend invitation',exact:true}).click();
+   await page.getByText(/Setup email requested/).waitFor();assert.equal(await page.evaluate(()=>window.fixtureWrites.filter(w=>w.name==='resend-platform-invitation').length),1);
+   await page.keyboard.press('Escape');await page.getByRole('tab',{name:/Archived users/}).click();await page.getByRole('button',{name:'View history'}).click();assert.equal(await panel().getByRole('button').count(),2);await page.keyboard.press('Escape');
+   await page.getByRole('tab',{name:/Active users/}).click();await manage('Active Employee');await panel().getByRole('button',{name:'Edit employee'}).click();
+   await page.getByLabel('Role',{exact:true}).selectOption('portfolio_manager');await page.getByRole('button',{name:'Save Changes',exact:true}).click();await page.getByText('Employee details and role updated.',{exact:true}).waitFor();
+   assert.ok(await page.getByRole('row').filter({hasText:'Active Employee'}).getByText('Portfolio Manager',{exact:true}).isVisible());
+   await manage('Active Employee');await panel().getByRole('button',{name:'Deactivate',exact:true}).click();await page.getByRole('alertdialog').filter({has:page.getByRole('heading',{name:'Deactivate employee?',exact:true})}).getByRole('button',{name:'Deactivate',exact:true}).click();
+   await page.getByText(/Employee deactivated\. Platform access is suspended/).waitFor();await page.keyboard.press('Escape');await page.getByRole('tab',{name:/Inactive users/}).click();await manage('Active Employee');
+   await panel().getByRole('button',{name:'Reactivate',exact:true}).click();await page.getByRole('dialog').filter({has:page.getByRole('heading',{name:'Reactivate employee?',exact:true})}).getByRole('button',{name:'Reactivate',exact:true}).click();
+   await page.getByText(/Employee reactivated with the existing identity/).waitFor();await page.keyboard.press('Escape');
+   await nav('settings');assert.equal(await page.getByRole('heading',{name:'Team Members'}).count(),0);
+   await page.getByRole('button',{name:'Check session continuity',exact:true}).click();await page.getByLabel('Current password',{exact:true}).fill('Synthetic1!');await page.getByRole('button',{name:'Run diagnostic',exact:true}).click();
+   await page.getByText(/Diagnostic passed: the original Master session survived/).waitFor();assert.equal(await page.getByLabel('Current password',{exact:true}).inputValue(),'');assert.equal(await state(s=>s.currentUser.password_verification_safe),false);await page.keyboard.press('Escape');
+   const openInvoice=()=>page.evaluate(async()=>{const {pState}=await import('/src/state.js');(await import('/src/billing.js')).showInvoiceConfirmModal(pState.data.invoices[0]);});
+   await openInvoice();const invoice=page.locator('.invoice-preview');await invoice.waitFor();
+   for(let n=0;n<8;n++){await page.keyboard.press('Tab');assert.ok(await invoice.evaluate(node=>node.contains(document.activeElement)));}
+   await page.keyboard.press('Escape');assert.equal(await invoice.count(),0);await openInvoice();await page.evaluate(()=>{window.fixtureRevoked=true;window.dispatchEvent(new Event('focus'));});
+   await page.getByRole('heading',{name:'Sign in to your workspace',exact:true}).waitFor();assert.equal(await invoice.count(),0);
+   for(const role of ['portfolio_manager','billing_person']){
+    await page.goto(origin+'/team?fixtureRole='+role);await page.getByText(/Access Restricted/).waitFor();assert.equal(await page.locator('[data-p-page=team]').count(),0);
+    await nav('overview');await nav('settings');await page.evaluate(async()=>{const {pState}=await import('/src/state.js');pState.currentUser.role='master_admin';(await import('/src/render.js')).render();});
+    await nav('team');assert.equal(await page.getByRole('heading',{name:'Team Management',exact:true}).count(),0);
+   }
+   await page.goto(origin+'/?fixtureRole=anonymous');await page.getByRole('heading',{name:'Sign in to your workspace'}).waitFor();await page.getByRole('button',{name:'Forgot password?'}).click();await page.getByLabel('Account email').fill('unknown@example.test');
+   await page.evaluate(()=>window.fixtureRecoveryError={status:429});await page.getByRole('button',{name:'Send reset link',exact:true}).click();await page.getByText('Too many requests. Please wait before trying again.',{exact:true}).waitFor();
+   await page.getByRole('button',{name:'Back to sign in',exact:false}).click();await page.getByLabel('Username or email').fill('master@example.test');await page.getByLabel('Password',{exact:true}).fill('Synthetic1!');await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('heading',{name:'Platform Overview',exact:true}).waitFor();
+   await page.reload();await page.getByRole('heading',{name:'Platform Overview',exact:true}).waitFor();assert.equal(await page.locator('.sidebar-role').textContent(),'Master Admin');
+   console.log('PASS: explicit clear, legitimate resend, read-only archive, separate Settings, direct/forged employee Team denial and recovery 429.');
+  }
+  assert.deepEqual(errors,[]);assert.deepEqual(external,[]);if(evidence)writeFileSync(resolve(evidence,baseline?'browser-before.json':'browser-results.json'),JSON.stringify({checks,errors,external},null,2));
+  console.log('PASS: '+checks.length+' actual-browser layout groups; '+(baseline?'historical before screenshots only':'synthetic transports, zero external traffic'));await context.close();
+ }catch(error){console.error('FAIL: actual local browser — '+error.stack);process.exitCode=1;}
+ finally{await browser?.close();await server.close();}
 }

@@ -5,12 +5,13 @@ import { pState, clearSensitiveState }                          from "./state.js
 import { pb, PLATFORM_AUTH_EMAIL,
          loadConfig, loadPlatform, loadClientData, loadOperatorIdentity,
          updateClientConfig }              from "./supabase.js";
-import { render }                          from "./render.js";
+import { render, syncSidebar }             from "./render.js";
 import { generateInvoice, printClientInvoices } from "./billing.js";
 import { validateSession }                 from "./helpers.js";
 import { rpc } from "./operations.js";
 import { openShopSupport } from './support-handoff.js';
 import { teamErrorMessage } from './team-errors.js';
+import { teamStatus } from './team.js';
 
 export function initEvents() {
 
@@ -34,6 +35,10 @@ export function initEvents() {
     /* Page navigation */
     if (el.dataset.pPage) {
       if (!pState.authenticated) return;
+      if(el.dataset.pPage==='team'){
+        const identity=await loadOperatorIdentity();
+        if(!current() || identity.role!=='master_admin' || identity.auth_user_id!==pState.currentUser.auth_user_id){if(current())notify.error('Team Management is restricted to the verified Master Admin.');return;}
+      }
       pState.page = el.dataset.pPage;
       pState.filter = "";
       selectClient(el.dataset.pPage==='client-detail'?pState.selectedClient:null);
@@ -42,6 +47,7 @@ export function initEvents() {
 
     /* Open modal */
     if (el.dataset.pModal) {
+      if(['add-platform-user','master-continuity'].includes(el.dataset.pModal) && pState.currentUser.role!=='master_admin')return;
       pState.modal = { type: el.dataset.pModal, data:{requestId:crypto.randomUUID()} }; render(); return;
     }
 
@@ -62,6 +68,7 @@ export function initEvents() {
       return;
     }
     if (action === 'retry-verification') { void mountTurnstile(); return; }
+    if (action === 'retry-diagnostic-verification') { void mountTurnstile({containerId:'diagnostic-verification',statusId:'diagnostic-status',buttonSelector:'[data-diagnostic-submit]'}); return; }
     if (action === 'retry-setup') { await pState.setupRouter.retry(); return; }
 
     /* Theme toggle */
@@ -73,7 +80,8 @@ export function initEvents() {
 
     /* Mobile sidebar */
     if (action === "toggle-sidebar") {
-      document.getElementById("p-sidebar")?.classList.toggle("open"); return;
+      const sidebar=document.getElementById('p-sidebar'),open=!sidebar?.classList.contains('open');
+      syncSidebar(open);(open?sidebar?.querySelector('button'):document.getElementById('p-menu-btn'))?.focus();return;
     }
 
     /* ── Show forgot password page ── */
@@ -95,21 +103,24 @@ export function initEvents() {
       const statusEl = document.getElementById("forgot-status");
       if (!email) {
         statusEl.textContent = "Please enter your email.";
-        statusEl.style.cssText += "color:#c24132;background:rgba(194,65,50,0.1)";
+        statusEl.style.cssText += "color:var(--rs-danger);background:var(--rs-danger-bg)";
         statusEl.classList.remove("hidden"); return;
       }
       if (pState.resetLoading || !navigator.onLine || !pState.turnstileToken) return;
+      const attempt={generation:pState.authorityGeneration};pState.resetAttempt=attempt;
+      const ownsReset=()=>pState.resetAttempt===attempt && attempt.generation===pState.authorityGeneration && !pState.authenticated && pState.page==='forgot-password';
       const captchaToken = pState.turnstileToken;
       pState.resetLoading = true; captchaBusy();
       pState.page = "forgot-password"; // keep on this page after render
       let error;
       try { ({error}=await pb.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/?reset=true`, captchaToken })); }
       catch { error={code:'unavailable'}; }
-      finally { pState.resetLoading = false; render(); }
+      finally { if(pState.resetAttempt===attempt){pState.resetLoading=false;if(ownsReset())render();} }
+      if(!ownsReset())return;
       const newStatusEl = document.getElementById("forgot-status");
       if (newStatusEl) {
-        newStatusEl.textContent = error?.code==='captcha_failed' ? "Complete fresh verification and try again." : "Check your email for recovery instructions if recovery is available for that account. If no email arrives, retry later or contact your administrator.";
-        newStatusEl.style.cssText += "color:#7aada0;background:rgba(122,173,160,0.1)";
+        newStatusEl.textContent = error?.status===429 || /rate_limit/.test(error?.code || '') ? 'Too many requests. Please wait before trying again.' : error?.code==='captcha_failed' ? "Complete fresh verification and try again." : error ? 'Recovery could not be confirmed. Please try again later or contact your administrator.' : "Check your email for recovery instructions if recovery is available for that account. If no email arrives, retry later or contact your administrator.";
+        newStatusEl.className='auth-status '+(error?'is-error':'is-info');
         newStatusEl.classList.remove("hidden");
       }
       return;
@@ -126,12 +137,12 @@ export function initEvents() {
 
       if (newpass !== confirm) {
         statusEl.textContent = "Passwords don't match.";
-        statusEl.style.cssText += "color:#c24132;background:rgba(194,65,50,0.1)";
+        statusEl.style.cssText += "color:var(--rs-danger);background:var(--rs-danger-bg)";
         statusEl.classList.remove("hidden"); return;
       }
       if (newpass.length < 8 || !/[A-Z]/.test(newpass) || !/[0-9]/.test(newpass) || !/[^A-Za-z0-9]/.test(newpass)) {
         statusEl.textContent = "Password needs 8+ chars, an uppercase letter, a number, and a symbol.";
-        statusEl.style.cssText += "color:#c24132;background:rgba(194,65,50,0.1)";
+        statusEl.style.cssText += "color:var(--rs-danger);background:var(--rs-danger-bg)";
         statusEl.classList.remove("hidden"); return;
       }
 
@@ -143,12 +154,12 @@ export function initEvents() {
       if(!setupCurrent())return;
       if (result.error || result.data?.success!==true) {
         statusEl.textContent = "Password setup or activation could not be confirmed. Your account may remain restricted. Retry the same setup, or contact your administrator if the outcome is uncertain.";
-        statusEl.style.cssText += "color:#c24132;background:rgba(194,65,50,0.1)";
+        statusEl.style.cssText += "color:var(--rs-danger);background:var(--rs-danger-bg)";
         statusEl.classList.remove("hidden"); return;
       }
 
       statusEl.textContent = "Password updated! Redirecting to login…";
-      statusEl.style.cssText += "color:#7aada0;background:rgba(122,173,160,0.1)";
+      statusEl.style.cssText += "color:var(--rs-success);background:var(--rs-success-bg)";
       statusEl.classList.remove("hidden");
 
       pState.setupRouter?.clear();await pb.auth.signOut({ scope: "local" });
@@ -390,7 +401,17 @@ export function initEvents() {
     }
 
     /* ── Edit platform user ── */
+    if(action==='team-tab'){
+      if(pState.currentUser.role!=='master_admin' || !['Active','Pending','Inactive','Archived'].includes(el.dataset.pTab))return;
+      pState.teamTab=el.dataset.pTab;pState.filter='';pState.modal=null;render();
+      document.getElementById('team-tab-'+pState.teamTab)?.focus();return;
+    }
+    if(action==='manage-platform-user'){
+      if(pState.currentUser.role!=='master_admin')return;
+      pState.modal={type:'manage-platform-user',data:{id:el.dataset.pId,archived:el.dataset.pArchived==='true'}};render();return;
+    }
     if (action === "edit-platform-user") {
+      if(pState.currentUser.role!=='master_admin')return;
       pState.modal = {
         type: "edit-platform-user",
         data: {
@@ -409,13 +430,30 @@ export function initEvents() {
       if(pState.currentUser?.role!=='master_admin' || user.status!=='Pending')return;
       const requestId=crypto.randomUUID();el.disabled=true;
       try {
-        const resend=await confirmDialog({title:'Invitation status',message:`${user.name}: Pending. Password setup has not completed. If the setup link expired, request a fresh email for this existing account. Sending an email does not activate the employee.`,confirmLabel:'Resend invitation'});
+        const operation=(pState.data.teamOperations || []).find(o=>o.target_id===user.id);
+        if(operation || !user.auth_user_id){await showMessage({title:'Invitation needs review',message:teamStatus(user,operation).message});return;}
+        const resend=await confirmDialog({title:'Invitation status',message:`${user.name}: ${teamStatus(user).message} Sending an email does not activate the employee.`,confirmLabel:'Resend invitation'});
         if(!resend || !current())return;
         const {data,error}=await pb.functions.invoke('resend-platform-invitation',{body:{id:user.id,request_id:requestId}});
         if(!current())return;
         if(error || data?.success!==true){const message=await teamErrorMessage(data,error,requestId);if(current())notify.error(message);}
         else notify.success(data.already_sent?'The setup email request was already recorded.':'Setup email requested. Delivery and link acceptance must still be verified.');
         await loadPlatform();if(current())render();
+      }finally{if(el.isConnected)el.disabled=false;}
+      return;
+    }
+    if(action==='clear-failed-invitation'){
+      if(pState.currentUser.role!=='master_admin')return;
+      const operation=(pState.data.teamOperations || []).find(o=>o.target_id===el.dataset.pId && o.request_id===el.dataset.pRequest && o.action==='create' && o.stage==='review_required');
+      if(!operation)return;
+      el.disabled=true;
+      try{
+        if(!await confirmDialog({title:'Clear Failed Invitation?',message:'The server will verify this exact failed creation request and that no matching Auth identity exists. It clears only the unused Pending reservation and retains the original audit evidence. It will not delete an Auth user or resend an invitation.',confirmLabel:'Clear Failed Invitation'}) || !current())return;
+        const {data,error}=await pb.functions.invoke('clear-failed-platform-invitation',{body:{id:operation.target_id,request_id:operation.request_id,acknowledged:true}});
+        if(!current())return;
+        if(error || data?.success!==true){notify.error('Failed invitation could not be cleared. Auth absence, request ownership or the review waiting period could not be verified. Refresh and review the original request.');return;}
+        notify.success(data.already_cleared?'This failed invitation was already cleared.':'Failed invitation cleared. Audit history retained; you may explicitly add a fresh invitation.',{duration:0});
+        pState.modal=null;const refreshed=captureView();await loadPlatform();if(viewCurrent(refreshed))render();
       }finally{if(el.isConnected)el.disabled=false;}
       return;
     }
@@ -440,7 +478,7 @@ export function initEvents() {
         const {data,error}=await pb.functions.invoke(deletion?'delete-platform-user':action,{body:{id:user.id,request_id:requestId,...(confirmation || {}),...(action==='reconcile-platform-user'?{reconcile:true}:{})}});
         if(!current())return;
         if(error || data?.success!==true){const message=await teamErrorMessage(data,error,requestId);if(!current())return;notify.error(message);await loadPlatform();if(current())render();return;}
-        notify.success(deletion?'Employee permanently retired. Auth absence was verified and historical evidence retained.':'Team operation verified. Reactivated employees must sign in again.');
+        notify.success(deletion?'Employee permanently retired. Auth absence was verified and historical evidence retained.':action==='reactivate-platform-user'?'Employee reactivated with the existing identity. A fresh sign-in is required.':'Employee deactivated. Platform access is suspended and the existing identity is retained.',{duration:0});
         await loadPlatform(); if(current())render();
       } finally {if(confirmation){confirmation.password='';confirmation.captchaToken='';}if(el.isConnected)el.disabled=false;if(document.getElementById('verification-widget'))void mountTurnstile();}
       return;
@@ -464,7 +502,17 @@ export function initEvents() {
   /* ── Input (filter + dynamic form) ── */
   document.addEventListener("input", event => {
     if (event.target.dataset.pFilter !== undefined) {
+      const position=event.target.selectionStart;
       pState.filter = event.target.value; render();
+      const input=document.querySelector('[data-p-filter]');input?.focus();if(input && position!==null && input.type!=='search')input.setSelectionRange(position,position);
+    }
+  });
+  document.addEventListener('keydown',event=>{
+    if(event.key==='Escape' && document.getElementById('p-sidebar')?.classList.contains('open')){syncSidebar();document.getElementById('p-menu-btn')?.focus();return;}
+    if(event.target.matches?.('.team-tab') && ['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){
+      const tabs=[...document.querySelectorAll('.team-tab')],at=tabs.indexOf(event.target);
+      const next=event.key==='Home'?0:event.key==='End'?tabs.length-1:(at+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;
+      event.preventDefault();tabs[next]?.click();
     }
   });
 
@@ -486,6 +534,7 @@ export function initEvents() {
   /* ── Online / offline ── */
   window.addEventListener("online",  () => { pState.online = true;  if (pState.authenticated) render(); });
   window.addEventListener("offline", () => { pState.online = false; if (pState.authenticated) render(); });
+  window.addEventListener('resize',()=>{syncSidebar();});
 
   /* ── Session check every 60s ── */
   const recheck=()=>validateSession(render);

@@ -13,15 +13,17 @@ export function fixture(options={}) {
  const caller={auth:{getUser:async()=>({data:{user},error:options.invalid?{}:null}),signInWithPassword:async values=>{calls.push(['password-check',values.email]);return options.passwordError?{error:{code:options.passwordCode}}:{data:{user:options.verifierUser || user,session:{}}};},signOut:async()=>{calls.push(['cleanup']);return {error:options.cleanupError?{}:null};}},rpc:async(name)=>{
   calls.push([name==='platform_operator_identity'?'identity':'context']);
   if(name==='platform_operator_identity') {const result=options.identityRpc?options.identityRpc():{data:options.identity || {auth_user_id:user?.id,role:options.role || 'master_admin',session_id:master},error:options.identityError?{}:null};if(result.data)result.data={session_id:master,password_verification_safe:options.continuityApproved!==false,...result.data};return result;}
+  if(name==='platform_team_delete_state')return options.deleteStateError?{error:{}}:{data:options.deleteState?{state:options.deleteState}:null};
   return {data:options.context || {kind:'pending',auth_user_id:user?.id,email:user?.email,session_id:master}};
  }};
  const admin={auth:{admin:{
   getUserById:async id=>({data:{user:authUsers.find(u=>u.id===id)},error:options.lookupError?{status:500}:authUsers.some(u=>u.id===id)?null:{status:404}}),
-  inviteUserByEmail:async(value,settings)=>{calls.push(['invite',value,settings]);return options.inviteError?{error:{}}:{data:{user:{id:target,email:value,user_metadata:options.unrelatedInvite?{}:settings.data}}};},
+  inviteUserByEmail:async(value,settings)=>{calls.push(['invite',value,settings]);return options.inviteError?{error:options.inviteError===true?{}:options.inviteError}:{data:{user:{id:target,email:value,user_metadata:options.unrelatedInvite?{}:settings.data}}};},
   updateUserById:async(id,values)=>{calls.push(['auth-update',id,values]);if(!options.authError)Object.assign(authUsers.find(u=>u.id===id),values);return {data:{user:{id}},error:options.authError?{}:null};},
   deleteUser:async id=>{calls.push(['auth-delete',id]);if(!options.authError)authUsers.splice(authUsers.findIndex(u=>u.id===id),1);return {error:options.authError?{}:null};},
  },resetPasswordForEmail:async(value,settings)=>{calls.push(['recover',value,settings]);return {error:options.inviteError?{}:null};}},from:()=>{let value;const q={select(){return q;},eq(k,v){value=v;return q;},limit(){return Promise.resolve(options.rowError?{data:null,error:{}}:{data:rows.filter(r=>r.id===value)});}};return q;},rpc:async(name,args)=>{
   calls.push(['rpc',name,args.p_action || args.p_step]);
+  if(name==='platform_team_clear_failed_invitation')return options.clearError?{error:{}}:{data:{success:true,already_cleared:false,operation_id:args.p_request}};
   if(name==='platform_team_resend_command'){
    let op=ops.get(args.p_request),fresh=!op;
    if(!op){op={stage:options.existingStage || 'reserved',new_operation:!options.existingStage};ops.set(args.p_request,op);}

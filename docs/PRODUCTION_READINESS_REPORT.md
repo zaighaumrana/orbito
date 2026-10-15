@@ -1,5 +1,16 @@
 # RetraSell Platform production readiness audit
 
+> Current local supplement — 2026-10-15: the eleven-point correction and official
+> visual-system implementation is uncommitted on `feature/platform-team-lifecycle-v2`
+> at base `7113681`. See [the complete implementation/asset/validation report](PLATFORM_UI_BRANDING_REVIEW.md).
+> Forward migration 16 is additive; migrations 1–15 remain immutable. Draft PR #4
+> has not been updated. Staging/production remain NO-GO; deletion stays disabled.
+> Final local checks: 286 source tests, 24 PostgreSQL groups, eight native Auth
+> groups, eight Deno entrypoints, six theme/viewport groups plus retained Client/
+> employee-role browser journeys, synthetic build and source/asset integrity PASS.
+> Final-C supplied artwork is incorporated at stable paths. The exact 61-file
+> manifest, limitations and unexecuted hosted/CLI-fault gates are in that supplement.
+
 2026-10-12, Asia/Karachi. **NO-GO for production or unreviewed staging rollout.**
 The confirmed local defects described below are corrected and tested. Native Auth
 configuration, email-delivery constraints, hosted access boundaries, coordinated

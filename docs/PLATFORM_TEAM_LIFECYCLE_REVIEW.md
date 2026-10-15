@@ -1,5 +1,20 @@
 # Platform team lifecycle — corrected PR #4 review and rollout gates
 
+> 2026-10-15 local supplement: [eleven corrections and official UI](PLATFORM_UI_BRANDING_REVIEW.md).
+> Additive migration `20261015003232_platform_team_invitation_review.sql` follows
+> 15; none of 1–15 is edited. The new explicit failed-create clearance checks exact
+> request/target/actor and Auth absence, cancels only an unused reservation, retains
+> audit/resolution and never deletes Auth. Team moves to `/team`; native invitation,
+> password/setup, deactivation/reactivation, immutable archive and role boundaries
+> remain. Unknown link expiry/provider outcomes stay explicit. The non-destructive
+> Master diagnostic tests refresh during and after temporary verification; it cannot
+> enable the deletion policy. Current source is local/uncommitted and unreviewed;
+> hosted verification/deployment remains separately gated. Keep PR #4 Draft.
+> Final local source, PostgreSQL/native-Auth, browser, Deno, build and integrity
+> checks passed; exact counts, evidence and 61-file manifest are in the supplement.
+> Forward-16 CLI history/connection-loss injection and hosted acceptance remain
+> unverified. Final-C branding is integrated; owner visual approval is pending.
+
 2026-10-12 (Asia/Karachi). This supersedes the 2026-10-11 recovery-email reactivation design. Its historical checkpoint remains in engineering history; its transport instructions are withdrawn. Owner confirmed that migration `20261010233446` has never been applied or manually executed on a hosted database. Only that unreleased migration is revised; the preceding twelve migrations are unchanged.
 
 Historical local audit checkpoint: `fix/pr4-security-stabilization` at `a0dae0fc90332f9fc4a498823c1851c00c3f17b6`, then uncommitted. The complete 39-file correction set was subsequently committed and pushed as **`be43f28b3a2cea0b1d73b2b9611a96818bed810d`**. Current corrections continue on `feature/platform-team-lifecycle-v2`; their exact enclosing revision is Git/PR #4 HEAD. PR #4 remains Draft, open and unmerged, targeting `development`. Neither checkpoint establishes hosted validation.

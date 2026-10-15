@@ -11,8 +11,8 @@ export function pageSupport() {
   return `
     ${tit("Support Tickets", "Problem reports submitted by clients.", "")}
     <div class="toolbar">
-      <input class="search" data-p-filter placeholder="Search tickets…"
-        value="${esc(pState.filter)}" style="min-width:260px">
+      <label class="field"><span>Search tickets</span><input class="search" data-p-filter placeholder="Subject or client"
+        value="${esc(pState.filter)}" style="min-width:260px"></label>
     </div>
     <div style="display:grid;gap:12px">
       ${tickets.length ? tickets.map(t => {

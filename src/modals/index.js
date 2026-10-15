@@ -7,6 +7,7 @@ import { pState }        from "../state.js";
 export function pModal() {
   if (!pState.modal) return "";
   const { type, data: md } = pState.modal;
+  if(['add-platform-user','edit-platform-user','manage-platform-user','master-continuity'].includes(type) && pState.currentUser?.role!=='master_admin')return '';
 
   if(type==='byo-setup')return byoSetupModal(pState.selectedClient,pState.clientData);
   if(['managed-setup','rotate-turnstile'].includes(type))return managedSetupModal(pState.selectedClient,pState.clientData,type);

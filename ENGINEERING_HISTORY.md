@@ -1160,3 +1160,138 @@ Shop tests. No hosted access, policy enablement, scheduler change, deployment, G
 checkpoint or PR modification. Fresh independent review and separate rollout approval
 remain required. Local corrections implemented and validated; ready for fresh
 independent review, with no staging deployment authorized. Staging/production NO-GO.
+
+## 2026-10-15 — Eleven corrections, dedicated Team page and official branding
+
+Clean starting branch/HEAD: feature/platform-team-lifecycle-v2 / 7113681; GitHub
+PR #4 independently verified Draft/open/unmerged to development at the same SHA.
+Current work is local and uncommitted. No protected branch, Shop artifact,
+Supabase project, Cloudflare configuration, real account, credential or email changed.
+
+Forward 16, 20261015003232_platform_team_invitation_review.sql, was created with
+CLI 2.120.0. Migrations 1–15 remain untouched. Explicit failed-create clearance
+requires exact actor/request/target, unchanged unlinked Pending reservation,
+settled review, Auth absence (including soft-deleted/nonce-linked identities),
+no competing operation/FK and a live canonical Master. Its locked cancellation,
+retained resolution and audit are retry/concurrency safe; it never deletes Auth
+or auto-reinvites. Late native responses cannot complete a cancelled reservation;
+later provider identities still require reviewed reconciliation, never email adoption.
+Minimal caller-checked deletion-history and own-session inactive-notice RPCs improve
+accurate errors without widening data access. Native user_banned remains generic:
+the provider checks it before the password. Unknown invite expiry/delivery remains
+explicit, with legitimate Pending renewal, no resend of unresolved/unlinked creation.
+
+The Master-only diagnostic uses a separate memory-only client and tests native
+refresh DURING the temporary grant as well as after local cleanup, then repeats
+canonical checks. This catches the single-session false-positive case. Obsolete
+continuations cannot refresh a successor; failures/cleanup are explicit. The
+diagnostic cannot enable deletion; its database policy stays FALSE. Lifecycle and
+recovery notices are action-specific and never claim delivery after a send failure.
+
+Team now has its own canonical Master-only /team page, tabs/counts/search, Manage
+dialogs, refresh, invitation review and read-only archive. Settings retains personal
+credentials, platform information and the diagnostic. The old Settings Team renderer
+and unused RA-logo styles are removed. Confirmed identity/role feedback, keyboard
+focus, private-overlay revocation cleanup and responsive table overflow are covered.
+
+Read the official 24-page PDF, editable guide/tokens and actual refined assets.
+Eleven exact SVG/PNG images under public/brand preserve original filenames/geometry;
+four supplied embedded Inter weights and official OFL are local. Supplied light/dark
+tokens cover Auth, shell/pages/forms/dialogs/notifications and invoice presentation;
+sidebar stays navy. Stable assets can be replaced without frontend source changes.
+The final audit found the newer branding 2.0 package (optical state C) and replaced
+the two horizontal SVGs using its exact original filenames. All eleven image hashes
+agree with final-C CSV/JSON manifests; other images, fonts and tokens match unchanged.
+Final owner visual acceptance is pending.
+Invoice calculations/ledger selection are unchanged. Print waits for the official
+image and rechecks original authority; invoice preview focus/Escape/private cleanup
+uses the common dialog lifetime. Client, plan/addon, billing mutation, provisioning,
+support, lifecycle and frozen Shop contracts are preserved.
+
+Final validation: 286 selected source regressions PASS (zero FAIL/SKIP). Real PG17
+suites PASS 24 groups
+(6 bootstrap, 2 canonical, 12 lifecycle/review, 4 SQL/PostgREST isolation); strengthened
+populated-upgrade/concurrent-clear/rollback check also PASS. Actual diagnostic with
+native GoTrue passes multi-session and rejects single-session loss; eight native
+groups PASS, using explicit SDK/PostgREST transport adapters. Final read-only validator/
+populated upgrade/concurrent clear/late SQL failure PASS. Eight affected native Deno
+checks PASS. Six actual Edge Chromium viewport/theme groups plus Team/Auth actions,
+three retained Client-modal and three employee-role journeys PASS with synthetic
+data and zero external traffic. Final synthetic Vite build, 31 JS syntax checks,
+TOML/manifest/whitespace and asset/source integrity PASS; no new literal-import cycles.
+All 23 supplied contrast pairs meet specified thresholds (not a full WCAG audit).
+Before screenshots use exact starting source. Initial fixture/assertion/selector
+failures, corrected mobile overflow and unavailable Chrome startup are retained.
+Docker/D: initially blocked final checks; the owner restored them and those checks
+then passed. No dependency failure is counted as a pass. Final set: 61 files,
+33 modified/28 new, nothing staged; exact manifest is in the detailed report.
+
+Hosted SMTP/CAPTCHA/session/SDK acceptance, exact native link validity, CLI-16 history/
+connection fault injection and final visual/independent review remain unverified.
+Full report: docs/PLATFORM_UI_BRANDING_REVIEW.md. Evidence is outside Git under
+RetraSellReviewEvidence/2026-10-15-ui. No commit/push/merge/deployment authorized;
+staging and production remain NO-GO.
+
+## 2026-10-16 — Independent F1 invoice print typography/readiness correction
+
+Branch: feature/platform-team-lifecycle-v2; committed HEAD remains 7113681.
+The starting 61-file uncommitted implementation exactly matched its prior hash
+ledger. Independent F1 was reproduced: the print document named Inter but did not
+load it. Only billing's print-window function changes: local approved 400/500/600/
+700 font faces, absolute same-origin paths, explicit font/image readiness, cached
+asset fast paths, one-shot cleanup and a 15-second browser-timer failure deadline.
+User-gesture popup creation, invoice layout/values/currency and authority checks
+are preserved. A native-browser-discovered popup-close/font-rejection race is
+also reproduced and corrected; cancellation stays quiet and never prints.
+
+PASS: 73 affected source tests, ten actual Edge popup/font/image scenarios,
+synthetic Vite build, three syntax checks, whitespace, font/artifact and scoped
+source integrity. Final runs have zero failures; expected before-failures and
+initial harness failures are retained. CDP routing stalled native popup requests;
+an owned loopback proxy resolved the test limitation without a product workaround.
+It blocked Edge background traffic and forwarded nothing externally. OS printing
+is intercepted; Chrome/other engines and hosted/printer acceptance are SKIP.
+Unchanged SQL/Auth/CLI/Deno/full suites were not rerun.
+
+Five follow-up files; 57 other starting files are byte-identical and existing
+history is preserved. Current set: 62 files (33 modified/29 new), nothing staged.
+Migrations 1–16, final-C assets/fonts/tokens, employee/Master/RBAC/diagnostic code,
+default-disabled deletion, protected refs and frozen Shop artifact are unchanged.
+Evidence: RetraSellReviewEvidence/2026-10-16-invoice-print; detailed F1 supplement
+in docs/PLATFORM_UI_BRANDING_REVIEW.md. Ready for focused independent re-review,
+not full security approval. No commit/push/PR change, hosted access or deployment;
+Draft PR #4 remains unmerged. Staging and production remain NO-GO.
+
+## 2026-10-16 — Migration 16 actual CLI atomicity and uncertain acknowledgments
+
+Branch/HEAD unchanged: feature/platform-team-lifecycle-v2 / 7113681. Starting
+62-file F1 checkpoint matched its ledger; application, invoice correction, assets,
+Shop artifact and all sixteen migration files remain untouched.
+
+Extended the existing CLI harness, with optional evidence/work isolation outside
+Git. Actual pinned Supabase frontend 2.120.0 (verified binary hash), PG17.6 image,
+native Auth migrations/Vault/pgcrypto/supautils and provider-owned table fixtures
+apply genuine history through 15, then test 16 as non-superuser postgres. Empty and
+populated scenarios retain Master/config, Active/Pending/Inactive employees, failed
+reservation, immutable archive/audit and representative billing records. No history
+repair or manual successful history INSERT is used; deletion remains FALSE.
+
+PASS: nine CLI scenarios (ten Node tests including parent), plus the existing
+focused migration-16 SQL/security group; zero final FAIL/SKIP. History rejection
+and exact owned-backend termination after SQL completion roll back SQL/history
+jointly; early DDL termination also rolls back. A wire proxy dropping post-commit
+ReadyForQuery instead leaves all changes and one genuine history row committed
+although CLI fails. Authoritative inspection precedes retry; never infer rollback
+from an error. Concurrent statuses [0,1] preserve one complete migration; runners
+must still be serialized. Repeated executions preserve schema/data/policies.
+
+Initial failures were a missing fixture field and administrator-owned clones;
+correcting synthetic data/database ownership required no migration or privilege
+relaxation. Logs remain. Owned resources were label-verified and removed. Syntax,
+whitespace and source preservation pass. Only CLI tests and two documentation files
+change this round; current set is 63 files (34 modified/29 new), nothing staged.
+Evidence: RetraSellReviewEvidence/2026-10-16-migration16-cli. Hosted/TLS/pooler/crash
+and exhaustive timing cases remain unverified; full frontend/Auth HTTP/Deno suites
+were not rerun. Local migration-16 atomicity PASS is not overall security approval.
+No commit, push, PR modification, hosted access or deployment. Staging/production
+remain NO-GO; independent review and separately authorized rollout are required.

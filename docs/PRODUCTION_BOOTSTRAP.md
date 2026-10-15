@@ -642,3 +642,26 @@ backups; provider/Vault portability and restore-rehearsal limits remain.
 Role/column/surface inventory: docs/PLATFORM_ROLE_READ_ISOLATION.md. Current tests,
 exact manifest and gates: docs/PRODUCTION_READINESS_REPORT.md. No hosted rollout
 is authorized by this documentation/source checkpoint; production stays NO-GO.
+
+## 2026-10-15 — Current source extension, through forward 16
+
+The current source chain now includes 13 (Team lifecycle), 14 (role read isolation),
+15 (retirement/re-onboarding/resend) and new 16
+`20261015003232_platform_team_invitation_review.sql` (safe failed-create clearance,
+minimal Master deletion-history evidence and own-identity suspension notice).
+Migrations 1–15 are immutable. These local additions do not prove hosted history.
+
+Before separately approved rollout, inspect the real target's genuine history and
+dry-run plan. Do not assume only 16 is pending, skip prerequisite files, fabricate
+history or replay already applied migrations. Use the existing credential-safe CLI
+procedure. Coordinate the reviewed pending migrations, matching Team bundles and
+frontend in a freeze. Run the read-only `bootstrap/validate-team-review.sql` after
+16 along with existing validators and genuine history/data checks.
+
+The exact component/asset inventory and limits are in
+[PLATFORM_UI_BRANDING_REVIEW.md](PLATFORM_UI_BRANDING_REVIEW.md). The new endpoint
+retains JWT verification and existing managed runtime/site-URL secrets; it sends no
+email and deletes no Auth user. The diagnostic checks refresh during/after its
+temporary Auth grant and cannot enable deletion. The deletion policy must remain
+FALSE until a separate reviewed owner decision. No hosted SQL, function/frontend
+deployment or PR merge is authorized by this source work.

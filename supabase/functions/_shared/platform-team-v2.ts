@@ -47,22 +47,24 @@ function bearer(req: Request) {
   const value = req.headers.get("Authorization") || "";
   requireThat(/^Bearer \S+$/i.test(value), 401, "Verified Auth session required."); return value.slice(7);
 }
-function publicHandler(work: (req: Request, env: ReturnType<typeof environment>) => Promise<any>, action?: string) {
+function publicHandler(work: (req: Request, env: ReturnType<typeof environment>, evidence: { deletionState?: string }) => Promise<any>, action?: string) {
   return async (req: Request) => {
     const headers: Record<string, string> = { "Content-Type": "application/json", "Cache-Control": "no-store", "Vary": "Origin", "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info", "Access-Control-Allow-Methods": "POST, OPTIONS" };
+    const evidence: { deletionState?: string } = {};
     try {
       const env = environment(), origin = req.headers.get("Origin");
       requireThat(!origin || origin === env.origin, 403, "Origin denied.");
       if (origin) headers["Access-Control-Allow-Origin"] = env.origin;
       if (req.method === "OPTIONS") return new Response(null, { status: 204, headers });
       requireThat(req.method === "POST", 405, "POST required.");
-      return new Response(JSON.stringify(await work(req, env)), { status: 200, headers });
+      return new Response(JSON.stringify(await work(req, env, evidence)), { status: 200, headers });
     } catch (error) {
       // Preflight rejection proves only what THIS invocation did. It cannot
       // establish absence of a prior durable request, including a completed one.
       const rejectedAttempt = error instanceof Failure && error.reviewRequired === false;
-      return new Response(JSON.stringify({ error: error instanceof Failure ? error.message : "Operation unavailable; review before retrying.", code: error instanceof Failure ? error.code : "operation_unconfirmed", review_required: action === "delete" || !rejectedAttempt,
-        ...(action === "delete" ? { current_attempt_rejected: rejectedAttempt, operation_state: "unverified" } : {}) }), { status: error instanceof Failure ? error.status : 503, headers });
+      const state = rejectedAttempt ? evidence.deletionState || "unverified" : "unverified";
+      return new Response(JSON.stringify({ error: error instanceof Failure ? error.message : "Operation unavailable; review before retrying.", code: error instanceof Failure ? error.code : "operation_unconfirmed", review_required: action === "delete" ? state !== "none" && state !== "completed" : !rejectedAttempt,
+        ...(action === "delete" ? { current_attempt_rejected: rejectedAttempt, operation_state: state } : {}) }), { status: error instanceof Failure ? error.status : 503, headers });
     }
   };
 }
@@ -76,8 +78,8 @@ async function linked(admin: any, row: any, allowMissing = false, allowBan = fal
   return user;
 }
 
-export function teamV2Handler(action: "create" | "update" | "delete" | "deactivate" | "reactivate" | "resend", factory = createClient) {
-  return publicHandler(async (req, env) => {
+export function teamV2Handler(action: "create" | "update" | "delete" | "deactivate" | "reactivate" | "resend" | "clear", factory = createClient) {
+  return publicHandler(async (req, env, evidence) => {
     const token = bearer(req), caller = factory(env.url, env.anon, { ...options, global: { headers: { Authorization: `Bearer ${token}` } } });
     const actor = await master(caller, token);
     const body = await bodyOf(req, ["id", "request_id", "name", "email", "role", "password", "captchaToken", "acknowledged", "reason", "reconcile", "retired_employee_id"]);
@@ -90,6 +92,12 @@ export function teamV2Handler(action: "create" | "update" | "delete" | "deactiva
     if (body.reason !== undefined) requireThat(typeof body.reason === "string" && body.reason.length <= 500, 400, "Invalid reason.");
     requireThat(action === "delete" || body.password === undefined, 400, "Team passwords are employee-controlled.");
     if (action === "delete") {
+      // This authenticated read grants no delete permission and constructs no
+      // service client. Unavailable/mismatched history remains explicitly unknown.
+      try {
+        const prior = await caller.rpc("platform_team_delete_state", { p_request: requestId, p_target: targetId });
+        if (!prior.error && ["none", "completed", "reserved", "auth_delete_dispatched", "review_required", "cancelled"].includes(prior.data?.state)) evidence.deletionState = prior.data.state;
+      } catch { /* Keep the conservative F1 unknown-history behavior. */ }
       requireThat(actor.password_verification_safe, 503, "This deletion attempt was rejected because Master session continuity is not approved.", "deletion_disabled", false);
       requireThat(body.acknowledged === true && typeof body.password === "string" && body.password.length > 0 && body.password.length <= 256 && typeof body.captchaToken === "string" && body.captchaToken, 400, "Password, fresh CAPTCHA and acknowledgment required.", "verification_required", false);
       const verifier = factory(env.url, env.anon, options);
@@ -109,6 +117,13 @@ export function teamV2Handler(action: "create" | "update" | "delete" | "deactiva
       requireThat(repeated.password_verification_safe && repeated.session_id === actor.session_id, 503, "This deletion attempt was rejected because its safety approval or original session is unavailable.", "deletion_disabled", false);
     }
     const admin = factory(env.url, env.service, options);
+    if (action === "clear") {
+      requireThat(body.acknowledged === true, 400, "Explicit failed-invitation clearance acknowledgment required.");
+      await master(caller, token, actor);
+      const cleared = await rpc(admin, "platform_team_clear_failed_invitation", { p_actor: actor.id, p_request: requestId, p_target: targetId, p_session: actor.session_id });
+      requireThat(cleared.success === true, 409, "Clearance could not be verified; refresh Team status.");
+      return cleared;
+    }
     const command = (step: string, data = {}) => action === "resend"
       ? rpc(admin, "platform_team_resend_command", {p_actor:actor.id,p_request:requestId,p_target:targetId,p_step:step,p_session:actor.session_id})
       : rpc(admin, "platform_team_command", { p_actor: actor.id, p_request: requestId, p_action: step, p_target: targetId, p_data: data, p_session: actor.session_id });
@@ -125,6 +140,7 @@ export function teamV2Handler(action: "create" | "update" | "delete" | "deactiva
         const nonce = operation.requested?.invite_nonce;
         requireThat(typeof nonce === "string" && /^[a-f0-9]{64}$/.test(nonce), 503, "Invitation reservation requires the current server migration.");
         const result = await admin.auth.admin.inviteUserByEmail(email(body.email), { redirectTo: `${env.origin}/?reset=true`, data:{retrasell_invite_nonce:nonce} });
+        if (result.error?.status === 429 || /rate_limit/.test(result.error?.code || "")) throw new Failure(429, "Too many email requests. Please wait before trying again.", "email_rate_limited");
         requireThat(!result.error && result.data?.user?.id && result.data.user.id !== actor.id && email(result.data.user.email || "") === email(body.email) && result.data.user.user_metadata?.retrasell_invite_nonce === nonce, 503, "Invitation outcome requires reconciliation.");
         await master(caller, token, actor);
         operation = await command("finish_create", { auth_user_id: result.data.user.id });
@@ -146,6 +162,7 @@ export function teamV2Handler(action: "create" | "update" | "delete" | "deactiva
           const sent = target!.email_confirmed_at
             ? await admin.auth.resetPasswordForEmail(row.email, {redirectTo:`${env.origin}/?reset=true`})
             : await admin.auth.admin.inviteUserByEmail(row.email, {redirectTo:`${env.origin}/?reset=true`});
+          if (sent.error?.status === 429 || /rate_limit/.test(sent.error?.code || "")) throw new Failure(429, "Too many email requests. Please wait before trying again.", "email_rate_limited");
           requireThat(!sent.error, 503, "Setup email outcome requires reconciliation.");
           await linked(admin,row); await master(caller, token, actor); operation = await command("finish");
         } else if (action === "deactivate" || action === "reactivate") {

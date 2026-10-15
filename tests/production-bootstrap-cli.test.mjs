@@ -14,7 +14,9 @@ assert.ok(cliPath && isAbsolute(cliPath),'ORBITO_BOOTSTRAP_CLI_PATH must be the 
 const cli=realpathSync(cliPath),version='20261008191709',filename=version+'_production_bootstrap_hardening.sql';
 const nonce=randomBytes(8).toString('hex'),container='orbito-bootstrap-atomic-'+nonce,network=container+'-network';
 const label='com.retrasell.bootstrap-test',password=randomBytes(32).toString('hex'),jwt=randomBytes(32).toString('hex');
-const toolRoot=resolve(root,'node_modules/.bootstrap-tools');
+const evidence=process.env.ORBITO_BOOTSTRAP_EVIDENCE_DIR?resolve(process.env.ORBITO_BOOTSTRAP_EVIDENCE_DIR):null;
+if(evidence)assert.ok(relative(root,evidence).startsWith('..'+sep),'Evidence must be outside the repository');
+const toolRoot=evidence?join(evidence,'owned-work'):resolve(root,'node_modules/.bootstrap-tools');
 mkdirSync(toolRoot,{recursive:true});
 const work=mkdtempSync(join(toolRoot,'atomicity-'));
 const read=p=>readFileSync(join(root,p),'utf8'),digest=s=>createHash('sha256').update(s).digest('hex');
@@ -239,6 +241,115 @@ test('rerun the six real database groups against the same owned PG17/Auth/Vault 
  successful(result);assert.match(result.stdout,/pass 6/);assert.match(result.stdout,/fail 0/);assert.match(result.stdout,/skipped 0/);
  t.diagnostic(redact(result.stdout));
 });
+
+test('migration 16 actual CLI: fresh, populated, history failure, termination, acknowledgment loss and concurrency',async t=>fixture('fresh','review16',async(base,dir)=>{
+ const v='20261015003232',file=v+'_platform_team_invitation_review.sql',u=n=>'92000000-0000-4000-8000-'+String(n).padStart(12,'0');
+ const records=[],log=(name,result)=>{records.push({name,...result});if(evidence)writeFileSync(join(evidence,'migration16-results.json'),JSON.stringify({cli,version:'2.120.0',container,network,records},null,2));};
+ const applied=db=>Number(sql(`select count(*) from supabase_migrations.schema_migrations where version='${v}'`,db));
+ const count=db=>Number(sql('select count(*) from supabase_migrations.schema_migrations',db));
+ successful(push(base,dir));assert.equal(count(base),12);
+ // Real provider-owned tables and loaded supautils; no owner membership grant.
+ sql("do $$begin if not exists(select 1 from pg_roles where rolname='supabase_realtime_admin') then create role supabase_realtime_admin login;end if;end$$;",base,[],'supabase_admin');
+ sql(`alter role supabase_storage_admin password '${password}';alter role supabase_realtime_admin password '${password}';create schema storage authorization supabase_storage_admin;create schema realtime authorization supabase_realtime_admin;`,base,[],'supabase_admin');
+ const owner=(user,body)=>must('docker',['exec','-i','-e','PGPASSWORD='+password,container,'psql','-X','-q','-v','ON_ERROR_STOP=1','-h','127.0.0.1','-U',user,'-d',base,'-f','-'],{input:body});
+ owner('supabase_storage_admin','create table storage.objects(id uuid primary key,owner uuid);alter table storage.objects enable row level security;');
+ owner('supabase_realtime_admin','create table realtime.messages(id uuid primary key);alter table realtime.messages enable row level security;');
+ sql('grant usage on schema storage,realtime to postgres;alter role postgres nosuperuser;',base,[],'supabase_admin');
+ try{
+ assert.equal(sql("select not rolsuper from pg_roles where rolname=current_user",base),'t');
+ assert.equal(sql("select count(*)=1 from pg_settings where name='supautils.policy_grants' and context='sighup' and (setting::jsonb->current_user) ?& array['storage.objects','realtime.messages']",base),'t');
+ for(const f of readdirSync(join(root,'supabase/migrations')).filter(f=>f>filename && f<file && f.endsWith('.sql')).sort())copyFileSync(join(root,'supabase/migrations',f),join(dir,'supabase/migrations',f));
+ successful(push(base,dir));assert.equal(count(base),15);
+ copyFileSync(join(root,'supabase/migrations',file),join(dir,'supabase/migrations',file));
+ const populated='orbito_cli_review16_populated_'+nonce;
+ sql('create database '+populated+' owner postgres template '+base,'postgres',[],'supabase_admin');databases.add(populated);
+ sql(`begin;select set_config('platform.team_transition','trusted',true);
+ insert into auth.users(id,email,email_confirmed_at) values ${[1,2,3,4,5].map(n=>`('${u(n)}','user${n}@example.test',now())`).join(',')};
+ select platform_private.initialize_config('Synthetic CLI Master','Reviewed local migration sixteen fixture');select platform_private.bind_master('${old}',null,'Reviewed existing synthetic Master binding');
+ insert into public.platform_users(id,auth_user_id,name,email,role,status) values ${[2,3,4,5].map(n=>`('${u(n)}','${u(n)}','Employee ${n}','user${n}@example.test','${n===3?'billing_person':'portfolio_manager'}','${n===4?'Pending':n===5?'Inactive':'Active'}')`).join(',')},('${u(7)}',null,'Failed invitation','failed@example.test','billing_person','Pending');
+ insert into auth.sessions(id,user_id,created_at,updated_at) select id,id,now(),now() from auth.users;
+ insert into auth.mfa_amr_claims(id,session_id,authentication_method,created_at,updated_at) select gen_random_uuid(),id,'password',now(),now() from auth.sessions;
+ insert into public.platform_team_archive(id,auth_user_id,name,email,role,deleted_by,operation_id) values('${u(9)}','${u(9)}','Archived employee','archived@example.test','billing_person','${old}','${u(90)}');
+ insert into platform_private.team_operations(request_id,actor_id,target_id,action,stage,snapshot,requested) select id,'${old}',id,'create','review_required',to_jsonb(p),jsonb_build_object('name',name,'email',email,'role',role,'invite_nonce','synthetic-${nonce}') from public.platform_users p where id='${u(7)}';
+ insert into public.clients(id,name,supabase_url,supabase_anon,currency,billing_policy) values(1,'Retained synthetic client','https://abcdefghijklmnopqrst.supabase.co','synthetic-public-fixture','PKR','usage-v1');
+ insert into public.billing_cycles(client_id,period_start,period_end,total_due,remaining_balance,request_id) values(1,'2026-10-01','2026-10-12',123,113,'${u(91)}');
+ insert into public.payments(invoice_id,client_id,amount,payment_method,payment_date,request_id) values(1,1,10,'Bank','2026-10-12','${u(92)}');
+ insert into public.operator_audit(actor_id,action,detail) values('${old}','retained_cli_fixture','{"synthetic":true}');commit;`,populated);
+ const schema=db=>digest(must('docker',['exec',container,'pg_dump','-U','supabase_admin','-d',db,'--schema-only','--schema=public','--schema=platform_private','--schema=storage','--schema=realtime']).replace(/^\\(?:un)?restrict .*$/gm,''));
+ const policies=db=>digest(sql("select jsonb_agg(to_jsonb(p) order by schemaname,tablename,policyname) from pg_policies p where schemaname in ('public','platform_private','storage','realtime')",db));
+ const data=db=>{
+  const tables=JSON.parse(sql("select json_agg(schemaname||'.'||tablename order by schemaname,tablename) from pg_tables where schemaname in ('public','platform_private','auth')",db));
+  const pairs=tables.map(table=>{assert.match(table,/^[a-z_]+\.[a-z_]+$/);return `'${table}',(select coalesce(jsonb_agg(to_jsonb(r)-'resolution' order by (to_jsonb(r)-'resolution')::text),'[]') from ${table} r)`;});
+  return digest(sql(`select jsonb_object_agg(k,v) from (values ${pairs.map(pair=>'('+pair+')').join(',')},('genuine_history',(select jsonb_agg(to_jsonb(h) order by version) from supabase_migrations.schema_migrations h where version<>'${v}'))) retained(k,v)`,db));
+ };
+ const absent=db=>{assert.equal(applied(db),0);assert.equal(sql("select not exists(select 1 from pg_attribute where attrelid='platform_private.team_operations'::regclass and attname='resolution' and not attisdropped) and to_regprocedure('public.platform_team_clear_failed_invitation(uuid,uuid,uuid,uuid)') is null and to_regprocedure('public.platform_team_delete_state(uuid,uuid)') is null and to_regprocedure('public.platform_account_access_notice()') is null",db),'t');};
+ const ready=db=>{
+  assert.equal(applied(db),1);assert.equal(count(db),16);
+  assert.equal(sql("select bool_and(statements is not null and cardinality(statements)>0) from supabase_migrations.schema_migrations",db),'t');
+  sql(read('supabase/bootstrap/validate-team-review.sql'),db);
+ };
+ const clone=async(kind,source,body)=>{
+  const db='orbito_cli_review16_'+kind+'_'+nonce;sql('create database '+db+' owner postgres template '+source,'postgres',[],'supabase_admin');databases.add(db);
+  assert.equal(sql("select has_schema_privilege(current_user,'public','create') and not (select rolsuper from pg_roles where rolname=current_user)",db),'t','Clone must retain its real migration owner without superuser');
+  try{await body(db);}finally{sql('drop database '+db+' with (force)','postgres',[],'supabase_admin');databases.delete(db);}
+ };
+ const fault=(db,mode)=>{
+  const app='review16_'+mode+'_'+nonce;
+  sql(`create function supabase_migrations.review16_fault() returns trigger language plpgsql as $$declare s text;begin if new.version='${v}' then
+   foreach s in array new.statements loop if upper(regexp_replace(s,'^([[:space:]]|--[^\n]*\n)*','','g')) !~ '^(ALTER TABLE |CREATE (OR REPLACE )?FUNCTION |REVOKE |GRANT )' then raise exception 'Unexpected migration sixteen statement';end if;end loop;
+   if to_regprocedure('public.platform_team_clear_failed_invitation(uuid,uuid,uuid,uuid)') is null or to_regprocedure('public.platform_team_delete_state(uuid,uuid)') is null or to_regprocedure('public.platform_account_access_notice()') is null
+    or not exists(select 1 from pg_attribute where attrelid='platform_private.team_operations'::regclass and attname='resolution' and not attisdropped)
+    or pg_get_functiondef('public.platform_team_history()'::regprocedure) not like '%clear_after%'
+    or has_function_privilege('authenticated','public.platform_team_clear_failed_invitation(uuid,uuid,uuid,uuid)','execute') or not has_function_privilege('service_role','public.platform_team_clear_failed_invitation(uuid,uuid,uuid,uuid)','execute') then raise exception 'Sixteen SQL/grants not completed before history';end if;
+   ${mode==='reject'?"raise exception 'Injected migration sixteen history rejection after SQL/grants completed';":`perform set_config('application_name','${app}',true);perform pg_sleep(${mode==='concurrent'?3:45});`}
+   end if;return new;end $$;create trigger review16_fault before insert on supabase_migrations.schema_migrations for each row execute function supabase_migrations.review16_fault();`,db);
+  return app;
+ };
+ const remove=db=>sql('drop trigger review16_fault on supabase_migrations.schema_migrations;drop function supabase_migrations.review16_fault();',db);
+ const waitPID=async(db,app)=>{for(let n=0;n<40;n++){const pid=sql(`select pid from pg_stat_activity where datname='${db}' and application_name='${app}' and wait_event='PgSleep'`,'postgres',[],'supabase_admin');if(pid){assert.match(pid,/^\d+$/);return pid;}await pause(250);}assert.fail('Owned CLI did not reach requested fault gate');};
+ const kill=(db,app,pid)=>assert.equal(sql(`select pg_terminate_backend(pid) from pg_stat_activity where datname='${db}' and application_name='${app}' and pid=${pid} and wait_event='PgSleep'`,'postgres',[],'supabase_admin'),'t');
+ const retry=(db,beforeData,beforePolicies)=>{successful(push(db,dir));ready(db);assert.equal(data(db),beforeData);assert.equal(policies(db),beforePolicies);const after=schema(db);successful(push(db,dir));assert.equal(schema(db),after);assert.equal(applied(db),1);assert.equal(data(db),beforeData);};
+ for(const [kind,source] of [['fresh',base],['populated',populated]]){
+  await t.test(kind+' success and duplicate retry',()=>clone(kind+'_success',source,async db=>{const before=data(db),p=policies(db);retry(db,before,p);if(kind==='populated'){
+   assert.equal(canonical(db,old),'master_admin');assert.equal(canonical(db,u(2)),'portfolio_manager');assert.equal(canonical(db,u(3)),'billing_person');
+   for(const actor of [u(2),u(3)])assert.throws(()=>sql(`begin;select set_config('request.jwt.claims','{"sub":"${actor}","session_id":"${actor}"}',true);select set_config('request.jwt.claim.sub','${actor}',true);set local role authenticated;select public.platform_team_delete_state('${u(80)}','${u(7)}');rollback;`,db),/not authorized|role|permission|Master/i);
+   assert.throws(()=>sql(`set role anon;select public.platform_team_delete_state('${u(80)}','${u(7)}')`,db),/permission denied/);
+   assert.throws(()=>sql(`set role service_role;select public.platform_team_clear_failed_invitation('${u(2)}','${u(7)}','${u(7)}','${u(2)}')`,db),/Master administrator/);
+   assert.equal(data(db),before);
+  }log(kind+'_success',{result:'PASS',history:16,data_preserved:true,policies_preserved:true});}));
+  for(const mode of ['reject','terminate'])await t.test(kind+' '+mode+' at completed-SQL history boundary',()=>clone(kind+'_'+mode,source,async db=>{
+   const before={schema:schema(db),data:data(db),policies:policies(db)},app=fault(db,mode);let result;
+   if(mode==='reject'){result=push(db,dir);assert.match(result.stderr+result.stdout,/Injected migration sixteen history rejection after SQL\/grants completed/);}
+   else{const running=pushAsync(db,dir),pid=await waitPID(db,app);kill(db,app,pid);result=await running;}
+   assert.notEqual(result.status,0);remove(db);absent(db);assert.equal(schema(db),before.schema);assert.equal(data(db),before.data);assert.equal(policies(db),before.policies);
+   log(kind+'_'+mode,{result:'PASS',cli_status:result.status,output:redact(result.stderr+result.stdout),history_before_retry:15,partial_objects:false});retry(db,before.data,before.policies);
+  }));
+ }
+ await t.test('termination before first ALTER executes',()=>clone('early',populated,async db=>{
+  const before={schema:schema(db),data:data(db),policies:policies(db)},app='review16_early_'+nonce;
+  sql(`create function supabase_migrations.review16_early() returns event_trigger language plpgsql as $$begin if tg_tag='ALTER TABLE' and position('add column resolution' in lower(current_query()))>0 then perform set_config('application_name','${app}',true);perform pg_sleep(45);end if;end$$;create event trigger review16_early on ddl_command_start execute function supabase_migrations.review16_early();`,db,[],'supabase_admin');
+  const running=pushAsync(db,dir),pid=await waitPID(db,app);kill(db,app,pid);const result=await running;assert.notEqual(result.status,0);
+  sql('drop event trigger review16_early;drop function supabase_migrations.review16_early();',db,[],'supabase_admin');absent(db);assert.equal(schema(db),before.schema);assert.equal(data(db),before.data);retry(db,before.data,before.policies);log('early_termination',{result:'PASS',cli_status:result.status,rollback:true});
+ }));
+ await t.test('committed history with lost ReadyForQuery acknowledgment',()=>clone('ack',populated,async db=>{
+  const {createServer,createConnection}=await import('node:net'),upstream=port,sockets=new Set();let dropped=false,inserted=false;
+  const proxy=createServer(client=>{const server=createConnection({host:'127.0.0.1',port:Number(upstream)});sockets.add(client);sockets.add(server);client.on('data',bytes=>server.write(bytes));let pending=Buffer.alloc(0);
+   server.on('data',bytes=>{pending=Buffer.concat([pending,bytes]);while(pending.length>=5){const length=pending.readInt32BE(1)+1;if(pending.length<length)break;const frame=pending.subarray(0,length);pending=pending.subarray(length);if(frame[0]===67 && frame.subarray(5).toString()==='INSERT 0 1\0')inserted=true;
+    if(inserted && frame[0]===90 && frame[5]===73){dropped=true;client.destroy();server.destroy();return;}client.write(frame);}});
+   for(const socket of [client,server]){socket.on('error',()=>{client.destroy();server.destroy();});socket.on('close',()=>{sockets.delete(socket);client.destroy();server.destroy();});}
+  });await new Promise(resolve=>proxy.listen(0,'127.0.0.1',resolve));
+  const before=data(db),p=policies(db);let result;
+  try{port=String(proxy.address().port);const running=pushAsync(db,dir);port=upstream;result=await running;}finally{port=upstream;for(const socket of sockets)socket.destroy();await new Promise(resolve=>proxy.close(resolve));}
+  assert.equal(dropped,true,'Must drop server idle/commit acknowledgment after history INSERT');assert.notEqual(result.status,0,'Actual CLI must report lost acknowledgment');
+  ready(db);assert.equal(data(db),before);log('acknowledgment_loss',{result:'PASS',cli_status:result.status,dropped_idle_ready:true,committed_history_rows:1,interpretation:'COMMITTED; authoritative catalog/history inspection required before retry',output:redact(result.stderr+result.stdout)});retry(db,before,p);
+ }));
+ await t.test('concurrent CLI attempts cannot partially commit or duplicate history',()=>clone('concurrent',populated,async db=>{
+  const before=data(db),p=policies(db),app=fault(db,'concurrent'),first=pushAsync(db,dir);await waitPID(db,app);const second=pushAsync(db,dir),results=await Promise.all([first,second]);
+  assert.ok(results.some(r=>r.status===0));remove(db);ready(db);assert.equal(data(db),before);retry(db,before,p);
+  log('concurrent',{result:'PASS',cli_statuses:results.map(r=>r.status),outputs:results.map(r=>redact(r.stderr+r.stdout)),history_rows:1,limitation:'Serialize migrations operationally; a competing invocation may fail rather than replay safely.'});
+ }));
+ }finally{sql('alter role postgres superuser;','postgres',[],'supabase_admin');}
+}));
 
 // Forward feature coverage uses the same actual CLI, isolation and cleanup.
 // The six historical bootstrap/history tests above retain their original behavior.

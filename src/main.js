@@ -35,6 +35,7 @@ window.addEventListener("popstate", () => {
     "/billing":  "billing",
     "/support":  "support",
     "/settings": "settings",
+    "/team":     "team",
   };
   const page = pathMap[window.location.pathname] || "overview";
   pState.page   = page;
@@ -63,7 +64,7 @@ const bootGeneration=pState.authorityGeneration;
   const identity=await loadOperatorIdentity();if(bootGeneration!==pState.authorityGeneration)return;
   pState.currentUser=identity;pState.authenticated=true;await loadConfig();
   if(bootGeneration!==pState.authorityGeneration || !pState.authenticated)return;
-  pState.page=({'/':'overview','/clients':'clients','/billing':'billing','/support':'support','/settings':'settings'})[window.location.pathname] || 'overview';
+  pState.page=({'/':'overview','/clients':'clients','/billing':'billing','/support':'support','/settings':'settings','/team':'team'})[window.location.pathname] || 'overview';
   await loadPlatform();if(bootGeneration!==pState.authorityGeneration || !pState.authenticated)return;
   await validateSession(render);if(bootGeneration===pState.authorityGeneration)render();
 })().catch(()=>{if(bootGeneration!==pState.authorityGeneration)return;pState.authRouting=false;cancelDialogs();clearSensitiveState();pState.page='login';render();notify.error('Account verification is unavailable. Sign in again or retry when your connection is restored.');});

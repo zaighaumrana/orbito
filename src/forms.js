@@ -4,11 +4,12 @@ import { publicEnvironment } from './lifecycle.js';
 import { validateOwner } from './onboarding.js';
 import { rpc, recordPayment, retryOperation } from "./operations.js";
 import { pState, PCFG, clearSensitiveState } from "./state.js";
-import { pb, reauthenticateMaster, loadPlatform, loadClientData, updateClientConfig } from "./supabase.js";
+import { pb, reauthenticateMaster, diagnoseMasterSession, loadPlatform, loadClientData, updateClientConfig } from "./supabase.js";
 import { resetTurnstile, captchaBusy } from './turnstile.js';
 import { notify, showMessage, confirmDialog, cancelDialogs } from './dialogs.js';
 import { teamErrorMessage } from './team-errors.js';
 import { render } from "./render.js";
+import { validateSession } from './helpers.js';
 
 function validatePassword(pw) {
   if (pw.length < 8)              return "Password must be at least 8 characters.";
@@ -24,7 +25,7 @@ export async function handleFormSubmit(event) {
   const type = form.dataset.pForm;
   const context=captureView(),current=()=>viewCurrent(context);
   if(!current())return;
-  if(pState.dataReady===false && !['change-username','change-password','change-own-password'].includes(type)){notify.error('Authorized Platform data is unavailable. Refresh before making changes.');return;}
+  if(pState.dataReady===false && !['change-username','change-password','change-own-password','master-continuity'].includes(type)){notify.error('Authorized Platform data is unavailable. Refresh before making changes.');return;}
   const selected=pState.selectedClient;
   const refresh=async(detail=false)=>{
     if(!current())return;
@@ -72,6 +73,17 @@ export async function handleFormSubmit(event) {
   }
   if (type === 'client-provisioning') { await submitProvisioning(form, event.submitter?.value); return; }
   const data = Object.fromEntries(new FormData(form).entries());
+  if(type==='master-continuity'){
+    if(pState.currentUser.role!=='master_admin' || pState.reauthLoading)return;
+    const attempt={};pState.diagnosticAttempt=attempt;
+    const token=pState.turnstileToken;pState.turnstileToken=null;pState.reauthLoading=true;captchaBusy();
+    try{
+      await diagnoseMasterSession(data.current,token);
+      if(current())notify.success('Diagnostic passed: the original Master session survived temporary verification, cleanup and refresh. Permanent deletion remains disabled.',{duration:0});
+    }catch(error){if(current()){notify.error(error?.userMessage || 'Session continuity is unconfirmed. Sign in again if needed; permanent deletion remains disabled.');await validateSession(render);}else if(!pState.authenticated && pState.page==='login')notify.error('Master session continuity could not be confirmed. Sign in again; permanent deletion remains disabled.');}
+    finally{data.current='';const input=form.querySelector('input[name="current"]');if(input)input.value='';if(pState.diagnosticAttempt===attempt){pState.diagnosticAttempt=null;pState.reauthLoading=false;if(current())resetTurnstile();}}
+    return;
+  }
 
   if (type === 'paper-delivery') {
     if(!clientDataMatches(selected))return;
@@ -175,9 +187,10 @@ export async function handleFormSubmit(event) {
       body: { email: data.email, name: data.name, role: data.role, request_id:pState.modal.data.requestId,...(retired?{retired_employee_id:retired.id}:{}) },
     });
     if(!current())return;
-    if (fnErr || invitation?.success!==true) { const message=await teamErrorMessage(invitation,fnErr,pState.modal.data.requestId);if(current())notify.error(message); return; }
+    if (fnErr || invitation?.success!==true) { const message=await teamErrorMessage(invitation,fnErr,pState.modal.data.requestId);if(!current())return;notify.error(message);if(pState.page==='team'){pState.teamTab='Pending';await refresh();}return; }
     if (invitation?.already_invited) notify.info('This invitation was already recorded. No new invitation email was sent.');
-    else notify.success("Invite sent. They'll receive an email to set up their account.");
+    else notify.success("Employee invitation created. Setup email requested; delivery and password setup are not yet confirmed.",{duration:0});
+    if(pState.page==='team')pState.teamTab='Pending';
     await refresh(); return;
   }
 
@@ -189,7 +202,8 @@ export async function handleFormSubmit(event) {
     const payload = { id: data.id, name: data.name, email: data.email, role: data.role, request_id:pState.modal.data.requestId };
     const { data: updated, error: fnErr } = await pb.functions.invoke("update-platform-user", { body: payload });
     if(!current())return;
-    if (fnErr || updated?.success!==true) { notify.error('Team update could not be confirmed. Review the server audit before retrying.'); return; }
+    if (fnErr || updated?.success!==true) { const message=await teamErrorMessage(updated,fnErr,payload.request_id);if(current())notify.error(message);return; }
+    notify.success('Employee details and role updated.',{duration:0});
     await refresh(); return;
   }
 
@@ -202,8 +216,8 @@ export async function handleFormSubmit(event) {
     const { error } = await pb.auth.updateUser({ current_password: data.current, password: data.newpass });
     if(!current())return;
     if (error) { notify.error(error); return; }
-    notify.success("Password updated. Please log in again.");
     cancelDialogs();
+    notify.success("Password updated. Please log in again.");
     clearSensitiveState();
     pState.page = "login";
     render();await pb.auth.signOut({ scope: "local" });return;
@@ -247,8 +261,8 @@ export async function handleFormSubmit(event) {
     const { error } = await pb.auth.updateUser({ current_password: data.current, password: data.newpass });
     if(!current())return;
     if (error) { notify.error(error); return; }
-    notify.success("Password updated. Please log in again.");
     cancelDialogs();
+    notify.success("Password updated. Please log in again.");
     clearSensitiveState();
     pState.page = "login";
     render();await pb.auth.signOut({ scope: "local" });return;

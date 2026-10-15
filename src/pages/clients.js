@@ -15,8 +15,8 @@ export function pageClients() {
       <button class="primary-button" data-p-modal="add-client">+ Add Client</button>`)}
     <div class="toolbar">
       ${(pState.currentUser.role==='master_admin'?[['current','Current clients'],['historical','Historical / Archived'],['all','All clients']]:[['current','Current clients']]).map(([view,label])=>`<button class="secondary-button" data-p-action="client-view" data-view="${view}" aria-pressed="${pState.clientView===view}">${label}</button>`).join('')}
-      <input class="search" data-p-filter placeholder="Search clients…"
-        value="${esc(pState.filter)}" style="min-width:260px">
+      <label class="field"><span>Search clients</span><input class="search" data-p-filter placeholder="Name or industry"
+        value="${esc(pState.filter)}" style="min-width:260px"></label>
     </div>
     <div class="grid tenant-grid">
       ${clients.length ? clients.map(c => {

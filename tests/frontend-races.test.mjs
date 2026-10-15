@@ -16,7 +16,7 @@ function fixture(){
   FormData:class{constructor(form){this.form=form;}entries(){return Object.entries(this.form.values||{});}},validateOwner:(name,email)=>({owner_name:name,owner_email:email}),
   serverConfigOperation:async(_id,_changes,readStatus,send)=>{await readStatus();return send('synthetic-request');},
   window:{addEventListener(){}},document:{getElementById:()=>null,addEventListener:(name,fn)=>{if(name==='click')click=fn;}},setInterval(){},validateSession(){},rpc:async(...args)=>{calls.push(args);return{};}};
- vm.createContext(ctx);for(const p of ['src/state.js','src/async-context.js','src/team-errors.js','src/supabase.js','src/forms.js','src/events.js','src/provisioning.js'])vm.runInContext(strip(read(p))+(p==='src/state.js'?'\nglobalThis.pState=pState;':''),ctx);
+ vm.createContext(ctx);for(const p of ['src/state.js','src/async-context.js','src/team.js','src/team-errors.js','src/supabase.js','src/forms.js','src/events.js','src/provisioning.js'])vm.runInContext(strip(read(p))+(p==='src/state.js'?'\nglobalThis.pState=pState;':''),ctx);
  ctx.initEvents();ctx.pState.authenticated=true;ctx.pState.dataReady=true;ctx.pState.currentUser={auth_user_id:'master',role:'master_admin',session_id:'session-one'};ctx.pState.page='clients';
  return {ctx,calls,messages,pending,submit:(type,values={})=>ctx.handleFormSubmit({preventDefault(){},target:{dataset:{pForm:type},values}}),
   click:async dataset=>{click({target:{closest:s=>s.includes('data-auth-form')?null:{dataset,disabled:false}},preventDefault(){}});await tick();}};
@@ -30,7 +30,7 @@ test('targeted retirement approval and Pending popup dispatch only explicit Mast
  const values={name:'New employee',email:'again@example.test',role:'billing_person'};
  await f.submit('add-platform-user',values);assert.equal(sent.length,0);approved=true;await f.submit('add-platform-user',values);
  assert.equal(sent[0][1].retired_employee_id,'old-employee');assert.equal(sent[0][1].request_id,'fresh-request');
- f.ctx.pState.data.platformUsers=[{id:'pending',name:'Pending employee',status:'Pending'}];await f.click({pAction:'invitation-status',pId:'pending'});
+ f.ctx.pState.data.platformUsers=[{id:'pending',auth_user_id:'pending-auth',email:'pending@example.test',name:'Pending employee',role:'billing_person',status:'Pending'}];await f.click({pAction:'invitation-status',pId:'pending'});
  assert.equal(dialogs.at(-1).confirmLabel,'Resend invitation');assert.equal(sent.at(-1)[0],'resend-platform-invitation');assert.equal(sent.at(-1)[1].id,'pending');
  f.ctx.pState.currentUser.role='billing_person';const count=sent.length;await f.click({pAction:'invitation-status',pId:'pending'});assert.equal(sent.length,count);
 });

@@ -7,7 +7,8 @@ const lifecycleOnly=process.argv.length===3 && process.argv[2]==='--lifecycle-on
 const readsOnly=process.argv.length===3 && process.argv[2]==='--reads-only';
 const retirementOnly=process.argv.length===3 && process.argv[2]==='--retirement-only';
 const resendOnly=process.argv.length===3 && process.argv[2]==='--resend-only';
-assert.ok(process.argv.length===2 || lifecycleOnly || readsOnly || retirementOnly || resendOnly,'This runner accepts only local suite selectors, never a target or external container');
+const reviewOnly=process.argv.length===3 && process.argv[2]==='--review-only';
+assert.ok(process.argv.length===2 || lifecycleOnly || readsOnly || retirementOnly || resendOnly || reviewOnly,'This runner accepts only local suite selectors, never a target or external container');
 const password=randomBytes(32).toString('hex'),jwt=randomBytes(32).toString('hex'),label='com.retrasell.team-test='+nonce;
 let ownedContainer=false,ownedNetwork=false;
 const env={...process.env};for(const key of Object.keys(env))if(key.startsWith('SUPABASE_') || key.startsWith('PG') || key.startsWith('ORBITO_BOOTSTRAP_'))delete env[key];
@@ -25,10 +26,10 @@ try{
  }assert.ok(ready,'Disposable PG17 readiness timeout');
  run('docker',['exec','-i',container,'psql','-X','-q','-v','ON_ERROR_STOP=1','-U','supabase_admin','-d','postgres','-f','-'],{input:`alter role supabase_auth_admin password '${password}';`});
  run('docker',['run','--rm','--network',network,'-e','GOTRUE_DB_DRIVER=postgres','-e',`GOTRUE_DB_DATABASE_URL=postgres://supabase_auth_admin:${password}@${container}:5432/postgres`,'-e','GOTRUE_SITE_URL=http://localhost:4180','-e','API_EXTERNAL_URL=http://localhost:9999','-e','GOTRUE_JWT_SECRET='+jwt,'public.ecr.aws/supabase/gotrue:v2.197.0','auth','migrate']);
- for(const file of readsOnly?['tests/platform-role-reads-postgres.test.mjs']:lifecycleOnly || retirementOnly || resendOnly?['tests/team-lifecycle-postgres.test.mjs']:['tests/production-bootstrap.test.mjs','tests/platform-team-database.test.mjs','tests/team-lifecycle-postgres.test.mjs','tests/platform-role-reads-postgres.test.mjs']){
+ for(const file of readsOnly?['tests/platform-role-reads-postgres.test.mjs']:lifecycleOnly || retirementOnly || resendOnly || reviewOnly?['tests/team-lifecycle-postgres.test.mjs']:['tests/production-bootstrap.test.mjs','tests/platform-team-database.test.mjs','tests/team-lifecycle-postgres.test.mjs','tests/platform-role-reads-postgres.test.mjs']){
   // The complete eleven-group lifecycle file exceeds three minutes on local
   // Windows/Docker. Bound that suite separately; keep Docker command deadlines.
-  console.log(run(process.execPath,['--test',...(resendOnly?['--test-name-pattern=resend reservation']:retirementOnly?['--test-name-pattern=fresh full chain|durable delete|retirement and fresh onboarding|resend reservation']:[]),file],{timeout:file==='tests/team-lifecycle-postgres.test.mjs'?480000:180000,env:{...env,ORBITO_BOOTSTRAP_TEST_CONTAINER:container}}));
+  console.log(run(process.execPath,['--test',...(reviewOnly?['--test-name-pattern=invitation review forward']:resendOnly?['--test-name-pattern=resend reservation']:retirementOnly?['--test-name-pattern=fresh full chain|durable delete|retirement and fresh onboarding|resend reservation']:[]),file],{timeout:file==='tests/team-lifecycle-postgres.test.mjs'?480000:180000,env:{...env,ORBITO_BOOTSTRAP_TEST_CONTAINER:container}}));
  }
  console.log('PASS: owned local PG17/Auth/Vault fixtures; no hosted Auth/SMTP/gateway validation claimed.');
 }finally{

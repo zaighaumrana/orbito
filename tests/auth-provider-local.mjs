@@ -26,6 +26,29 @@ async function grant(email,pw=password){const r=await api('/token?grant_type=pas
 const claims=token=>JSON.parse(Buffer.from(token.split('.')[1],'base64url'));
 function authority(session){const c=claims(session.access_token);return sql(`begin;select set_config('request.jwt.claims','${JSON.stringify({sub:c.sub,session_id:c.session_id})}',true);select set_config('request.jwt.claim.sub','${c.sub}',true);set local role authenticated;select public.platform_session_status()->>'authorized';commit;`).split('\n').at(-1);}
 async function refresh(session){return api('/token?grant_type=refresh_token',{refresh_token:session.refresh_token},jwt('anon'));}
+// Actual browser diagnostic, real native password/refresh/logout and canonical
+// SQL. Only the SDK/PostgREST transport is adapted; no hosted SDK claim is made.
+async function continuityDiagnostic(initial,pw){
+ let refreshes=0,cleanups=0;
+ const client=(session,temporary=false)=>({get session(){return session;},auth:{
+  getUser:async()=>{const r=await api('/user',null,session?.access_token,'GET');return r.status===200?{data:{user:r.data}}:{error:{status:r.status}};},
+  signInWithPassword:async values=>{assert.ok(temporary,'Original session must not sign in');const r=await api('/token?grant_type=password',{email:values.email,password:values.password},jwt('anon'));if(r.status!==200)return{error:{status:r.status}};session=r.data;return{data:{session,user:session.user}};},
+  refreshSession:async()=>{assert.ok(!temporary);refreshes++;const r=await refresh(session);if(r.status!==200){session=null;return{error:{status:r.status}};}session=r.data;return{data:{session}};},
+  signOut:async options=>{assert.ok(temporary);assert.equal(options.scope,'local');const r=await api('/logout?scope=local',null,session.access_token);cleanups++;session=null;return r.status===204?{}:{error:{status:r.status}};}
+ },rpc:async command=>{
+  assert.ok(['platform_operator_identity','platform_account_access_notice'].includes(command));
+  const c=claims(session.access_token);
+  try{return{data:JSON.parse(sql(`begin;select set_config('request.jwt.claims','${JSON.stringify({sub:c.sub,session_id:c.session_id})}',true);select set_config('request.jwt.claim.sub','${c.sub}',true);set local role authenticated;select public.${command}();commit;`).split('\n').at(-1))};}catch{return{error:{code:'42501'}};}
+ }});
+ const original=client(initial),ctx={TypeError,navigator:{onLine:true},localStorage:{getItem(){}},testEnv:{VITE_PLATFORM_URL:origin,VITE_PLATFORM_ANON:jwt('anon')},createClient:(_url,_key,options)=>options?.auth?.storageKey==='platform-continuity-diagnostic'?client(null,true):original};
+ vm.createContext(ctx);
+ for(const file of ['src/state.js','src/async-context.js','src/supabase.js'])vm.runInContext(read(file).replace(/^import[\s\S]*?;\s*/gm,'').replace(/^export /gm,'').replaceAll('import.meta.env','testEnv')+(file==='src/state.js'?'\nglobalThis.pState=pState;':''),ctx);
+ Object.assign(ctx.pState,{authenticated:true,currentUser:await ctx.loadOperatorIdentity()});
+ let success=false,code;
+ try{success=(await ctx.diagnoseMasterSession(pw,'synthetic-local-captcha')).success===true;}catch(error){code=error.code;}
+ assert.equal(sql('select enabled from platform_private.password_verification_policy'),'f');
+ return{success,code,refreshes,cleanups,session:original.session};
+}
 // Actual password handler, native Auth HTTP and real SQL boundary. This adapter
 // substitutes only PostgREST transport; it cannot target a hosted environment.
 async function passwordSetup(session,value,request){
@@ -92,6 +115,8 @@ try{
  const master=await create('master@example.test'),team=await create('team@example.test');
  sql(`select platform_private.initialize_config('Local Auth fixture','Reviewed isolated fixture');select platform_private.bind_master('${master}',null,'Reviewed isolated fixture');begin;select set_config('platform.team_transition','trusted',true);insert into public.platform_users(id,auth_user_id,name,email,role,status) values('${team}','${team}','Synthetic','team@example.test','portfolio_manager','Active');commit;`);
  let original=await grant('master@example.test');assert.equal(authority(original),'true');
+ const diagnostic=await continuityDiagnostic(original,password);assert.equal(diagnostic.success,true);assert.equal(diagnostic.refreshes,2);assert.equal(diagnostic.cleanups,1);original=diagnostic.session;
+ console.log('PASS: actual diagnostic succeeds on native multi-session Auth, checks refresh during/after the temporary grant, cleans it once and leaves deletion policy disabled.');
  // Before/during/after independent verification, including slow local cleanup.
  for(let n=0;n<2;n++){
   let r=await refresh(original);assert.equal(r.status,200);original=r.data;
@@ -156,6 +181,8 @@ try{
  assert.equal((await api('/logout?scope=local',null,verifier.access_token)).status,204);
  const after=await refresh(original);assert.equal(after.status,200);assert.equal(after.data.user.id,master);
  console.log('PASS: real single-session policy rejects original refresh DURING verification and resumes AFTER local cleanup; a browser may already discard its session on that rejection. Default-off database gate blocks destructive operations. BLOCKED: destructive rollout until staging continuity configuration is verified.');
+ const unsafeDiagnostic=await continuityDiagnostic(after.data,'Replacement1!');assert.equal(unsafeDiagnostic.success,false);assert.equal(unsafeDiagnostic.code,'diagnostic_uncertain');assert.equal(unsafeDiagnostic.refreshes,1);assert.equal(unsafeDiagnostic.cleanups,1);
+ console.log('PASS: actual diagnostic rejects native single-session refresh loss before reporting success, cleans the temporary session and never enables deletion. SDK event handling/hosted behavior remain separate gates.');
  console.log('SKIP: real SMTP/invitation email delivery, hosted CAPTCHA, PostgREST JWT gateway, provider timebox/inactivity settings and hosted session continuity. No external connection or email was attempted.');
  }
 } finally {

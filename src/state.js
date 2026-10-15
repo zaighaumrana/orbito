@@ -10,6 +10,7 @@ export const pState = {
   modal:          null,
   filter:         "",
   clientView:     'current',
+  teamTab:        'Active',
   selectedClient: null,
   clientData:     {},
   authenticated:  false,
@@ -45,8 +46,10 @@ export function clearSensitiveState() {
   for(const key of Object.keys(pState.data))pState.data[key]=Array.isArray(pState.data[key])?[]:{};
   pState.turnstileToken=null;pState.passwordFlow=null;
   pState.reauthLoading=false;pState.passwordSaving=false;
+  pState.diagnosticAttempt=null;pState.resetAttempt=null;pState.resetLoading=false;
   pState.loginAttempt=null;pState.loginLoading=false;pState.authRouting=false;
   pState.dataReady=false;pState.dataError=null;pState.clientView='current';
+  pState.teamTab='Active';
   PCFG={admin_username:""};
 }
 
@@ -64,12 +67,13 @@ const ALL_NAV = [
   { page: "clients",  icon: "◉", label: "Clients"         },
   { page: "billing",  icon: "◑", label: "Billing"         },
   { page: "support",  icon: "◈", label: "Support Tickets" },
+  { page: "team",     icon: "♧", label: "Team"            },
   { page: "settings", icon: "◐", label: "Settings"        },
 ];
 
 export function getNav() {
   const role = pState.currentUser.role;
-  if (role === "billing_person")    return ALL_NAV.filter(n => !["clients","support"].includes(n.page));
-  if (role === "portfolio_manager") return ALL_NAV.filter(n => !["billing"].includes(n.page));
+  if (role === "billing_person")    return ALL_NAV.filter(n => !["clients","support","team"].includes(n.page));
+  if (role === "portfolio_manager") return ALL_NAV.filter(n => !["billing","team"].includes(n.page));
   return role === "master_admin" ? ALL_NAV : [];
 }

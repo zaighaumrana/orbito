@@ -11,7 +11,7 @@ try{({chromium}=await import(process.env.PLAYWRIGHT_MODULE_PATH?pathToFileURL(pr
 catch{console.log('SKIP: existing Playwright unavailable');process.exitCode=2;}
 if(chromium){
  const reviewed='6ea96cbc6cddda1b07b37646dba7e3456e45d52f';
- const server=await createServer({configFile:false,root:process.cwd(),server:{host:'127.0.0.1',port:0},
+ const server=await createServer({configFile:false,envFile:false,root:process.cwd(),server:{host:'127.0.0.1',port:0},
   define:{'import.meta.env.VITE_PLATFORM_URL':JSON.stringify('https://synthetic.invalid'),'import.meta.env.VITE_PLATFORM_ANON':JSON.stringify('synthetic-public-fixture'),'import.meta.env.VITE_PLATFORM_AUTH_EMAIL':JSON.stringify('master@example.test'),'import.meta.env.VITE_TURNSTILE_KEY':JSON.stringify('')},
   plugins:[{name:'synthetic-supabase',enforce:'pre',resolveId:id=>id==='@supabase/supabase-js'?'\0fixture-supabase':null,
    load:id=>id==='\0fixture-supabase'?'export const createClient=()=>window.fixtureSDK;':null,
@@ -48,7 +48,7 @@ if(chromium){
   const start=async width=>{await page.setViewportSize({width,height:900});await page.goto(origin);await page.getByRole('button',{name:'Manage',exact:true}).first().click();await page.getByText('Manage modules',{exact:true}).click();await page.getByRole('button',{name:'Read current Shop settings',exact:true}).waitFor();};
   const read=async()=>{await page.getByRole('button',{name:'Read current Shop settings',exact:true}).click();await page.waitForFunction(()=>window.fixtureShopRead!==null);};
   const open=()=>page.getByRole('button',{name:'Edit Client',exact:true}).click();
-  const navigate=async name=>{const link=page.locator('[data-p-page="'+name+'"]').first();if((await link.boundingBox()).x<0)await page.locator('[data-p-action="toggle-sidebar"]').click();await link.click();};
+  const navigate=async name=>{const link=page.locator('[data-p-page="'+name+'"]').first();if((await link.boundingBox()).x<0)await page.locator('#p-menu-btn').click();await link.click();};
   const finish=async outcome=>{await page.evaluate(outcome=>{const gate=window.fixtureShopRead;window.fixtureShopRead=null;if(outcome==='network')gate.reject(Error('Synthetic failure'));else gate.resolve(outcome==='api'?{error:{message:'Synthetic failure'}}:{data:{config:{id:999,ems_enabled:true}}});},outcome);await page.waitForFunction(async()=>!(await import('/src/state.js')).pState.clientData.loading);};
   for(const width of [320,768,1440]){
    for(const outcome of ['success','api','network']){

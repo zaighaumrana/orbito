@@ -25,7 +25,7 @@ test.before(()=>{
  sql('create extension pgcrypto with schema extensions;create extension supabase_vault with schema vault;create publication supabase_realtime;create schema storage;create table storage.objects(id uuid primary key,owner uuid);alter table storage.objects enable row level security;grant usage on schema storage to authenticated;grant select on storage.objects to authenticated;create policy fixture_existing on storage.objects for select to authenticated using(true);create schema realtime;create table realtime.messages(id uuid primary key);alter table realtime.messages enable row level security;grant usage on schema realtime to authenticated;grant select on realtime.messages to authenticated;create policy fixture_existing on realtime.messages for select to authenticated using(true);',template);
 });
 test.after(()=>sql('drop database if exists '+template+' with (force)'));
-function fixture(label,work){const db='orbito_team_v2_'+label+'_'+process.pid;sql('create database '+db+' template '+template);try{return work(db);}finally{sql('drop database '+db+' with (force)');}}
+function fixture(label,work){const db='orbito_team_v2_'+label+'_'+process.pid;sql('create database '+db+' template '+template);let result;try{result=work(db);return result?.then?result.finally(()=>sql('drop database '+db+' with (force)')):result;}finally{if(!result?.then)sql('drop database '+db+' with (force)');}}
 function seed(db){sql(`begin;select set_config('platform.team_transition','trusted',true);
  insert into auth.users(id,email,email_confirmed_at,encrypted_password) values('${manager}','manager@example.test',now(),'synthetic-hash'),('${billing}','billing@example.test',now(),'synthetic-hash'),('${pending}','pending@example.test',now(),null);
  insert into public.platform_users(id,auth_user_id,name,email,role,status) values('${manager}','${manager}','Manager','manager@example.test','portfolio_manager','Active'),('${billing}','${billing}','Billing','billing@example.test','billing_person','Active'),('${pending}','${pending}','Pending','pending@example.test','portfolio_manager','Pending'),('${legacy}',null,'Legacy','legacy@example.test','billing_person','Inactive');
@@ -34,8 +34,8 @@ function seed(db){sql(`begin;select set_config('platform.team_transition','trust
 function fresh(db){assert.match(sql('show server_version',db),/^17\./);chain(db,files);sql(`insert into auth.users(id,email,email_confirmed_at) values('${master}','master@example.test',now());select platform_private.initialize_config('Synthetic Platform','Reviewed fixture');select platform_private.bind_master('${master}',null,'Reviewed fixture');select platform_private.configure_password_verification('${master}',true,'Verified isolated multi-session fixture');`,db);seed(db);}
 
 test('retirement and fresh onboarding preserve UUID tombstones across generations; late migration failure rolls back',()=>fixture('retirement',db=>{
- const forward=files.at(-1);assert.match(forward,/platform_team_retirement_reonboarding/);
- chain(db,files.slice(0,-1));
+ const forward=files.find(f=>f.includes('platform_team_retirement_reonboarding'));
+ chain(db,files.filter(f=>f<forward));
  const definition=()=>sql("select pg_get_functiondef('public.platform_team_command(uuid,uuid,text,uuid,jsonb,uuid)'::regprocedure)",db);
  const before=definition();assert.throws(()=>sql('begin;'+read('supabase/migrations/'+forward)+'select 1/0;commit;',db),/division by zero/);
  assert.equal(definition(),before);assert.equal(sql("select to_regclass('public.platform_team_archive_email_unique') is not null",db),'t');chain(db,[forward]);
@@ -74,6 +74,63 @@ test('retirement and fresh onboarding preserve UUID tombstones across generation
  assert.throws(()=>sql('update public.platform_team_archive set reason=\'rewritten\'',db),/immutable/);
  assert.equal(sql(`select auth_user_id from platform_private.master_identity`,db),master);
  assert.equal(sql("select count(*) from public.operator_audit where action='platform_team_begin_create' and detail->>'predecessor_employee_id' is not null",db),'2');
+}));
+
+test('invitation review forward: atomic rollback, Auth absence, ownership, restricted access, idempotency and default-off deletion',()=>fixture('invitation_review',async db=>{
+ const forward=files.find(f=>f.includes('platform_team_invitation_review'));
+ chain(db,files.filter(f=>f<forward));
+ sql(`insert into auth.users(id,email,email_confirmed_at) values('${master}','master@example.test',now());select platform_private.initialize_config('Synthetic Platform','Reviewed fixture');select platform_private.bind_master('${master}',null,'Reviewed fixture');`,db);seed(db);
+ const retained=()=>sql("select jsonb_build_object('master',(select to_jsonb(m) from platform_private.master_identity m),'config',(select jsonb_agg(to_jsonb(c)) from public.platform_config c),'team',(select jsonb_agg(to_jsonb(u) order by id) from public.platform_users u),'audit',(select jsonb_agg(to_jsonb(a) order by id) from public.operator_audit a))",db);
+ const retainedBefore=retained();
+ const before=sql("select pg_get_functiondef('public.platform_team_history()'::regprocedure)",db);
+ assert.throws(()=>sql('begin;'+read('supabase/migrations/'+forward)+'select 1/0;commit;',db),/division by zero/);
+ assert.equal(sql("select to_regprocedure('public.platform_team_clear_failed_invitation(uuid,uuid,uuid,uuid)') is null",db),'t');
+ assert.equal(sql("select count(*) from information_schema.columns where table_schema='platform_private' and table_name='team_operations' and column_name='resolution'",db),'0');
+ assert.equal(sql("select pg_get_functiondef('public.platform_team_history()'::regprocedure)",db),before);
+ assert.equal(retained(),retainedBefore,'Failed upgrade preserves prior identity, team, config and audit');
+ chain(db,[forward]);
+ assert.equal(retained(),retainedBefore,'Successful upgrade preserves prior identity, team, config and audit');
+ const clear=(actor=master,request=801,target=id(request),session=sid(actor))=>`select public.platform_team_clear_failed_invitation('${actor}','${id(request)}','${target}','${session}')`;
+ const make=(request,email='failed@example.test')=>{sql(service(command(request,'begin_create',id(request),{name:'Failed invitation',email,role:'billing_person'})),db);sql(service(command(request,'mark_review',id(request))),db);};
+ make(801);
+ for(const who of [master,manager,billing])assert.throws(()=>sql(asUser(who,clear()),db),/permission denied/);
+ assert.throws(()=>sql('set role anon;'+clear(),db),/permission denied/);
+ assert.throws(()=>sql(service(clear(manager)),db),/Master administrator/);
+ assert.throws(()=>sql(service(clear(master,801,id(802))),db),/ownership mismatch/);
+ assert.throws(()=>sql(service(clear(master,801,id(801),sid(manager))),db),/Live master session/);
+ assert.throws(()=>sql(service(clear()),db),/reconciliation/,'Review settling period blocks live/just-failed calls');
+ sql(`update platform_private.team_operations set updated_at=now()-interval '3 minutes' where request_id='${id(801)}'`,db);
+ sql(`insert into auth.users(id,email,deleted_at) values('${id(899)}','FAILED@example.test',now())`,db);
+ assert.throws(()=>sql(service(clear()),db),/Auth absence/,'Soft-deleted Auth remains present');
+ sql(`delete from auth.users where id='${id(899)}'`,db);
+ const nonce=sql(`select requested->>'invite_nonce' from platform_private.team_operations where request_id='${id(801)}'`,db);
+ sql(`insert into auth.users(id,email,raw_user_meta_data) values('${id(899)}','drift@example.test','{"retrasell_invite_nonce":"${nonce}"}')`,db);
+ assert.throws(()=>sql(service(clear()),db),/Auth absence/,'Nonce-associated drift is not absence');
+ sql(`delete from auth.users where id='${id(899)}';create table public.fixture_team_ref(id uuid references public.platform_users(id) on delete cascade)`,db);
+ assert.throws(()=>sql(service(clear()),db),/reconciliation/,'Unexpected cascading references block cleanup');sql('drop table public.fixture_team_ref',db);
+ const clearOnce=()=>promisify(execFile)('docker',['exec','-i',container,'psql','-X','-q','-A','-t','-v','ON_ERROR_STOP=1','-U','postgres','-d',db,'-c',service(clear())],{windowsHide:true});
+ const raced=await Promise.all([clearOnce(),clearOnce()]);
+ assert.deepEqual(raced.map(r=>JSON.parse(r.stdout.trim()).already_cleared).sort(),[false,true]);
+ assert.equal(JSON.parse(sql(service(clear()),db)).already_cleared,true);
+ assert.equal(sql(`select count(*) from public.platform_users where id='${id(801)}'`,db),'0');
+ assert.equal(sql(`select stage from platform_private.team_operations where request_id='${id(801)}'`,db),'cancelled');
+ assert.equal(sql("select count(*) from public.operator_audit where action='platform_team_clear_failed_invitation'",db),'1');
+ assert.equal(sql('select count(*) from public.platform_team_archive',db),'0');
+ assert.equal(sql('select enabled from platform_private.password_verification_policy',db),'f');
+ assert.equal(sql('select auth_user_id from platform_private.master_identity',db),master);
+ assert.equal(sql(`select count(*) from auth.users where id in ('${manager}','${billing}','${pending}')`,db),'3');
+ // A cancelled request cannot send/link again; a deliberate NEW invitation may.
+ assert.equal(JSON.parse(sql(service(command(801,'begin_create',id(801),{name:'Failed invitation',email:'failed@example.test',role:'billing_person'})),db)).stage,'cancelled');
+ assert.throws(()=>sql(service(command(801,'finish_create',id(801),{auth_user_id:pending})),db),/Unique live|Invitation completion/);
+ sql(service(command(802,'begin_create',id(802),{name:'New invitation',email:'failed@example.test',role:'portfolio_manager'})),db);
+ for(const who of [manager,billing])assert.throws(()=>sql(asUser(who,`select public.platform_team_delete_state('${id(801)}','${id(801)}')`),db),/authorized|role/i);
+ assert.equal(JSON.parse(sql(asUser(master,`select public.platform_team_delete_state('${id(801)}','${id(801)}')`),db).split('\n').at(-1)).state,'unverified','A create request cannot be mistaken for no deletion history');
+ assert.equal(JSON.parse(sql(asUser(master,`select public.platform_team_delete_state('${id(899)}','${manager}')`),db).split('\n').at(-1)).state,'none');
+ assert.equal(JSON.parse(sql(asUser(manager,'select public.platform_account_access_notice()'),db).split('\n').at(-1)).inactive,false);
+ sql(`begin;select set_config('platform.team_transition','trusted',true);update public.platform_users set status='Inactive' where id='${manager}';commit;`,db);
+ assert.equal(JSON.parse(sql(asUser(manager,'select public.platform_account_access_notice()'),db).split('\n').at(-1)).inactive,true);
+ assert.equal(sql("select has_function_privilege('anon','public.platform_account_access_notice()','execute')",db),'f');
+ sql(read('supabase/bootstrap/validate-team-review.sql'),db);
 }));
 
 test('resend reservation verifies Pending identity, denies employees/inactive targets and blocks competing dispatches',()=>fixture('resend',db=>{

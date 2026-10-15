@@ -1,6 +1,28 @@
 // A separate DOM layer survives Platform rerenders. Messages are text, never HTML.
 let sequence = 0, active = null;
 const pending = [];
+const notices = new Set();
+const privateDialogs = new Set();
+// Existing rich invoice previews remain trusted application markup. Register
+// their keyboard/inert lifetime so logout/role revocation clears them too.
+export function registerPrivateDialog(panel,onClose) {
+  const app=document.getElementById('platform-app'),opener=document.activeElement,prior=app?.inert;
+  if(app)app.inert=true;panel.tabIndex=-1;panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');
+  const nodes=()=>[...panel.querySelectorAll('button,a[href],input,select,[tabindex="0"]')].filter(n=>!n.disabled && n.getClientRects().length);
+  const keyboard=event=>{
+    if(active)return;
+    if(event.key==='Escape'){event.preventDefault();event.stopPropagation();onClose();}
+    else if(event.key==='Tab'){
+      const list=nodes(),first=list[0],last=list.at(-1);
+      if(event.shiftKey && (document.activeElement===first || !panel.contains(document.activeElement))){event.preventDefault();(last || panel).focus();}
+      else if(!event.shiftKey && (document.activeElement===last || !panel.contains(document.activeElement))){event.preventDefault();(first || panel).focus();}
+    }
+  };
+  const guard=event=>{if(!active && !panel.contains(event.target))(nodes()[0] || panel).focus();};
+  document.addEventListener('keydown',keyboard,true);document.addEventListener('focusin',guard,true);privateDialogs.add(onClose);
+  (nodes()[0] || panel).focus();
+  return()=>{privateDialogs.delete(onClose);document.removeEventListener('keydown',keyboard,true);document.removeEventListener('focusin',guard,true);if(app)app.inert=prior;if(opener?.isConnected && !opener.closest('[inert]'))opener.focus();};
+}
 export function safeMessage(value) {
   const text = typeof value === 'string' ? value : value?.userMessage || 'The operation could not be completed. Refresh its status before retrying.';
   return text.replace(/eyJ[\w-]+\.[\w-]+\.[\w-]+|\b(?:Bearer\s+\S+|sb_secret_[\w-]+|ghp_[\w]+)\b/gi, '[redacted]')
@@ -21,7 +43,8 @@ function toast(tone, message, options = {}) {
   node.append(element('strong', '', {success:'Success',error:'Error',warning:'Attention',info:'Information'}[tone]), element('p', '', message));
   const close = element('button', 'icon-button', '×'); close.type = 'button'; close.setAttribute('aria-label', 'Dismiss notification');
   let timer;
-  const dismiss = () => { clearTimeout(timer); node.remove(); if (!region.children.length) region.remove(); };
+  const dismiss = () => { clearTimeout(timer); notices.delete(dismiss);node.remove(); if (!region.children.length) region.remove(); };
+  notices.add(dismiss);
   close.addEventListener('click', dismiss); node.append(close); region.append(node);
   const duration = options.duration ?? (['error','warning'].includes(tone) ? 0 : tone === 'success' ? 4500 : 6500);
   if (duration > 0) timer = setTimeout(dismiss, duration);
@@ -36,6 +59,8 @@ export const inputDialog = options => request('input', options);
 export const deleteUserDialog = options => request('delete-user', {...options,danger:true});
 export const showMessage = options => request('message', options);
 export function cancelDialogs() {
+  for(const dismiss of [...notices])dismiss();
+  for(const close of [...privateDialogs])close();
   const queued = pending.splice(0); for (const item of queued) item.resolve(['input','delete-user'].includes(item.kind) ? null : false);
   active?.cancel();
 }

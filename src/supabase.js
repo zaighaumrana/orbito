@@ -12,11 +12,14 @@ export class PlatformAuthError extends Error {
       invalid_credentials: 'The current password is incorrect.',
       session: 'Your session has expired. Sign in again.',
       authority: 'Your account is not authorized for this operation.',
+      suspended: 'Your account has been deactivated by the administrator. Please contact your administrator to restore access.',
       master_only: 'Only the verified master administrator can change the Platform username.',
       network: 'Authentication could not be reached. Check your connection and try again.',
       rate_limit: 'Too many authentication attempts. Wait before trying again.',
       authentication: 'Password verification could not be completed. Try again after fresh verification.',
       continuity: 'Password verification is disabled until administrator session continuity is verified. Contact the Platform owner.',
+      diagnostic_uncertain: 'Master session continuity could not be confirmed. Sign in again if needed. Permanent deletion remains disabled.',
+      diagnostic_cleanup: 'Temporary-session cleanup could not be confirmed. Contact the Platform owner before another diagnostic. Permanent deletion remains disabled.',
     };
     super(messages[code] || messages.authentication); this.code=code; this.userMessage=this.message;
   }
@@ -35,8 +38,13 @@ export async function loadOperatorIdentity() {
   if (verified.error?.name==='AuthRetryableFetchError' || verified.error?.status===0) throw new PlatformAuthError('network');
   if (verified.error || !verified.data?.user) throw new PlatformAuthError('session');
   const { data, error } = await pb.rpc('platform_operator_identity');
-  if (error || data?.auth_user_id !== verified.data.user.id || !['master_admin','portfolio_manager','billing_person'].includes(data?.role))
+  if (error || data?.auth_user_id !== verified.data.user.id || !['master_admin','portfolio_manager','billing_person'].includes(data?.role)) {
+    // Only a verified Auth identity can receive its own suspension notice.
+    // Native pre-auth user_banned errors stay generic: they precede password checks.
+    const notice=await pb.rpc('platform_account_access_notice');
+    if(!notice.error && notice.data?.auth_user_id===verified.data.user.id && notice.data.inactive===true)throw new PlatformAuthError('suspended');
     throw new PlatformAuthError('authority');
+  }
   return data;
 }
 export async function reauthenticateMaster(password, captchaToken) {
@@ -68,6 +76,53 @@ export async function reauthenticateMaster(password, captchaToken) {
       if (cleanup?.error) throw new PlatformAuthError('authentication');
     }
   }
+}
+// Diagnostic only. It deliberately does NOT consult or enable the delete policy,
+// and its result is never used as authorization by reauthenticateMaster/deletion.
+export async function diagnoseMasterSession(password,captchaToken) {
+  if(!password || !captchaToken)throw new PlatformAuthError(!password?'invalid_credentials':'captcha_failed');
+  const context=captureAuthority(),owned=()=>authorityCurrent(context);
+  const before=await loadOperatorIdentity();
+  if(!owned())throw new PlatformAuthError('session');
+  if(before.role!=='master_admin' || !before.session_id)throw new PlatformAuthError('master_only');
+  const verifier=createClient(import.meta.env.VITE_PLATFORM_URL,import.meta.env.VITE_PLATFORM_ANON,
+    {auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false,storageKey:'platform-continuity-diagnostic'}});
+  let sessionCreated=false,verified=false,cleanupFailed=false;
+  try {
+    const result=await verifier.auth.signInWithPassword({email:before.email,password,options:{captchaToken}});
+    sessionCreated=Boolean(result.data?.session);
+    if(!owned())throw new PlatformAuthError('session');
+    if(result.error)throw (['invalid_credentials','captcha_failed'].includes(result.error.code) || result.error.status===429)?authFailure(result.error):new PlatformAuthError('diagnostic_uncertain');
+    if(!sessionCreated || result.data.user?.id!==before.auth_user_id)throw new PlatformAuthError('authority');
+    const temporary=await verifier.rpc('platform_operator_identity');
+    if(!owned())throw new PlatformAuthError('session');
+    if(temporary.error || temporary.data?.role!=='master_admin' || temporary.data.auth_user_id!==before.auth_user_id
+      || !temporary.data.session_id || temporary.data.session_id===before.session_id)throw new PlatformAuthError('authority');
+    // A session row/getUser alone cannot prove single-session continuity. Test
+    // native refresh WHILE the temporary grant exists, before cleaning it up.
+    const duringRefresh=await pb.auth.refreshSession();
+    if(!owned())throw new PlatformAuthError('session');
+    if(duringRefresh.error || duringRefresh.data?.session?.user?.id!==before.auth_user_id)throw new PlatformAuthError('diagnostic_uncertain');
+    const during=await loadOperatorIdentity();
+    verified=during.role==='master_admin' && during.auth_user_id===before.auth_user_id && during.session_id===before.session_id;
+  } finally {
+    password='';captchaToken='';
+    if(sessionCreated){try{cleanupFailed=Boolean((await verifier.auth.signOut({scope:'local'}))?.error);}catch{cleanupFailed=true;}}
+    if(cleanupFailed)throw new PlatformAuthError('diagnostic_cleanup');
+  }
+  if(!owned())throw new PlatformAuthError('session');
+  if(!verified)throw new PlatformAuthError('diagnostic_uncertain');
+  const refreshed=await pb.auth.refreshSession();
+  if(!owned())throw new PlatformAuthError('session');
+  if(refreshed.error || refreshed.data?.session?.user?.id!==before.auth_user_id)throw new PlatformAuthError('diagnostic_uncertain');
+  // Two independent canonical reads after cleanup/refresh, no token inspection,
+  // no setSession, no original-session sign-in or sign-out.
+  for(let n=0;n<2;n++){
+    const after=await loadOperatorIdentity();
+    if(!owned())throw new PlatformAuthError('session');
+    if(after.role!=='master_admin' || after.auth_user_id!==before.auth_user_id || after.session_id!==before.session_id)throw new PlatformAuthError('diagnostic_uncertain');
+  }
+  return {success:true};
 }
 export async function loadConfig() {
   if(pState.currentUser.role!=='master_admin')return;
