@@ -1295,3 +1295,29 @@ and exhaustive timing cases remain unverified; full frontend/Auth HTTP/Deno suit
 were not rerun. Local migration-16 atomicity PASS is not overall security approval.
 No commit, push, PR modification, hosted access or deployment. Staging/production
 remain NO-GO; independent review and separately authorized rollout are required.
+
+
+## 2026-10-16 — Login and Add Client presentation refinement
+
+Branch: feature/platform-team-lifecycle-v2; HEAD remains 015e82e.
+Read the supplied refined-brand HTML guidelines and packaged/current CSS tokens.
+Preserved official artwork, stable asset paths, Inter and both theme palettes.
+Login has balanced card spacing and a grouped verification area, with room for the
+standard 300px challenge at 320px. Credential and caught authorization failures
+share the owner's generic message; provider account/suspension details stay hidden.
+Existing checks, session ownership, CAPTCHA lifecycle and cleanup are unchanged.
+Add Client is a 1080px dialog with five labelled fieldsets, desktop columns,
+mobile stacking, fixed header and visible sticky actions over a scrolling form.
+All fourteen original controls, options, defaults, IDs and validation attributes
+are retained. Submission, addon behavior, creation and backend contracts are intact.
+
+Validation PASS: 36 focused login/UI/form-race regressions, six real Edge browser
+groups (320/768/1440, light/dark), synthetic-config production Vite build, JS syntax
+and whitespace. Browser checks compare every control against the committed form,
+verify required validation/addon visibility/Cancel/action visibility and no page
+overflow; zero page errors or external page requests. Initial sandbox browser
+startup failed; the same local checks passed outside that sandbox. Actual provider
+challenge/hosted login and client creation were not exercised. Evidence/screenshots
+and synthetic build are outside Git in RetraSellReviewEvidence/2026-10-16-ui-polish.
+No migrations/functions/permissions/official assets changed; no hosted access,
+commit, push, PR mutation or deployment. Changes remain local for owner review.

@@ -231,7 +231,7 @@ export function initEvents() {
         pState.loginAttempt=attempt;pState.loginLoading=true;pState.page='login';
         try{await pb.auth.signOut({ scope: "local" });}catch{/* Private state remains cleared offline. */}
         if(!owns())return;
-        errorEl.textContent = error.message;_loginFail(errorEl,true);
+        _loginFail(errorEl);
       } finally {
         if(owns()){pState.loginAttempt=null;pState.loginLoading=false;}
       }
@@ -547,12 +547,12 @@ export function initEvents() {
 function _loginFail(errorEl, keepMsg = false) {
   pState.loginLoading   = false;
   pState.turnstileToken = null;
-  const message = keepMsg ? errorEl?.textContent : "Invalid username or password.";
+  const message = keepMsg ? errorEl?.textContent : "Unable to sign in. Please check your credentials. If your account has been suspended, contact your administrator.";
   resetTurnstile();
   if (errorEl) errorEl.textContent = message;
   if (!keepMsg) {
     const el = document.getElementById("platform-pin-error");
-    if (el) el.textContent = "Invalid username or password.";
+    if (el) el.textContent = "Unable to sign in. Please check your credentials. If your account has been suspended, contact your administrator.";
   }
   document.getElementById("platform-pin-error")?.classList.remove("hidden");
 }

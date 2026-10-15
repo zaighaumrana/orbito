@@ -139,3 +139,14 @@ test('cancelled Shop-config reads cannot publish into another client or logged-o
   if(change==='client')assert.equal(f.ctx.pState.clientData.config.id,2);else if(change==='role')assert.equal(f.ctx.clientDataMatches(),false);else assert.equal(Object.keys(f.ctx.pState.clientData).length,0);
  }
 });
+
+
+test('credential failures and caught provider errors use identical non-enumerating login copy',async()=>{
+ const message='Unable to sign in. Please check your credentials. If your account has been suspended, contact your administrator.';
+ for(const code of ['invalid_credentials','user_banned','user_not_found']){
+  const f=await fixture();f.ctx.pb.auth.signInWithPassword=async()=>({error:{code,message:'Private provider detail: '+code}});
+  await f.login();assert.equal(f.nodes.get('platform-pin-error').textContent,message);assert.equal(f.ctx.pState.loginLoading,false);
+ }
+ const f=await fixture();f.ctx.loadOperatorIdentity=async()=>{throw Error('Private canonical identity detail');};
+ await f.login();await tick();assert.equal(f.nodes.get('platform-pin-error').textContent,message);assert.equal(f.ctx.pState.loginLoading,false);
+});
