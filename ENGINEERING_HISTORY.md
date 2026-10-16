@@ -1391,3 +1391,45 @@ protected-branch change is authorized here. The approved feature-only checkpoint
 `[CF-Pages-Skip]`; its exact commit and actual provider result must be verified after
 push. PR #4 stays Draft/unmerged. Independent re-review and staging/production NO-GO
 remain; full documentation finalization is deferred.
+
+
+## 2026-10-17 — PR #4 focused N1/N2 follow-up
+
+Branch: `feature/platform-team-lifecycle-v2`; parent `b832dec56b14592e44149462f127904c9c5225eb`.
+Read the latest independent Work report, results and reproduction scripts/logs.
+N1 shared any in-flight configuration promise by client ID and announced success
+without checking refreshed commercial intent. Configuration requests now coalesce
+only identical boolean-payload snapshots whose original and current views still
+own the operation; conflicts reject without queuing a write. Reconciliation requires
+an applied response and a fresh, error-free projection with the requested generation
+and `pending=false`. Session/role loss, newer intent, refresh failure and uncertainty
+cannot announce success. Normal operations acquire no additional status request.
+
+N2 checked open jobs before excluding legacy writers. Migration 17 now takes its
+eventual ACCESS EXCLUSIVE locks on clients, then configuration jobs, before preflight
+and holds them through the CLI transaction. A deferred constraint rejects a queued
+legacy body that resumes with an unversioned open reservation after transition;
+legitimate new reservations are stamped by the existing verified wrapper before
+commit. Completed legacy rows stay unchanged; no generation is fabricated.
+The private deferred lookup uses a fixed search path and owner execution because
+it runs after the RPC returns; all API-role EXECUTE privileges are revoked.
+Locking rationale follows PostgreSQL 17 explicit-locking documentation:
+https://www.postgresql.org/docs/17/explicit-locking.html.
+Latest owner/Work evidence lists staging migrations 1–16; 17 was only executed in
+our disposable local fixtures, with no authorized hosted application. Corrected
+that unapplied migration in place; migrations 1–16 remain immutable. Production
+was not inspected. The CLI-17 statement allowlist accepts the new lock/constraint
+statements without weakening its failure assertions.
+
+Executed PASS: 5 lightweight Node tests (3 helper/payment, 2 N1 handler groups),
+syntax for eight changed JS/test files and whitespace. Written but NOT executed:
+N2 two-connection queued-writer/preflight tests, extended completed-history/late
+rollback checks, and the adjusted browser/CLI fixtures. No SQL parser was installed,
+so SQL parsing is SKIP. Full source, PG17/Auth/Vault/Docker, actual CLI atomicity,
+browser, Deno and build suites were deliberately not run under the owner's minimal
+budget; the next independent Work review must execute them. Previous broad PASS
+records describe the preceding commit, not validation of these revised SQL bytes.
+No hosted changes, emails, deletion-policy enablement, deployment or protected-ref/
+tag changes are authorized. The approved feature-only checkpoint uses the native
+Cloudflare skip marker; PR #4 stays Draft/unmerged. D1 and hosted acceptance remain
+separate gates; staging and production remain NO-GO.

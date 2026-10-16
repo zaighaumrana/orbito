@@ -104,8 +104,13 @@ if(chromium){
    await start(1440);
    await page.evaluate(async outcome=>{
     window.fixtureWrites=[];
-    const prior=window.fixtureSDK.rpc;window.fixtureSDK.rpc=async(name,args)=>name==='platform_config_intent'?{data:{pending:true,changes:{technician_module_enabled:true}}}:prior(name,args);
-    window.fixtureSDK.functions.invoke=async(name,{body})=>{window.fixtureWrites.push({name,body});return {data:{state:outcome}};};
+    window.fixtureIntentPending=true;
+    const prior=window.fixtureSDK.rpc;window.fixtureSDK.rpc=async(name,args)=>{
+     if(name==='platform_config_intent')return {data:{pending:true,generation:2,changes:{technician_module_enabled:true}}};
+     const result=await prior(name,args);
+     return name==='platform_overhaul_status'?{...result,data:{...result.data,entitlement_intent:{generation:2,pending:window.fixtureIntentPending}}}:result;
+    };
+    window.fixtureSDK.functions.invoke=async(name,{body})=>{window.fixtureWrites.push({name,body});if(outcome==='applied')window.fixtureIntentPending=false;return {data:{state:outcome}};};
     const {pState}=await import('/src/state.js');pState.clientData.overhaul={entitlement_intent:{pending:true}};(await import('/src/render.js')).render();
    },outcome);
    await page.getByRole('button',{name:'Reconcile current plan',exact:true}).click();

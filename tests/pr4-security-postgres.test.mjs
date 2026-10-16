@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync,readdirSync} from 'node:fs';
-import {spawnSync,execFile} from 'node:child_process';
+import {spawnSync,execFile,spawn} from 'node:child_process';
 import {promisify} from 'node:util';
 const container=process.env.ORBITO_BOOTSTRAP_TEST_CONTAINER;
 assert.match(container || '',/^orbito-bootstrap-[a-z0-9-]+$/);
@@ -151,12 +151,66 @@ test('forward 17 upgrade preserves retained rows and rolls back every new object
  chain(db,files.filter(f=>f<forward));sql(`insert into auth.users(id,email,email_confirmed_at) values('${master}','master@example.test',now());select platform_private.initialize_config('Upgrade fixture','Explicit fixture initialization');select platform_private.bind_master('${master}',null,'Explicit fixture master binding');`,db);seed(db);
  const before=sql("select pg_get_functiondef('public.platform_team_command(uuid,uuid,text,uuid,jsonb,uuid)'::regprocedure)",db);
  const count=sql('select count(*) from public.platform_users',db);
+ client(db,92);sql(asUser(manager,begin(601,'Pro')),db);sql(service(finish(601,'Pro')),db);
+ const completed=sql(`select to_jsonb(j) from public.config_jobs j where request_id='${id(601)}'`,db);
  assert.throws(()=>sql('begin;'+read('supabase/migrations/'+forward)+'select 1/0;commit;',db),/division by zero/);
  assert.equal(sql("select pg_get_functiondef('public.platform_team_command(uuid,uuid,text,uuid,jsonb,uuid)'::regprocedure)",db),before);
  assert.equal(sql("select to_regclass('platform_private.support_destinations') is null",db),'t');
+ assert.equal(sql("select to_regprocedure('platform_private.require_config_generation()') is null",db),'t');
  chain(db,[forward]);assert.equal(sql('select count(*) from public.platform_users',db),count);
+ assert.equal(sql(`select to_jsonb(j)-'intent_generation' from public.config_jobs j where request_id='${id(601)}'`,db),completed,'Completed legacy history is retained byte-for-byte in its JSON projection');
+ assert.equal(sql(`select intent_generation is null and state='applied' from public.config_jobs where request_id='${id(601)}'`,db),'t','No generation is fabricated for completed history');
+ assert.equal(sql("select not has_function_privilege('authenticated','platform_private.require_config_generation()','execute') and not has_function_privilege('service_role','platform_private.require_config_generation()','execute')",db),'t','Deferred owner lookup grants no API execution');
  assert.equal(sql('select enabled from platform_private.password_verification_policy',db),'f');
  assert.equal(sql("select has_function_privilege('authenticated','platform_private.platform_support_issue_pre17(integer,uuid,text,text,uuid)','execute')",db),'f');
+}));
+
+function before17(db){
+ const forward=files.find(f=>f.includes('pr4_security_corrections'));assert.ok(forward);
+ chain(db,files.filter(f=>f<forward));
+ sql(`insert into auth.users(id,email,email_confirmed_at) values('${master}','master@example.test',now());select platform_private.initialize_config('N2 fixture','Reviewed isolated upgrade fixture');select platform_private.bind_master('${master}',null,'Reviewed isolated upgrade fixture');`,db);
+ seed(db);client(db,92);sql(asUser(manager,save('Pro')),db);return read('supabase/migrations/'+forward);
+}
+
+test('N2 outstanding legacy work aborts migration without changing its reservation or installing partial objects',()=>fixture('open17',db=>{
+ const migration=before17(db);sql(asUser(manager,begin(620,'Pro')),db);
+ const before=sql(`select to_jsonb(j) from public.config_jobs j where request_id='${id(620)}'`,db);
+ assert.throws(()=>sql('begin;'+migration+'commit;',db),/Resolve outstanding configuration operations/);
+ assert.equal(sql(`select to_jsonb(j) from public.config_jobs j where request_id='${id(620)}'`,db),before);
+ assert.equal(sql("select to_regclass('platform_private.support_destinations') is null and to_regprocedure('platform_private.require_config_generation()') is null",db),'t');
+}));
+
+test('N2 queued legacy reservation cannot cross migration preflight or commit without a generation',()=>fixture('legacy17',async db=>{
+ const migration=before17(db),gateName='n2_gate_'+process.pid,migrateName='n2_migrate_'+process.pid,writerName='n2_writer_'+process.pid;
+ const start=()=>{
+  const child=spawn('docker',['exec','-i',container,'psql','-X','-q','-A','-t','-v','ON_ERROR_STOP=1','-U','postgres','-d',db],{windowsHide:true,timeout:20000});
+  let output='';child.stdout.on('data',b=>output+=b);child.stderr.on('data',b=>output+=b);
+  const done=new Promise(resolve=>{child.on('error',error=>resolve({status:1,output:error.message}));child.on('close',status=>resolve({status,output}));});return {child,done};
+ };
+ const wait=async query=>{for(let n=0;n<60;n++){if(sql(query,db)==='t')return;await new Promise(r=>setTimeout(r,50));}assert.fail('Owned upgrade connection did not reach its lock gate');};
+ const gate=start();let migrating,writer;
+ try{
+  gate.child.stdin.write(`begin;set local application_name='${gateName}';select pg_advisory_lock(17,${process.pid});\n`);
+  await wait(`select exists(select 1 from pg_stat_activity a join pg_locks l on l.pid=a.pid where a.datname=current_database() and a.application_name='${gateName}' and l.locktype='advisory' and l.granted)`);
+  migrating=start();migrating.child.stdin.end(`begin;set local application_name='${migrateName}';`+migration.replace('-- F1:',`select pg_advisory_xact_lock(17,${process.pid}); -- F1:`)+'commit;');
+  await wait(`select exists(select 1 from pg_stat_activity where datname=current_database() and application_name='${migrateName}' and wait_event='advisory')`);
+  assert.equal(sql(`select count(*)=2 from pg_locks l join pg_stat_activity a on a.pid=l.pid where a.datname=current_database() and a.application_name='${migrateName}' and l.relation in ('public.clients'::regclass,'public.config_jobs'::regclass) and l.mode='AccessExclusiveLock' and l.granted`,db),'t');
+  writer=start();writer.child.stdin.end(asUser(manager,begin(621,'Pro')).replace('begin;',`begin;set local application_name='${writerName}';`));
+  await wait(`select exists(select 1 from pg_stat_activity w join pg_stat_activity m on m.pid=any(pg_blocking_pids(w.pid)) where w.datname=current_database() and w.application_name='${writerName}' and m.application_name='${migrateName}' and w.wait_event_type='Lock')`);
+  gate.child.stdin.end('commit;\n');assert.equal((await gate.done).status,0);
+  const upgraded=await migrating.done,reserved=await writer.done;assert.equal(upgraded.status,0,upgraded.output);
+  if(reserved.status!==0){assert.match(reserved.output,/Unversioned configuration reservation/);assert.equal(sql(`select count(*) from public.config_jobs where request_id='${id(621)}'`,db),'0');}
+  // PostgreSQL may replan into the new wrapper, or the deferred fence rejects
+  // the already-running old body. A fresh, explicit request must work either way.
+  sql(asUser(manager,begin(621,'Pro')),db);
+  assert.equal(sql(`select intent_generation is not null from public.config_jobs where request_id='${id(621)}'`,db),'t');
+  sql(service(finish(621,'Pro')),db);
+  assert.equal(sql(`select state='applied' from public.config_jobs where request_id='${id(621)}'`,db),'t');
+  assert.equal(sql("select not exists(select 1 from public.config_jobs where state in ('sending','uncertain') and intent_generation is null)",db),'t');
+ }finally{
+  if(!gate.child.stdin.writableEnded)gate.child.stdin.end('rollback;\n');
+  await Promise.all([gate.done,migrating?.done,writer?.done].filter(Boolean));
+ }
 }));
 
 test('F3 two actual concurrent editors serialize through the client lock; stale completion remains uncertain',()=>fixture('concurrent17',async db=>{

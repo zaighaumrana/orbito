@@ -244,14 +244,14 @@ export async function loadClientData(client) {
 export async function updateClientConfig(client, updates) {
   if(!clientDataMatches(client))throw Error('Refresh the selected client before changing its configuration.');
   const context=captureView();
-  await serverConfigOperation(client.id,updates,async()=>{
+  const result=await serverConfigOperation(client.id,updates,async()=>{
     const {data,error}=await pb.rpc('platform_overhaul_status',{p_client:client.id});
     if(error)throw error;
     if(!viewCurrent(context) || !clientDataMatches(client))throw Error('The client view changed. No follow-up configuration request was sent.');
     return data;
-  }, async requestId => {
+  }, async (requestId,changes) => {
     if(!viewCurrent(context) || !clientDataMatches(client))return;
-    const { data, error } = await pb.functions.invoke('platform-config', { body: { client_id: client.id, request_id: requestId, changes: updates } });
+    const { data, error } = await pb.functions.invoke('platform-config', { body: { client_id: client.id, request_id: requestId, changes } });
     if (error || data?.state !== 'applied') {
       let body = data;
       try { if (error?.context) body = await error.context.clone().json(); } catch {}
@@ -260,6 +260,6 @@ export async function updateClientConfig(client, updates) {
       throw failure;
     }
     return data;
-  });
-  return viewCurrent(context);
+  },()=>viewCurrent(context) && clientDataMatches(client));
+  return result?.state==='applied' && viewCurrent(context);
 }

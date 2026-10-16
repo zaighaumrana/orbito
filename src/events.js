@@ -267,10 +267,15 @@ export function initEvents() {
       try {
         const intent=await pb.rpc('platform_config_intent',{p_client:client.id});
         if(!current())return;
-        if(intent.error || !intent.data?.changes)throw Error('Current entitlement intent could not be verified. Refresh status.');
+        if(intent.error || !intent.data?.changes || !Number.isSafeInteger(intent.data.generation) || intent.data.generation<0)throw Error('Current entitlement intent could not be verified. Refresh status.');
         if(!intent.data.pending){notify.info('No pending commercial entitlement intent. Refresh status.');return;}
         if(!await updateClientConfig(client,intent.data.changes) || !current())return;
-        if(await loadClientData(client) && current()){render();notify.success('Current plan entitlements verified with the Shop.');}
+        const refreshed=await loadClientData(client);
+        if(!current())return;
+        render();
+        const latest=pState.clientData.overhaul?.entitlement_intent;
+        if(!refreshed || !clientDataMatches(client) || pState.clientData.overhaulError || latest?.generation!==intent.data.generation || latest?.pending!==false)throw Error('The requested plan generation is not confirmed by fresh server status. Refresh before retrying.');
+        notify.success('Current plan entitlements verified with the Shop.');
       } catch(error) {if(current())notify.warning('Shop synchronization is not confirmed. Review the recorded request before retrying. '+error.message);}
       return;
     }

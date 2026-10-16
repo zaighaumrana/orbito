@@ -1,5 +1,9 @@
 -- Forward 17. CLI owns SQL + history atomicity. Never copy editable Shop URLs
 -- into support approvals. Existing pairs require an explicit new Master approval.
+-- Acquire the eventual DDL locks up front, client before job, and retain them
+-- through the CLI transaction. No legacy reservation may cross the preflight.
+lock table public.clients in access exclusive mode;
+lock table public.config_jobs in access exclusive mode;
 do $$ begin
  if exists(select 1 from public.config_jobs where state in ('sending','uncertain')) then
   raise exception 'Resolve outstanding configuration operations before migration 17';
@@ -145,6 +149,19 @@ grant execute on function public.platform_support_consume(text,text,integer,text
 alter table public.clients add column entitlement_generation bigint not null default 0,
  add column entitlements_pending boolean not null default false;
 alter table public.config_jobs add column intent_generation bigint;
+-- A legacy function body already queued on the client lock can resume after
+-- commit. Reject its unversioned reservation; never invent a generation for it.
+-- Defer until commit because the verified wrapper stamps a new job after INSERT.
+create function platform_private.require_config_generation() returns trigger
+language plpgsql security definer set search_path='' as $$ begin
+ if exists(select 1 from public.config_jobs where request_id=new.request_id
+  and state in ('sending','uncertain') and intent_generation is null) then
+  raise exception 'Unversioned configuration reservation rejected; refresh and retry after the migration';
+ end if;return null;
+end $$;
+revoke all on function platform_private.require_config_generation() from public,anon,authenticated,service_role;
+create constraint trigger config_intent_required after insert or update on public.config_jobs
+ deferrable initially deferred for each row execute function platform_private.require_config_generation();
 create function platform_private.guard_entitlement_intent() returns trigger
 language plpgsql set search_path='' as $$ begin
  if new.onboarding_version=2 and (new.plan is distinct from old.plan or new.inventory_billable is distinct from old.inventory_billable

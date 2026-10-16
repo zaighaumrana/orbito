@@ -14,7 +14,7 @@ function fixture(){
   createClient:()=>ctx.transport,transport:{rpc:async(name,{p_client}={})=>{calls.push([name,p_client]);if(name==='platform_client_operations'){const gate=deferred();pending.set(p_client,[...(pending.get(p_client)||[]),gate]);return gate.promise;}return {data:{}};}},
   notify:Object.fromEntries(['error','success','info','warning'].map(k=>[k,v=>messages.push([k,v])])),render(){calls.push(['render']);},cancelDialogs(){},
   FormData:class{constructor(form){this.form=form;}entries(){return Object.entries(this.form.values||{});}},validateOwner:(name,email)=>({owner_name:name,owner_email:email}),
-  serverConfigOperation:async(_id,_changes,readStatus,send)=>{await readStatus();return send('synthetic-request');},
+  serverConfigOperation:async(_id,_changes,readStatus,send)=>{await readStatus();return send('synthetic-request',_changes);},
   window:{addEventListener(){}},document:{getElementById:()=>null,addEventListener:(name,fn)=>{if(name==='click')click=fn;}},setInterval(){},validateSession(){},rpc:async(...args)=>{calls.push(args);return{};}};
  vm.createContext(ctx);for(const p of ['src/state.js','src/async-context.js','src/team.js','src/team-errors.js','src/supabase.js','src/forms.js','src/events.js','src/provisioning.js'])vm.runInContext(strip(read(p))+(p==='src/state.js'?'\nglobalThis.pState=pState;':''),ctx);
  ctx.initEvents();ctx.pState.authenticated=true;ctx.pState.dataReady=true;ctx.pState.currentUser={auth_user_id:'master',role:'master_admin',session_id:'session-one'};ctx.pState.page='clients';
@@ -188,7 +188,7 @@ test('explicit plan reconciliation uses current server intent and cancels on a d
   f.ctx.transport.rpc=async name=>name==='platform_config_intent'?gate.promise:{data:{config_jobs:[]}};
   f.ctx.updateClientConfig=async(client,changes)=>{writes++;assert.equal(client.id,1);assert.equal(changes.technician_module_enabled,true);return false;};
   await f.click({pAction:'reconcile-plan-config'});if(late)f.ctx.clearSensitiveState();
-  gate.resolve({data:{pending:true,changes:{technician_module_enabled:true}}});await tick();assert.equal(writes,late?0:1);
+  gate.resolve({data:{pending:true,generation:2,changes:{technician_module_enabled:true}}});await tick();assert.equal(writes,late?0:1);
  }
  const denied=fixture();loaded(denied);denied.ctx.pState.currentUser.role='billing_person';
  denied.ctx.transport.rpc=async()=>{throw Error('Billing must never reach intent RPC');};await denied.click({pAction:'reconcile-plan-config'});
@@ -200,4 +200,40 @@ test('configuration recovery displays unresolved state after an observed but una
  f.ctx.transport.functions={invoke:async()=>({data:{state:'uncertain',config:{technician_module_enabled:true}}})};
  await f.ctx.handleFormSubmit({preventDefault(){},submitter:{value:'retry'},target:{dataset:{pForm:'config-recovery'},elements:{request_id:{value:'synthetic'},reason:{value:'Explicit fixture recovery review'}}}});
  assert.equal(shown.title,'Operation unresolved');assert.match(shown.message,/recorded request is not verified/);
+});
+
+test('N1 actual reconciliation cannot borrow a pending suspension operation',async()=>{
+ const f=fixture();loaded(f);vm.runInContext(strip(read('src/operations.js')),f.ctx);
+ const gate=deferred(),sent=[];
+ f.ctx.transport.rpc=async name=>({data:name==='platform_config_intent'?{pending:true,generation:2,changes:{technician_module_enabled:true}}:{config_jobs:[]}});
+ f.ctx.transport.functions={invoke:async(_name,{body})=>{sent.push(body.changes);await gate.promise;return {data:{state:'applied'}};}};
+ const suspension=f.ctx.updateClientConfig(f.ctx.pState.selectedClient,{suspended:true});await tick();
+ await f.click({pAction:'reconcile-plan-config'});
+ gate.resolve();await suspension;await tick();
+ assert.equal(sent.length,1);assert.equal(sent[0].suspended,true);assert.equal(sent[0].technician_module_enabled,undefined);
+ assert.equal(f.messages.some(([tone])=>tone==='success'),false);assert.ok(f.messages.some(([tone,text])=>tone==='warning' && /in progress/.test(text)));
+});
+
+test('N1 commercial success requires fresh matching nonpending intent; failed, superseded and stale completions never succeed',async()=>{
+ for(const outcome of ['confirmed','pending','newer','overhaul-error','operations-error','failed','uncertain','session','role']){
+  const f=fixture();loaded(f);vm.runInContext(strip(read('src/operations.js')),f.ctx);
+  let statusReads=0,writes=0;const gate=deferred();
+  f.ctx.transport.rpc=async name=>{
+   if(name==='platform_config_intent')return {data:{pending:true,generation:2,changes:{technician_module_enabled:true}}};
+   if(name==='platform_overhaul_status'){
+    statusReads++;if(statusReads>1 && outcome==='overhaul-error')return {error:{message:'Synthetic unavailable status'}};
+    return {data:{config_jobs:[],entitlement_intent:{generation:outcome==='newer' && statusReads>1?3:2,pending:outcome==='pending'}}};
+   }
+   return outcome==='operations-error' && name==='platform_client_operations'?{error:{message:'Synthetic unavailable operations'}}:{data:{}};
+  };
+  f.ctx.transport.functions={invoke:async(_name,{body})=>{writes++;assert.equal(body.changes.technician_module_enabled,true);await gate.promise;return {data:{state:['failed','uncertain'].includes(outcome)?outcome:'applied'}};}};
+  await f.click({pAction:'reconcile-plan-config'});assert.equal(writes,1);
+  if(outcome==='session')f.ctx.pState.currentUser.session_id='successor-session';
+  if(outcome==='role')f.ctx.pState.currentUser.role='billing_person';
+  gate.resolve();await tick();await tick();
+  assert.equal(f.messages.filter(([tone])=>tone==='success').length,outcome==='confirmed'?1:0,outcome);
+  assert.equal(writes,1,'No automatic retry after '+outcome);
+  if(!['confirmed','session','role'].includes(outcome))assert.ok(f.messages.some(([tone])=>tone==='warning'),outcome);
+  assert.equal(statusReads,['failed','uncertain','session','role'].includes(outcome)?1:2,outcome);
+ }
 });

@@ -249,7 +249,7 @@ test('migration 17 actual CLI: fresh, populated, history failure, termination, a
  const fault=(db,mode)=>{
   const app='review17_'+mode+'_'+nonce;
   sql(`create function supabase_migrations.review17_fault() returns trigger language plpgsql as $$declare s text;begin if new.version='${v}' then
-   foreach s in array new.statements loop if upper(regexp_replace(s,'^([[:space:]]|--[^\n]*\n)*','','g')) !~ '^(ALTER (TABLE|FUNCTION) |CREATE (OR REPLACE )?(FUNCTION|TABLE|TRIGGER) |REVOKE |GRANT |DO[[:space:]])' then raise exception 'Unexpected migration seventeen statement';end if;end loop;
+   foreach s in array new.statements loop if upper(regexp_replace(s,'^([[:space:]]|--[^\n]*\n)*','','g')) !~ '^(LOCK TABLE |ALTER (TABLE|FUNCTION) |CREATE (OR REPLACE )?(FUNCTION|TABLE|TRIGGER|CONSTRAINT TRIGGER) |REVOKE |GRANT |DO[[:space:]])' then raise exception 'Unexpected migration seventeen statement';end if;end loop;
    if to_regclass('platform_private.support_destinations') is null or to_regprocedure('public.platform_config_intent(integer)') is null
     or not exists(select 1 from pg_attribute where attrelid='public.clients'::regclass and attname='entitlement_generation' and not attisdropped)
     or has_function_privilege('authenticated','platform_private.platform_support_issue_pre17(integer,uuid,text,text,uuid)','execute')

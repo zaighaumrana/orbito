@@ -547,3 +547,15 @@ scoped hosted acceptance. Preserve deletion FALSE. Inspect history/catalog befor
 retrying an ambiguous CLI result: post-commit acknowledgment loss can be committed.
 The approved feature-only push must use the native skip marker and verify the actual
 provider skip. No merge/deploy or full documentation finalization is included.
+
+
+### 2026-10-17 — N1/N2 lightweight follow-up
+
+N1 now rejects conflicting config payloads and verifies fresh matching generation /
+`pending=false` before commercial success. Unapplied migration 17 excludes legacy
+writers before preflight and rejects unversioned queued reservations at commit.
+Migrations 1–16 remain unchanged. Five lightweight Node tests and JS syntax pass;
+N2 PostgreSQL/concurrency/rollback, revised CLI atomicity and browser fixtures are
+written but NOT executed this round. No SQL parser is installed. Earlier broad
+PASS counts refer to the preceding commit. Independent Work must validate these
+revised bytes; D1, hosted acceptance and staging/production NO-GO remain unchanged.
