@@ -1433,3 +1433,31 @@ No hosted changes, emails, deletion-policy enablement, deployment or protected-r
 tag changes are authorized. The approved feature-only checkpoint uses the native
 Cloudflare skip marker; PR #4 stays Draft/unmerged. D1 and hosted acceptance remain
 separate gates; staging and production remain NO-GO.
+
+
+## 2026-10-17 — PR #4 N3 CLI-compatible migration locks
+
+Parent: `7b7de2335da3ec264583dc4c23c508948f665ae8`; feature branch unchanged.
+Read the independent N1/N2 review, CLI failure/control logs and disposable candidate.
+The previous N2 correction placed LOCK TABLE at top level; pinned CLI 2.120.0
+rejects that placement with 25P01 before preflight. Move the same two locks inside
+the existing initial DO block, client before configuration job, before checking
+outstanding work. No authored transaction BEGIN/COMMIT is added: SQL and history
+remain under the supported CLI batch boundary. Deferred legacy fencing, completed
+history, permissions and all other migration/frontend logic are unchanged.
+Owner/latest review evidence confirms staging still has migrations 1–16; 17 is
+unapplied in the authorized persistent target, so correct it in place. No production
+inspection or hosted SQL was performed; migrations 1–16 remain immutable.
+
+Lightweight checks: exact transformation/candidate comparison, lock order and
+unchanged-remainder assertions, protected-file integrity, diff/whitespace and
+sensitive-value review. No runtime test is claimed this round. Independent Work
+must execute actual CLI application and all nine fault scenarios, history rollback/
+retry/duplicate handling, lost acknowledgment, concurrent migrators, original N2
+and queued legacy writers, deferred fencing, outstanding/completed-history checks,
+late SQL rollback/retry and relevant N1/F1/F2/F3 regressions on the new committed
+HEAD. The reviewer's candidate success is feasibility evidence, not acceptance of
+this commit. No Docker, Auth, browser, build or full-source campaign was run.
+Feature-only commit/push uses the verified Cloudflare skip convention; PR #4 stays
+Draft/unmerged. D1, independent acceptance and hosted gates remain unresolved;
+no merge/deploy/deletion enablement or staging/production readiness is authorized.

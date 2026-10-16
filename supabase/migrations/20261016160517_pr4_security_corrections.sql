@@ -2,9 +2,9 @@
 -- into support approvals. Existing pairs require an explicit new Master approval.
 -- Acquire the eventual DDL locks up front, client before job, and retain them
 -- through the CLI transaction. No legacy reservation may cross the preflight.
-lock table public.clients in access exclusive mode;
-lock table public.config_jobs in access exclusive mode;
 do $$ begin
+ lock table public.clients in access exclusive mode;
+ lock table public.config_jobs in access exclusive mode;
  if exists(select 1 from public.config_jobs where state in ('sending','uncertain')) then
   raise exception 'Resolve outstanding configuration operations before migration 17';
  end if;
