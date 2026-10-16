@@ -168,8 +168,9 @@ test('navigation during username verification releases only its busy flag; late 
  const f=fixture(),gate=deferred();f.ctx.reauthenticateMaster=()=>gate.promise;f.ctx.captchaBusy=()=>{};f.ctx.resetTurnstile=()=>{};
  const change=f.submit('change-username',{current:'synthetic',new_username:'alias'});f.ctx.pState.page='overview';gate.resolve({});await change;assert.equal(f.ctx.pState.reauthLoading,false);
  loaded(f);const support=deferred();let redirected=0,closed=0;f.ctx.window.open=()=>({location:{replace:()=>redirected++},close:()=>closed++});f.ctx.URL=URL;
- f.ctx.transport.functions={invoke:()=>support.promise};vm.runInContext(strip(read('src/support-handoff.js')),f.ctx);
- const open=f.ctx.openShopSupport(f.ctx.pState.selectedClient);f.ctx.clearSensitiveState();support.resolve({data:{token:'a'.repeat(64),shop_url:'https://shop.example.test'}});await open;
+ const destination={client_id:f.ctx.pState.selectedClient.id,origin:'https://shop.example.test',project_ref:'abcdefghijklmnopqrst',client_binding:'fixture',source_id:'99000000-0000-4000-8000-000000000001',revision:'99000000-0000-4000-8000-000000000002'};
+ f.ctx.transport.rpc=async()=>({data:destination});let issued=false;f.ctx.transport.functions={invoke:()=>{issued=true;return support.promise;}};vm.runInContext(strip(read('src/support-handoff.js')),f.ctx);
+ const open=f.ctx.openShopSupport(f.ctx.pState.selectedClient);await tick();assert.equal(issued,true);f.ctx.clearSensitiveState();support.resolve({data:{token:'a'.repeat(64),shop_url:'https://shop.example.test'}});await open;
  assert.equal(redirected,0);assert.equal(closed,1);
  const reading=fixture();loaded(reading);reading.ctx.transport.functions={invoke:async()=>{throw Error('private network detail');}};await reading.click({pAction:'read-shop-config'});
  assert.equal(reading.ctx.pState.clientData.loading,false);assert.ok(reading.ctx.pState.clientData._error);assert.equal(reading.ctx.clientDataMatches(),false);
@@ -178,4 +179,25 @@ test('navigation during username verification releases only its busy flag; late 
  setup.ctx.transport.functions={invoke:()=>password.promise};setup.ctx.transport.auth={signOut:async()=>signouts++};
  await setup.click({pAction:'confirm-reset-password'});setup.ctx.clearSensitiveState();setup.ctx.pState.authenticated=true;setup.ctx.pState.currentUser={auth_user_id:'different',role:'master_admin'};
  password.resolve({data:{success:true}});await tick();assert.equal(signouts,0,'an old setup response must not sign out a new login');assert.equal(setup.ctx.pState.currentUser.auth_user_id,'different');
+});
+
+
+test('explicit plan reconciliation uses current server intent and cancels on a departed view or denied role',async()=>{
+ for(const late of [false,true]){
+  const f=fixture(),gate=deferred();loaded(f);let writes=0;
+  f.ctx.transport.rpc=async name=>name==='platform_config_intent'?gate.promise:{data:{config_jobs:[]}};
+  f.ctx.updateClientConfig=async(client,changes)=>{writes++;assert.equal(client.id,1);assert.equal(changes.technician_module_enabled,true);return false;};
+  await f.click({pAction:'reconcile-plan-config'});if(late)f.ctx.clearSensitiveState();
+  gate.resolve({data:{pending:true,changes:{technician_module_enabled:true}}});await tick();assert.equal(writes,late?0:1);
+ }
+ const denied=fixture();loaded(denied);denied.ctx.pState.currentUser.role='billing_person';
+ denied.ctx.transport.rpc=async()=>{throw Error('Billing must never reach intent RPC');};await denied.click({pAction:'reconcile-plan-config'});
+});
+
+test('configuration recovery displays unresolved state after an observed but unacknowledged remote outcome',async()=>{
+ const f=fixture();loaded(f);let shown;
+ f.ctx.showMessage=async message=>shown=message;
+ f.ctx.transport.functions={invoke:async()=>({data:{state:'uncertain',config:{technician_module_enabled:true}}})};
+ await f.ctx.handleFormSubmit({preventDefault(){},submitter:{value:'retry'},target:{dataset:{pForm:'config-recovery'},elements:{request_id:{value:'synthetic'},reason:{value:'Explicit fixture recovery review'}}}});
+ assert.equal(shown.title,'Operation unresolved');assert.match(shown.message,/recorded request is not verified/);
 });

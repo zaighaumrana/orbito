@@ -25,7 +25,13 @@ Deno.serve(async req => {
     const reserved=await caller.rpc('platform_config_recovery',{p_client:body.client_id,p_request:body.request_id,p_action:body.recovery_action,p_reason:body.reason})
     if(reserved.error)return reply(409,{error:reserved.error.message})
     recovery=reserved.data
-    if(recovery.complete)return reply(200,recovery)
+    if(recovery.complete){
+      if(recovery.state==='applied'){
+        const outcome=await admin.rpc('platform_config_finish_result',{p_request:body.request_id})
+        if(outcome.error || outcome.data?.state!=='applied' || outcome.data?.intent_current!==true)return reply(503,{error:'A newer or uncertain entitlement intent remains unresolved. Refresh server status.'})
+      }
+      return reply(200,recovery)
+    }
   }
   let target: any
   try { target = await bridgeCallCredential(admin, body.client_id); if (!target) throw new Error('Bridge call credential missing') }
@@ -42,18 +48,22 @@ Deno.serve(async req => {
       const observed=(await read.json()).config
       if(!observed || !fields.every(k=>typeof observed[k]==='boolean'))throw new Error()
       result=Object.fromEntries(fields.map(k=>[k,observed[k]]))
-      const matches=Object.entries(recovery.changes).every(([k,v])=>observed[k]===v)
-      if(body.recovery_action!=='read' && matches)state='applied'
-      else if(body.recovery_action==='retry'){
-        // Replay EXACT original identity/payload, using Shop's durable config journal.
+      if(body.recovery_action==='retry'){
+        // A matching snapshot cannot prove that a delayed original has settled.
+        // Acknowledge EXACT original identity/payload through the shipped atomic
+        // journal even when the snapshot already matches; never mint another ID.
         const written=await bridge('config-write')
         if(written.ok){const config=(await written.json()).config;if(config && fields.every(k=>typeof config[k]==='boolean') && Object.entries(recovery.changes).every(([k,v])=>config[k]===v)){result=Object.fromEntries(fields.map(k=>[k,config[k]]));state='applied'}}
-        else {await written.body?.cancel();if(written.status>=400 && written.status<500)state='failed'}
+        else {await written.body?.cancel(); /* Rejected replay does not disprove the original write. */}
         state ||= 'uncertain'
       }
     }catch{ /* Read/retry failure never proves the prior remote write failed. */ }
     const finished=await admin.rpc('platform_config_recovery_finish',{p_request:body.request_id,p_recovery:recovery.recovery_id,p_state:state,p_result:result})
     if(finished.error)return reply(503,{error:'Recovery outcome unavailable; refresh server status before retrying.'})
+    if(state==='applied'){
+      const outcome=await admin.rpc('platform_config_finish_result',{p_request:body.request_id})
+      if(outcome.error || outcome.data?.state!=='applied' || outcome.data?.intent_current!==true)return reply(503,{error:'A newer or uncertain entitlement intent remains unresolved. Refresh server status.'})
+    }
     return reply(result?200:503,{state:state || 'unresolved',config:result,...(!result?{error:'Shop read-back unavailable; the original operation remains unresolved.'}:{})})
   }
   if (body.action === 'read') {
@@ -75,7 +85,13 @@ Deno.serve(async req => {
     p_client: body.client_id, p_request: body.request_id, p_changes: body.changes,
   })
   if (error) return reply(403, { error: error.message, definite_failure: true })
-  if (!job.dispatch) return reply(job.state === 'applied' ? 200 : 409, { state: job.state, definite_failure: job.state === 'failed', error: job.state === 'applied' ? undefined : 'Existing operation needs completion or reconciliation' })
+  if (!job.dispatch) {
+    if(job.state==='applied'){
+      const outcome=await admin.rpc('platform_config_finish_result',{p_request:job.request_id})
+      if(outcome.error || outcome.data?.state!=='applied' || outcome.data?.intent_current!==true)return reply(503,{error:'A newer or uncertain entitlement intent remains unresolved. Refresh server status.'})
+    }
+    return reply(job.state === 'applied' ? 200 : 409, { state: job.state, definite_failure: job.state === 'failed', error: job.state === 'applied' ? undefined : 'Existing operation needs completion or reconciliation' })
+  }
   let state = 'uncertain', result: any = null
   try {
     const response = await fetch(`https://${target.project_ref}.supabase.co/functions/v1/platform-bridge`, {
@@ -92,5 +108,7 @@ Deno.serve(async req => {
   } catch { /* timeout may have committed: keep lock pending reconciliation */ }
   const { error: finishError } = await admin.rpc('platform_finish_config', { p_request: job.request_id, p_state: state, p_result: result })
   if (finishError || state !== 'applied') return reply(503, { error: state === 'failed' && !finishError ? 'Shop rejected the configuration; correct provisioning and retry' : 'Configuration outcome requires reconciliation; inspect Client Detail', definite_failure: state === 'failed' && !finishError })
+  const outcome=await admin.rpc('platform_config_finish_result',{p_request:job.request_id})
+  if(outcome.error || outcome.data?.state!=='applied' || outcome.data?.intent_current!==true)return reply(503,{error:'A newer or uncertain entitlement intent remains unresolved. Refresh server status.'})
   return reply(200, { state, config: result })
 })

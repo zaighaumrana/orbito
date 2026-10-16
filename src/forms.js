@@ -65,7 +65,7 @@ export async function handleFormSubmit(event) {
         if(error || data?.error){let body=data;try{body ||= await error.context.clone().json();}catch{}throw Error(body?.error || 'Recovery response unavailable. Refresh server status.');}
         if(!current())return;
         if(data.config)pState.clientData.config={...client,...data.config,id:client.id};
-        if(data.state==='unresolved')await showMessage({title:'Operation unresolved',message:'Read-back has not confirmed the intended change. The operation remains unresolved. Refresh server status before retrying.'});
+        if(data.state!=='applied')await showMessage({title:'Operation unresolved',message:'The Shop state was observed, but completion of the recorded request is not verified. Keep the same request identity and refresh server status before recovery.'});
       }
       await refresh(true);
     }catch(error){if(current()){notify.error(error);await refresh(true);}}

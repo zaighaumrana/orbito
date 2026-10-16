@@ -1321,3 +1321,73 @@ challenge/hosted login and client creation were not exercised. Evidence/screensh
 and synthetic build are outside Git in RetraSellReviewEvidence/2026-10-16-ui-polish.
 No migrations/functions/permissions/official assets changed; no hosted access,
 commit, push, PR mutation or deployment. Changes remain local for owner review.
+
+
+## 2026-10-17 — PR #4 forensic F1/F2/F3 corrections and local validation
+
+Branch: `feature/platform-team-lifecycle-v2`; reviewed parent `d3fc517aabb2b5d09ea939aa56830287b5d89bba`.
+
+Reproduced all three independent findings against the exact parent on disposable
+PostgreSQL 17. The three new correctness oracles also failed there for the expected
+reasons. Forward migration `20261016160517_pr4_security_corrections.sql`, generated
+with CLI 2.120.0, preserves migrations 1–16 and the frozen Shop artifact.
+
+F1 permits an already-confirmed, canonically linked successor to submit its own
+unchanged normalized email during name/role edits. Actual email changes still
+check archived addresses, live employees and Auth identities; UUID tombstones,
+archive/audit retention, confirmation and authorization checks remain intact.
+
+F2 separates editable business URLs from a private, explicitly Master-approved
+support origin. No URL is backfilled or automatically trusted. Approval checks the
+current protected client/project/binding/source tuple, records an audited reason
+and prior approval, and uses revision-based compare-and-set. Only the canonical
+Master can review/approve/reapprove; a stale approval remains reviewable but cannot
+authorize handoff. Issuance, consumption and browser navigation verify the protected
+pairing/revision. Reapproval, re-pairing or Master-binding revision changes invalidate
+outstanding grants. Original single-use, expiry, live-session and tenant checks
+remain. The reproduced disclosure was not a demonstrated remote Shop takeover.
+
+F3 serializes commercial plan/addon intent and configuration reservations through
+the client row lock. New intent remains durably pending until verified; delayed
+old payloads/completions cannot certify a newer plan. An unresolved operation blocks
+competing commercial changes, while urgent suspension remains available when no
+operation is already in flight. Same-plan metadata edits preserve custom modules.
+Manager/Master can explicitly reconcile the current server-derived intent; Billing
+retains its existing financial boundary. Read-back alone never settles an uncertain
+write: Master recovery must acknowledge the exact original UUID/payload through
+the unchanged atomic Shop journal. Unknown outcomes cannot be discarded to unlock
+later writes. Verified suspension can complete without falsely clearing pending
+commercial intent. The recovery UI retains explicit unresolved messaging. Duplicate and completed-recovery
+responses also check current intent before reporting applied; a focused pre-fix
+test reproduced the early-return bypass.
+
+Final local PASS: 296 source regressions; 30 PG17 groups (6 bootstrap, 2 canonical
+team, 12 lifecycle, 4 role/PostgREST, 6 new forensic/security groups); 9 actual CLI-17
+scenarios (10 Node tests including parent); 8 native Auth groups; four real Chromium
+browser suites; all 12 Deno entrypoints; synthetic-config production build, syntax,
+whitespace and integrity checks. CLI cases cover fresh/populated upgrades, SQL/history
+rejection and termination, retries, early termination, lost post-commit acknowledgment
+and concurrent attempts. Lost acknowledgment can leave a complete committed migration:
+inspect authoritative state before retry. Initial fixture/assertion failures, a Deno
+flag error and interrupted/timed-out runs are retained separately from final passes.
+The local runner gives full child suites eight minutes without relaxing SQL assertions
+or individual Docker command deadlines. The exact frozen journal SQL was additionally
+tested on a minimal substrate; this is not full Shop integration.
+
+Native email delivery, hosted CAPTCHA/session continuity and provider configuration,
+TLS/pooler/network crash timing, hosted finance/provisioning/Shop/Support and production
+acceptance remain unverified. The PGlite cross-repository SQL suite was not run; real
+PG17 tests supply database evidence. Existing checksum fixture checks passed without
+changing or replacing Shop integrity checks. Default-off employee deletion remains off.
+D1 provisioner source/deployment drift remains unresolved and was not changed remotely.
+
+Future rollout needs separate approval: backup/freeze, resolve/drain old config jobs
+(the migration refuses open jobs), migration 17, matching `platform-config` and
+`platform-support` bundles, independently verified Master destination approvals, then
+matching frontend and scoped hosted acceptance. Support fails closed until approval;
+previously drifted plan/custom configurations require explicit review, not automatic
+retroactive certification. No hosted Supabase operation, deployment, tag mutation or
+protected-branch change is authorized here. The approved feature-only checkpoint uses
+`[CF-Pages-Skip]`; its exact commit and actual provider result must be verified after
+push. PR #4 stays Draft/unmerged. Independent re-review and staging/production NO-GO
+remain; full documentation finalization is deferred.

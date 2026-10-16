@@ -496,3 +496,54 @@ because they are unchanged.
 | new | `tests/invoice-print-browser.mjs` |
 | new | `tests/master-continuity.test.mjs` |
 | new | `tests/team-review-corrections.test.mjs` |
+
+
+## 2026-10-17 — Scoped forensic F1/F2/F3 correction status
+
+This dated note supersedes earlier local/uncommitted counts only for the current
+forensic correction set. Parent: `d3fc517aabb2b5d09ea939aa56830287b5d89bba`.
+Migrations 1–16, frozen Shop release, branding and dependency locks are unchanged.
+New forward migration: `20261016160517_pr4_security_corrections.sql`.
+
+- F1: unchanged confirmed successor email is editable; real email collisions,
+  UUID identity/archive/tombstone and role protections remain.
+- F2: privileged support uses a private Master-approved origin and exact current
+  pairing, never editable `clients.shop_url`. No automatic backfill. Master calls
+  `platform_support_destination_review(client)` to review current pairing and any
+  prior approval, independently verifies the deployed origin, then explicitly calls
+  `platform_approve_support_destination(client, origin, project, binding, source,
+  expected_revision, reason)` (NULL revision for the first approval). Stale approval
+  revisions remain reviewable for governed replacement; handoff fails closed until
+  current approval. Neither Manager nor Billing can approve. Re-pair/Master revision
+  changes invalidate old grants. Issuance, consumption and browser validate revision.
+- F3: durable commercial-intent generation, row-lock serialization and explicit
+  current-plan reconciliation prevent old completions from erasing newer intent.
+  Same-plan metadata edits retain custom modules. Uncertain requests retain their
+  lock; a matching read is observation only. Master recovery retries the exact old
+  UUID/payload through the shipped journal before allowing later commercial changes.
+  Suspension-only completion cannot falsely clear pending plan synchronization.
+  Duplicate/applied recovery responses also verify current intent before success.
+
+Validation: original independent reproductions confirmed all three defects; new
+correctness tests failed before and passed after. Final PASS: 296 source tests,
+30 PG17 groups, 9 CLI-17 scenarios (10 including parent), 8 native Auth groups,
+four actual Chromium suites, 12 Deno entrypoints, synthetic production build and
+syntax/whitespace/integrity checks. Earlier failed/interrupted attempts remain in
+external evidence at `RetraSellReviewEvidence/2026-10-16-F1-F2-F3`. The two previously
+blocked checksum-fixture cases passed using the existing local fixture; no Shop
+integrity bypass was introduced. The separate cross-repository PGlite suite was not
+run. Journal SQL on a minimal substrate proves local idempotency, not a full Shop.
+
+**Staging and production remain NO-GO.** D1 provisioner drift is unchanged. Hosted
+Manager client operations, provisioning/Shop, changed-plan sync, same-plan custom
+preservation, finance/addons, Support exchange, provider Storage/Realtime/GraphQL
+and production tests remain separate gates. No real email, hosted session-policy
+or full provider integration claim follows from local fixtures.
+
+Separately authorized rollout order: fresh backup/maintenance and drain/resolve
+config jobs; migration 17 (refuses sending/uncertain jobs); matching config/support
+Edge bundles; independently verified Master support approvals; matching frontend;
+scoped hosted acceptance. Preserve deletion FALSE. Inspect history/catalog before
+retrying an ambiguous CLI result: post-commit acknowledgment loss can be committed.
+The approved feature-only push must use the native skip marker and verify the actual
+provider skip. No merge/deploy or full documentation finalization is included.

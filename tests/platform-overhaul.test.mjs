@@ -277,7 +277,7 @@ test('recovery reads first then retries EXACT original identity and changes',asy
 });
 test('reconcile mismatch/read-only/unknown timeout never clears the original uncertainty',async()=>{
  for(const [action,options] of [['reconcile',{}],['read',{match:true}],['retry',{timeout:true}]]){const f=await recoveryFixture(action,options);assert.equal(f.calls[0].args.p_state,null);assert.equal(f.result.state,'unresolved');}
- const matched=await recoveryFixture('reconcile',{match:true});assert.equal(matched.calls[0].args.p_state,'applied');assert.equal(matched.writes.length,1);
+ const matched=await recoveryFixture('reconcile',{match:true});assert.equal(matched.calls[0].args.p_state,null);assert.equal(matched.result.state,'unresolved');assert.equal(matched.writes.length,1,'Matching observation cannot acknowledge a possibly delayed original write');
 });
 test('closed server operation is authoritative, recovery never contacts a vanished Shop',async()=>{
  const f=await recoveryFixture('close',{closed:true});assert.equal(f.writes.length,0);assert.equal(f.result.complete,true);

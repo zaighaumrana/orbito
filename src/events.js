@@ -259,6 +259,22 @@ export function initEvents() {
       if(await loadClientData(client))render(); return;
     }
 
+    // Explicit recovery of a durable commercial intent; unresolved requests are
+    // still blocked by the existing server operation protocol, never resent here.
+    if(action==='reconcile-plan-config') {
+      if(!['master_admin','portfolio_manager'].includes(pState.currentUser?.role) || !clientDataMatches(pState.selectedClient))return;
+      const context=captureView(),client=pState.selectedClient,current=()=>viewCurrent(context,false);
+      try {
+        const intent=await pb.rpc('platform_config_intent',{p_client:client.id});
+        if(!current())return;
+        if(intent.error || !intent.data?.changes)throw Error('Current entitlement intent could not be verified. Refresh status.');
+        if(!intent.data.pending){notify.info('No pending commercial entitlement intent. Refresh status.');return;}
+        if(!await updateClientConfig(client,intent.data.changes) || !current())return;
+        if(await loadClientData(client) && current()){render();notify.success('Current plan entitlements verified with the Shop.');}
+      } catch(error) {if(current())notify.warning('Shop synchronization is not confirmed. Review the recorded request before retrying. '+error.message);}
+      return;
+    }
+
     /* Trusted subscription state update */
     if(action==='load-public-environment') {
       if(!clientDataMatches())return;

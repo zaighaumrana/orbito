@@ -100,6 +100,20 @@ if(chromium){
    await navigate('settings');await page.locator('[data-p-form="change-own-password"]').waitFor();assert.equal(await page.getByText('Team Management',{exact:true}).count(),0);
    console.log('PASS: Manager summary/support and Billing invoice/own-account journeys, live role invalidation and explicit read error at '+width+'px');
   }
+  if(!baseline)for(const outcome of ['applied','uncertain']){
+   await start(1440);
+   await page.evaluate(async outcome=>{
+    window.fixtureWrites=[];
+    const prior=window.fixtureSDK.rpc;window.fixtureSDK.rpc=async(name,args)=>name==='platform_config_intent'?{data:{pending:true,changes:{technician_module_enabled:true}}}:prior(name,args);
+    window.fixtureSDK.functions.invoke=async(name,{body})=>{window.fixtureWrites.push({name,body});return {data:{state:outcome}};};
+    const {pState}=await import('/src/state.js');pState.clientData.overhaul={entitlement_intent:{pending:true}};(await import('/src/render.js')).render();
+   },outcome);
+   await page.getByRole('button',{name:'Reconcile current plan',exact:true}).click();
+   await page.getByText(outcome==='applied'?'Current plan entitlements verified with the Shop.':'Shop synchronization is not confirmed.',{exact:outcome==='applied'}).waitFor();
+   assert.equal(await page.evaluate(()=>window.fixtureWrites.length),1);
+   if(outcome!=='applied')assert.equal(await page.getByText('Current plan entitlements verified with the Shop.',{exact:true}).count(),0);
+  }
+  console.log('PASS: explicit current-intent reconciliation and uncertain response in actual browser handlers');
   assert.deepEqual(errors,[]);assert.deepEqual(external,[]);console.log('PASS: stale config denies client-switch/logout/revocation; zero external traffic/page errors');
  }catch(error){console.error(error.message);if(page)console.error(await page.evaluate(async()=>{const {pState}=await import('/src/state.js');return {role:pState.currentUser.role,ready:pState.dataReady,error:pState.dataError,modal:pState.modal?.type,writes:window.fixtureWrites,queries:window.fixtureQueries};}));process.exitCode=1;}finally{await browser?.close();await server.close();}
 }

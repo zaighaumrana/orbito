@@ -94,7 +94,7 @@ export function pageClientDetail() {
   const master=pState.currentUser.role==='master_admin';
   return head + (master?lifecyclePanel(c,cd,true)+(canContactShop(c)?provisioningPanel(c,cd):''):lifecycleState(c)==='Provisioning'?'<p class="card">A master administrator must complete secure Shop setup before remote configuration is available.</p>':'') + `
   <div class="grid two-col">
-    <div class="card"><h2>Modules / Entitlements</h2><details><summary>Manage modules</summary>
+    <div class="card"><h2>Modules / Entitlements</h2>${cd.overhaul?.entitlement_intent?.pending?`<p role="status">The saved plan or addon configuration is not yet verified with the Shop. Resolve any recorded operation first.</p>${canConfig?'<button class="secondary-button" data-p-action="reconcile-plan-config">Reconcile current plan</button>':''}`:''}<details><summary>Manage modules</summary>
       ${canConfig ? [flag('Repairs','repair_module_enabled','toggle-repair'),flag('Inventory','inventory_module_enabled','toggle-inventory'),
         flag('Technician / Workshop','technician_module_enabled','toggle-technician'),flag('Live Tracking','live_tracking_enabled','toggle-tracking'),
         flag('EMS','ems_enabled','toggle-ems'),flag('Paper Resupply','paper_resupply_enabled','toggle-paper')].join('') : '<p>Module changes require a portfolio manager or master administrator.</p>'}
