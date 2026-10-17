@@ -1,2 +1,2 @@
-import { platformTeamHandler } from "../_shared/platform-team.ts";
-Deno.serve(platformTeamHandler("create"));
+import { teamV2Handler } from "../_shared/platform-team-v2.ts";
+Deno.serve(teamV2Handler("create"));

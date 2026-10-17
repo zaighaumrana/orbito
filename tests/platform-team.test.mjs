@@ -1,154 +1,88 @@
-// Execute the real shared handler; Auth/REST doubles are explicitly NOT hosted proof.
+// Actual current server source; reusable fixture imports register no tests.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import vm from 'node:vm';
-import {readFileSync} from 'node:fs';
-import {stripTypeScriptTypes} from 'node:module';
-import {webcrypto} from 'node:crypto';
+import {readFileSync,existsSync,readdirSync} from 'node:fs';
+import {spawnSync} from 'node:child_process';
+import {fixture,master,target,rowId,requestId} from './helpers/platform-team-fixture.mjs';
+import {forbiddenEmailTransport} from './helpers/native-email-guard.mjs';
+export {fixture,rowId} from './helpers/platform-team-fixture.mjs';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const master='94000000-0000-4000-8000-000000000001',target='94000000-0000-4000-8000-000000000002',rowId='94000000-0000-4000-8000-000000000003';
-const confirmedAt='2026-10-09T00:00:00Z';
-export function fixture(options={}) {
- const calls=[],audit=[],rows=options.rows || [{id:rowId,auth_user_id:target,name:'Team',email:'team@example.test',role:'portfolio_manager',status:'Active'}];
- const user=options.user===null?null:options.user || {id:master,email:'master@example.test',email_confirmed_at:confirmedAt};
- const authUsers=options.authUsers || [{id:target,email:'team@example.test'},{id:master,email:'master@example.test'}];
- const caller={auth:{getUser:async()=>({data:{user},error:options.invalid?{}:null})},rpc:async()=>{
-  calls.push(['identity']);
-  return options.identityRpc?options.identityRpc():{data:options.identity || {auth_user_id:user?.id,role:options.role || 'master_admin'},error:options.identityError?{}:null};
- }};
- const admin={auth:{admin:{
-  getUserById:async id=>({data:{user:authUsers.find(u=>u.id===id)},error:options.lookupError?{}:null}),
-  listUsers:async()=>({data:{users:options.fullInventory?Array.from({length:200},()=>({email:'other@example.test'})):authUsers},error:options.inventoryError?{}:null}),
-  inviteUserByEmail:async(email,settings)=>{calls.push(['invite',email,settings]);return options.inviteError?{error:{message:'PROVIDER SECRET'}}:{data:{user:{id:target,email}}};},
-  updateUserById:async(id,values)=>{calls.push(['auth-update',id,values]);return {error:options.authError?{message:'PROVIDER SECRET'}:null};},
-  deleteUser:async id=>{calls.push(['auth-delete',id]);return {error:options.authError?{message:'PROVIDER SECRET'}:null};},
- }},from:table=>{
-  let verb='select',payload,filters=[];
-  const q={select(){return q;},eq(k,v){filters.push([k,v]);return q;},is(k,v){filters.push([k,v]);return q;},ilike(k,v){filters.push([k,v.toLowerCase().replace(/\\([\\%_])/g,'$1')]);return q;},limit(){return q;},
-   insert(v){verb='insert';payload=v;return q;},update(v){verb='update';payload=v;return q;},
-   then(resolve,reject){return Promise.resolve().then(()=>{
-    if(table==='operator_audit'){if(options.auditError) return {error:{message:'PROVIDER SECRET'}};audit.push(payload);return {};}
-    const found=rows.filter(r=>filters.every(([k,v])=>k==='email'?r[k].toLowerCase()===v:r[k]===v));
-    if(verb==='select')return {data:found};
-    calls.push(['db-'+verb,payload]);
-    if(options.dbError)return {error:{message:'PROVIDER SECRET'}};
-    if(verb==='insert'){rows.push({id:rowId,...payload});return {data:[{id:rowId}]};}
-    found.forEach(r=>Object.assign(r,payload));return {data:found.map(r=>({id:r.id}))};
-   }).then(resolve,reject);},
-  };return q;
- }};
- const ctx={URL,Request,Response,crypto:webcrypto,Date,createClient(){throw Error('Inject factory');},
-  Deno:{env:{get:key=>({SUPABASE_URL:'https://local.invalid',SUPABASE_ANON_KEY:'fixture-anon',SUPABASE_SERVICE_ROLE_KEY:'fixture-service',PLATFORM_TEAM_SITE_URL:options.site || 'https://platform.example.test'})[key]}}};
- vm.createContext(ctx);vm.runInContext(stripTypeScriptTypes(read('supabase/functions/_shared/platform-team.ts').replace(/^import .*$/gm,'').replace(/^export /gm,''),{mode:'transform'}),ctx);
- const factory=(_url,key)=>{calls.push(['client',key]);return key==='fixture-anon'?caller:admin;};
- const invoke=async(operation,body,headers={Authorization:'Bearer fixture-session'},method='POST')=>{
-  const result=await ctx.platformTeamHandler(operation,factory)(new Request('https://local.invalid/functions/v1/'+operation,{method,headers,...(method==='POST'?{body:typeof body==='string'?body:JSON.stringify(body)}:{})}));
-  return {status:result.status,body:result.status===204?null:await result.json(),headers:result.headers};
- };
- return {invoke,calls,audit,rows};
-}
-const mutationCalls=f=>f.calls.filter(c=>['invite','auth-update','auth-delete','db-insert','db-update'].includes(c[0]));
-const createBody={email:'new@example.test',name:'New Team',role:'billing_person'};
-for(const role of ['portfolio_manager','billing_person','ordinary','master_admin-forged'])for(const action of ['create','update','delete'])test(role+' denied '+action+' before service construction',async()=>{
- const f=fixture({role});const r=await f.invoke(action,action==='create'?createBody:{id:rowId,password:'NewPassword1!'});
- assert.equal(r.status,403);assert.equal(f.calls.filter(c=>c[0]==='client').length,1);assert.deepEqual(mutationCalls(f),[]);
-});
-for(const options of [{user:null},{invalid:true},{user:{id:master,email:'master@example.test',email_confirmed_at:confirmedAt,is_anonymous:true}},{user:{id:master,email:'master@example.test',email_confirmed_at:confirmedAt,deleted_at:'2026-01-01'}},{identity:{auth_user_id:target,role:'master_admin'}},{identityError:true}])test('invalid session/canonical identity denied '+JSON.stringify(Object.keys(options)),async()=>{
- const f=fixture(options);const r=await f.invoke('delete',{id:rowId});assert.ok([401,403].includes(r.status));assert.equal(f.calls.filter(c=>c[0]==='client').length,1);assert.deepEqual(mutationCalls(f),[]);
-});
-test('unconfirmed email cannot use canonical master authority or phone confirmation',async()=>{
- for(const email_confirmed_at of [null,undefined])for(const action of ['create','update','delete']){
-  const f=fixture({user:{id:master,email:'master@example.test',email_confirmed_at,confirmed_at:confirmedAt,phone_confirmed_at:confirmedAt}});
-  const response=await f.invoke(action,action==='create'?createBody:action==='update'?{id:rowId,name:'Edited'}:{id:rowId});
-  assert.equal(response.status,401);assert.equal(f.calls.filter(c=>c[0]==='client').length,1);
-  assert.ok(!f.calls.some(c=>c[0]==='identity'));assert.deepEqual(mutationCalls(f),[]);assert.deepEqual(f.audit,[]);
+const createBody={name:'New Team',email:'new@example.test',role:'billing_person'};
+const privileged=f=>f.calls.filter(c=>c[0]==='client'&&c[1]==='fixture-service');
+test('unapproved session continuity blocks deletion before password grant and privileged client',async()=>{const f=fixture({continuityApproved:false}),result=await f.invoke('delete',{id:rowId});assert.equal(result.status,503);assert.equal(result.body.code,'deletion_disabled');assert.equal(result.body.review_required,true);assert.equal(result.body.current_attempt_rejected,true);assert.equal(result.body.operation_state,'unverified');assert.deepEqual(privileged(f),[]);assert.ok(!f.calls.some(c=>c[0]==='password-check'));assert.deepEqual(f.audit,[]);});
+for(const role of ['portfolio_manager','billing_person','ordinary','master_admin-forged'])for(const action of ['create','update','delete','deactivate','reactivate'])test(role+' denied '+action+' before privileged client',async()=>{const f=fixture({role});assert.equal((await f.invoke(action,action==='create'?createBody:{id:rowId,name:'Edited'})).status,403);assert.deepEqual(privileged(f),[]);assert.deepEqual(f.audit,[]);});
+for(const options of [{user:null},{invalid:true},{user:{id:master,email:'master@example.test'}},{user:{id:master,email:'master@example.test',email_confirmed_at:'2026-10-09',deleted_at:'2026-10-10'}},{user:{id:master,email:'master@example.test',email_confirmed_at:'2026-10-09',banned_until:'2099-01-01'}},{identityError:true},{identity:{auth_user_id:target,role:'master_admin'}}])test('invalid or unconfirmed actor '+JSON.stringify(options),async()=>{const f=fixture(options);assert.ok((await f.invoke('delete',{id:rowId})).status>=400);assert.deepEqual(privileged(f),[]);});
+for(const options of [{passwordError:true},{cleanupError:true},{verifierUser:{id:target,email:'team@example.test',email_confirmed_at:'2026-10-09'}}])test('deletion reauthentication fails closed '+JSON.stringify(options),async()=>{const f=fixture(options);assert.ok((await f.invoke('delete',{id:rowId})).status>=400);assert.deepEqual(privileged(f),[]);assert.deepEqual(f.audit,[]);});
+test('missing password CAPTCHA acknowledgment and reusable flags denied',async()=>{for(const body of [{id:rowId,request_id:requestId},{id:rowId,request_id:requestId,password:'Fixture1!',acknowledged:true},{id:rowId,request_id:requestId,approved:true}]){const f=fixture({raw:true});assert.ok((await f.invoke('delete',body)).status>=400);assert.deepEqual(f.audit,[]);}});
+test('confirmed master rechecked after password verification; browser session never replaced',async()=>{let n=0;const f=fixture({identityRpc:()=>++n===1?{data:{auth_user_id:master,role:'master_admin'}}:{error:{}}});assert.equal((await f.invoke('delete',{id:rowId})).status,403);assert.deepEqual(privileged(f),[]);assert.equal(f.calls.filter(c=>c[0]==='cleanup').length,1);});
+test('missing drifted or self-target Auth identities denied before command',async()=>{for(const options of [{authUsers:[]},{lookupError:true},{authUsers:[{id:target,email:'other@example.test'}]},{rows:[{id:rowId,auth_user_id:master,role:'billing_person',email:'master@example.test'}]}]){const f=fixture(options);assert.ok((await f.invoke('reactivate',{id:rowId})).status>=400);assert.deepEqual(f.audit,[]);}});
+test('database ownership denial prevents clearing independent provider ban',async()=>{const f=fixture({status:'Inactive',authUsers:[{id:target,email:'team@example.test',banned_until:'2099-01-01'}],commandError:'dispatch_provider'});assert.equal((await f.invoke('reactivate',{id:rowId})).status,409);assert.ok(!f.calls.some(c=>c[0]==='auth-update'));});
+test('deletion revokes first, dispatches once, archives only after absence',async()=>{const f=fixture();assert.equal((await f.invoke('delete',{id:rowId})).status,200);assert.equal(f.rows.length,0);assert.equal(f.archives.length,1);assert.ok(f.calls.findIndex(c=>c[0]==='rpc'&&c[2]==='begin_delete')<f.calls.findIndex(c=>c[0]==='auth-delete'));assert.ok(!JSON.stringify(f.audit).includes('FixturePassword1!'));});
+test('uncertain Auth deletion does not archive or repeat deletion',async()=>{const f=fixture({authError:true});assert.equal((await f.invoke('delete',{id:rowId})).status,503);assert.equal(f.rows[0].status,'Inactive');assert.equal(f.archives.length,0);const retry=fixture({existingStage:'auth_delete_dispatched'});assert.ok((await retry.invoke('delete',{id:rowId})).status>=400);assert.ok(!retry.calls.some(c=>c[0]==='auth-delete'));});
+test('targeted deletion error codes distinguish pre-operation denial from provider uncertainty',async()=>{
+ for(const code of ['invalid_credentials','captcha_failed']){
+  const f=fixture({passwordError:true,passwordCode:code}),r=await f.invoke('delete',{id:rowId});
+  assert.equal(r.body.review_required,true);assert.equal(r.body.current_attempt_rejected,true);assert.equal(r.body.code,code==='captcha_failed'?'captcha_failed':'password_invalid');assert.deepEqual(privileged(f),[]);
  }
+ const f=fixture({authError:true}),r=await f.invoke('delete',{id:rowId});assert.equal(r.body.review_required,true);assert.equal(f.archives.length,0);
+ const missing=fixture({authUsers:[{id:master,email:'master@example.test'}]});assert.equal((await missing.invoke('delete',{id:rowId})).status,200);assert.ok(!missing.calls.some(c=>c[0]==='auth-delete'));
+ const conflict=fixture({commandError:'begin_delete',commandCode:'P0001',commandMessage:'Unlinked or inconsistent Auth identity requires review; never adopt or delete by email'}),denied=await conflict.invoke('delete',{id:rowId});assert.equal(denied.body.code,'identity_conflict');assert.equal(denied.body.review_required,true);assert.equal(denied.body.current_attempt_rejected,true);assert.ok(!conflict.calls.some(c=>c[0]==='auth-delete'));
+ let n=0;const late=fixture({identityRpc:()=>++n<5?{data:{auth_user_id:master,role:'master_admin'}}:{error:{}}}),uncertain=await late.invoke('delete',{id:rowId});assert.equal(uncertain.body.review_required,true);assert.equal(late.calls.filter(c=>c[0]==='auth-delete').length,1);assert.equal(late.archives.length,0);
 });
-test('absent bearer, forbidden Origin and invalid site fail closed',async()=>{
- for(const [options,headers] of [[{},{}],[{},{Authorization:'Bearer fixture',Origin:'https://attacker.example.test'}],[{site:'http://platform.example.test'},{Authorization:'Bearer fixture'}]]){
-  const f=fixture(options);assert.ok((await f.invoke('create',createBody,headers)).status>=400);assert.equal(f.calls.length,0);
+test('fresh invitation requires the private reservation receipt; unrelated existing Auth is never adopted',async()=>{
+ const f=fixture({unrelatedInvite:true}),r=await f.invoke('create',createBody);assert.equal(r.status,503);assert.equal(r.body.review_required,true);assert.ok(!f.calls.some(c=>c[2]==='finish_create'));
+});
+test('resend renews only the existing Pending identity, preserves confirmed account and never blindly repeats',async()=>{
+ for(const confirmed of [false,true]){
+  const f=fixture({status:'Pending',authUsers:[{id:target,email:'team@example.test',...(confirmed?{email_confirmed_at:'2026-10-09'}:{})}]}),r=await f.invoke('resend',{id:rowId});
+  assert.equal(r.status,200);assert.equal(f.calls.filter(c=>c[0]===(confirmed?'recover':'invite')).length,1);assert.equal(f.rows[0].auth_user_id,target);assert.equal(f.rows[0].status,'Pending');
+  await f.invoke('resend',{id:rowId});assert.equal(f.calls.filter(c=>['recover','invite'].includes(c[0])).length,1);
  }
+ for(const role of ['portfolio_manager','billing_person']){const f=fixture({role});assert.equal((await f.invoke('resend',{id:rowId})).status,403);assert.deepEqual(privileged(f),[]);}
+ const unknown=fixture({status:'Pending',existingStage:'provider_dispatched'});assert.ok((await unknown.invoke('resend',{id:rowId})).status>=400);assert.ok(!unknown.calls.some(c=>['recover','invite'].includes(c[0])));
 });
-test('method and preflight restrictions do not create a service client',async()=>{
- const f=fixture();assert.equal((await f.invoke('create',{}, {},'GET')).status,405);
- const r=await f.invoke('create',{}, {Origin:'https://platform.example.test'},'OPTIONS');assert.equal(r.status,204);assert.equal(f.calls.length,0);
+test('required durable start failure prevents provider mutations',async()=>{const f=fixture({commandError:'begin_delete'});assert.ok((await f.invoke('delete',{id:rowId})).status>=400);assert.ok(!f.calls.some(c=>c[0]==='auth-delete'));});
+test('password setup verifies provider write before checked activation',async()=>{const f=fixture();assert.equal((await f.invoke('password',{password:'FixturePassword1!'})).status,200);assert.ok(f.calls.findIndex(c=>c[0]==='http')<f.calls.findIndex(c=>c[1]==='platform_accept_invite'));for(const option of [{saveError:true},{acceptError:true},{passwordStepError:'begin'}]){const denied=fixture(option);const r=await denied.invoke('password',{password:'FixturePassword1!'});assert.ok(r.status>=400);if(option.saveError)assert.ok(!denied.calls.some(c=>c[1]==='platform_accept_invite'));}});
+test('saved-password retry resumes activation without repeating provider update',async()=>{const f=fixture({saved:true});assert.equal((await f.invoke('password',{password:'FixturePassword1!'})).status,200);assert.ok(!f.calls.some(c=>c[0]==='http'));});
+test('method CORS malformed data and forged role denied',async()=>{for(const [body,headers] of [['{',{}],[{...createBody,role:'master_admin'},{}],[createBody,{Origin:'https://evil.example.test'}]]){const f=fixture();assert.ok((await f.invoke('create',body,{Authorization:'Bearer fixture-session',...headers})).status>=400);assert.deepEqual(f.audit,[]);}const f=fixture();assert.equal((await f.invoke('create',{}, {},'GET')).status,405);assert.equal((await f.invoke('create',{}, {},'OPTIONS')).status,204);});
+test('JWT is enabled on all privileged and setup entrypoints; unused legacy wrapper is absent',()=>{for(const name of ['create-platform-user','update-platform-user','delete-platform-user','deactivate-platform-user','reactivate-platform-user','platform-password-setup'])assert.match(read('supabase/config.toml'),new RegExp('\\[functions\\.'+name+'\\]\\s*verify_jwt = true'));assert.equal(existsSync(new URL('../supabase/functions/_shared/platform-team.ts',import.meta.url)),false);});
+test('confirmed master creates invitation and edits through durable server commands',async()=>{
+ const invite=fixture();assert.equal((await invite.invoke('create',createBody)).status,200);
+ const sent=invite.calls.find(c=>c[0]==='invite');assert.equal(sent[1],'new@example.test');assert.equal(sent[2].redirectTo,'https://platform.example.test/?reset=true');
+ assert.ok(invite.calls.some(c=>c[2]==='finish_create'));
+ const edit=fixture();assert.equal((await edit.invoke('update',{id:rowId,name:'Edited',role:'billing_person'})).status,200);
+ assert.ok(edit.calls.some(c=>c[2]==='finish_edit'));assert.ok(!edit.calls.some(c=>c[0]==='password-check'));
 });
-for(const body of [{...createBody,role:'master_admin'},{...createBody,actor_id:master},{...createBody,user_metadata:{role:'master_admin'}},{...createBody,email:'master@example.test'},{...createBody,redirectTo:'https://attacker.example.test'},{...createBody,password:'Password1!'}])test('forged/unsupported create fields denied '+Object.keys(body).join(','),async()=>{
- const f=fixture();assert.ok((await f.invoke('create',body)).status>=400);assert.deepEqual(mutationCalls(f),[]);
+
+test('deactivation bans retained identity after durable revocation; Reactivate restores without email',async()=>{
+ const off=fixture();assert.equal((await off.invoke('deactivate',{id:rowId})).status,200);assert.equal(off.rows[0].status,'Inactive');
+ assert.ok(off.calls.findIndex(c=>c[2]==='deactivate')<off.calls.findIndex(c=>c[0]==='auth-update'));
+ assert.equal(off.calls.find(c=>c[0]==='auth-update')[2].ban_duration,'876000h');
+ const on=fixture({status:'Inactive'});assert.equal((await on.invoke('reactivate',{id:rowId})).status,200);assert.equal(on.rows[0].status,'Active');
+ assert.equal(on.calls.find(c=>c[0]==='auth-update')[2].ban_duration,'none');
+ for(const f of [off,on])assert.ok(!f.calls.some(c=>['generate','invite','http','auth-delete'].includes(c[0])));
 });
-for(const action of ['update','delete'])test('master target protected through direct ID and mapped team row: '+action,async()=>{
- for(const body of [{auth_user_id:master,password:'NewPassword1!'},{id:rowId,password:'NewPassword1!'}]){
-  const f=fixture({rows:[{id:rowId,auth_user_id:master,email:'master@example.test',role:'portfolio_manager',status:'Active'}]});
-  const payload=action==='delete'?{...body,password:undefined}:body;
-  const r=await f.invoke(action,payload);assert.equal(r.status,403);assert.deepEqual(mutationCalls(f),[]);
- }
+test('provider suspension failure remains revoked and review required; duplicate dispatch never repeats',async()=>{
+ const f=fixture({authError:true});assert.equal((await f.invoke('deactivate',{id:rowId})).status,503);assert.equal(f.rows[0].status,'Inactive');assert.ok(f.calls.some(c=>c[2]==='mark_review'));
+ const duplicate=fixture({status:'Inactive',existingStage:'provider_dispatched'});assert.equal((await duplicate.invoke('reactivate',{id:rowId})).status,409);assert.ok(!duplicate.calls.some(c=>c[0]==='auth-update'||c[2]==='mark_review'));
 });
-test('master invites only a new ordinary identity; retry uses linked pending row without resending',async()=>{
- const f=fixture();let r=await f.invoke('create',createBody);assert.equal(r.status,200);assert.equal(f.rows.at(-1).status,'Pending');
- const invite=f.calls.find(c=>c[0]==='invite');assert.equal(invite[2].redirectTo,'https://platform.example.test/?reset=true');
- // Auth side successful invite in this double must be reflected for ownership verification.
- const retry=fixture({rows:[{id:rowId,auth_user_id:target,name:'New Team',email:createBody.email,role:createBody.role,status:'Pending'}],authUsers:[{id:target,email:createBody.email}]});
- r=await retry.invoke('create',createBody);assert.equal(r.status,200);assert.equal(r.body.already_invited,true);assert.deepEqual(mutationCalls(retry),[]);
+test('Inactive and archived password setup are denied before provider/password commands',async()=>{
+ for(const kind of ['inactive','archived']){const f=fixture({context:{kind,auth_user_id:master,session_id:master}});assert.equal((await f.invoke('password',{password:'FixturePassword1!'})).status,403);assert.ok(!f.calls.some(c=>c[0]==='http'||c[1]==='platform_team_password_step'));}
 });
-test('existing Auth identity and ambiguous team ownership cannot be adopted',async()=>{
- const f=fixture();assert.equal((await f.invoke('create',{...createBody,email:'team@example.test'})).status,409);
- const duplicate=fixture({rows:[...f.rows,{...f.rows[0],id:master}]});assert.equal((await duplicate.invoke('update',{id:rowId,name:'Edited'})).status,409);assert.deepEqual(mutationCalls(duplicate),[]);
+test('native OTP/recovery AMR eligible; ordinary password session cannot bypass current-password flow',async()=>{
+ for(const method of ['otp','recovery','password']){const f=fixture({context:{kind:'active',auth_user_id:master,session_id:master}});const token='synthetic.'+Buffer.from(JSON.stringify({amr:[{method}]})).toString('base64url')+'.synthetic';const r=await f.invoke('password',{password:'FixturePassword1!'},{Authorization:'Bearer '+token});assert.equal(r.status,method==='password'?403:200);assert.equal(f.calls.some(c=>c[0]==='http'),method!=='password');assert.ok(!f.calls.some(c=>c[1]==='platform_accept_invite'));}
 });
-test('unknown/orphan Auth invite is denied before sending and large inventory fails closed',async()=>{
- for(const options of [{rows:[],authUsers:[{id:target,email:createBody.email}]},{rows:[],fullInventory:true}]){
-  const f=fixture(options);assert.ok((await f.invoke('create',createBody)).status>=400);assert.deepEqual(mutationCalls(f),[]);
- }
+test('rejected email transport has no runtime or config references',()=>{
+ function scan(dir){for(const item of readdirSync(new URL('../'+dir,import.meta.url),{withFileTypes:true})){
+  const path=dir+'/'+item.name;if(item.isDirectory())scan(path);else if(/\.(?:js|ts)$/.test(path))assert.deepEqual(forbiddenEmailTransport(read(path)),[],path);
+ }}
+ scan('src');scan('supabase/functions');
+ for(const path of ['supabase/config.toml','package.json'])assert.deepEqual(forbiddenEmailTransport(path.endsWith('.toml')?read(path).replace(/^\s*#.*$/gm,''):read(path)),[],path);
+ assert.deepEqual(forbiddenEmailTransport('Resend invitation; inviteUserByEmail(email); resetPasswordForEmail(email)'),[]);
+ for(const source of ["import {Resend} from 'resend'", "import('npm:resend@4')", "import {Resend} from 'https://esm.sh/resend@4'", "require('nodemailer')", '"@sendgrid/mail":"1"', 'https://api.resend.com/emails', 'https://api.sendgrid.com/v3/mail/send', 'RESEND_API_KEY', 'PLATFORM_AUTH_EMAIL_GUARD_SECRET', '/functions/v1/platform-password-recovery', 'proof_digest'])assert.ok(forbiddenEmailTransport(source).length,source);
 });
-test('master updates linked role/profile/credentials; audit excludes credentials and personal fields',async()=>{
- const f=fixture();const r=await f.invoke('update',{id:rowId,email:'changed@example.test',name:'Edited',role:'billing_person',password:'NewPassword1!'});
- assert.equal(r.status,200);assert.equal(f.rows[0].role,'billing_person');assert.equal(f.calls.find(c=>c[0]==='auth-update')[1],target);
- const logged=JSON.stringify(f.audit);for(const forbidden of ['NewPassword1!','changed@example.test','Edited','fixture-session'])assert.ok(!logged.includes(forbidden));assert.equal(f.audit.length,2);
- assert.equal(f.audit[0].detail.previous_role,'portfolio_manager');assert.equal(f.audit[0].detail.requested_role,'billing_person');assert.ok(f.audit[0].detail.fields.includes('password'));
-});
-test('legacy Auth-ID payload resolves the server mapping and supports prior email edit',async()=>{
- const f=fixture({rows:[{id:rowId,auth_user_id:target,name:'Team',email:'changed@example.test',role:'billing_person',status:'Active'}]});
- assert.equal((await f.invoke('update',{auth_user_id:target,email:'changed@example.test'})).status,200);
- const bad=fixture();assert.equal((await bad.invoke('update',{id:rowId,auth_user_id:master,name:'Bad'})).status,403);assert.deepEqual(mutationCalls(bad),[]);
-});
-test('master delete revokes operator access before deleting only the server-held Auth ID',async()=>{
- const f=fixture();assert.equal((await f.invoke('delete',{id:rowId})).status,200);assert.equal(f.rows[0].status,'Inactive');
- assert.ok(f.calls.findIndex(c=>c[0]==='db-update')<f.calls.findIndex(c=>c[0]==='auth-delete'));assert.equal(f.calls.find(c=>c[0]==='auth-delete')[1],target);
- const unlinked=fixture({rows:[{...f.rows[0],auth_user_id:null,status:'Active'}]});assert.equal((await unlinked.invoke('delete',{id:rowId})).status,200);assert.equal(unlinked.rows[0].status,'Inactive');assert.ok(!unlinked.calls.some(c=>c[0]==='auth-delete'));
-});
-test('required start audit failure prevents all privileged mutations',async()=>{
- for(const action of ['create','update','delete']){
-  const f=fixture({auditError:true});assert.equal((await f.invoke(action,action==='create'?createBody:action==='update'?{id:rowId,name:'Edited'}:{id:rowId})).status,503);assert.deepEqual(mutationCalls(f),[]);
- }
-});
-test('partial Auth/database failure is explicit, sanitized, audited and never blindly compensated',async()=>{
- const f=fixture({dbError:true});const r=await f.invoke('update',{id:rowId,email:'changed@example.test'});assert.equal(r.status,503);assert.equal(r.body.changes_may_have_occurred,true);assert.ok(r.body.operation_id);assert.ok(!JSON.stringify(r.body).includes('PROVIDER SECRET'));assert.equal(f.calls.filter(c=>c[0]==='auth-delete').length,0);assert.equal(f.audit.at(-1).action,'platform_team_update_failed');
- const removed=fixture({authError:true});assert.equal((await removed.invoke('delete',{id:rowId})).status,503);assert.equal(removed.rows[0].status,'Inactive');
- const invited=fixture({dbError:true});assert.equal((await invited.invoke('create',createBody)).status,503);assert.equal(invited.calls.filter(c=>c[0]==='auth-delete').length,0);
-});
-test('canonical master is rechecked immediately before mutations',async()=>{
- let n=0;const f=fixture({identityRpc:async()=>++n===1?{data:{auth_user_id:master,role:'master_admin'}}:{error:{}}});
- assert.equal((await f.invoke('delete',{id:rowId})).status,403);assert.deepEqual(mutationCalls(f),[]);
-});
-test('malformed JSON, weak passwords, conflicting mapping and email drift are denied',async()=>{
- for(const body of ['{',{id:rowId,password:'weak'},{id:rowId,auth_user_id:rowId,name:'Edited'}]){
-  const f=fixture();assert.ok((await f.invoke('update',body)).status>=400);assert.deepEqual(mutationCalls(f),[]);
- }
- const f=fixture({authUsers:[{id:target,email:'drift@example.test'}]});assert.equal((await f.invoke('delete',{id:rowId})).status,409);assert.deepEqual(mutationCalls(f),[]);
- for(const options of [{authUsers:[{id:target,email:'team@example.test',deleted_at:'2026-01-01'}]},{lookupError:true}]){const guarded=fixture(options);assert.equal((await guarded.invoke('update',{id:rowId,password:'NewPassword1!'})).status,409);assert.deepEqual(mutationCalls(guarded),[]);}
- const banned=fixture({user:{id:master,email:'master@example.test',email_confirmed_at:confirmedAt,banned_until:'2099-01-01'}});assert.equal((await banned.invoke('delete',{id:rowId})).status,401);assert.equal(banned.calls.filter(c=>c[0]==='client').length,1);assert.deepEqual(mutationCalls(banned),[]);
-});
-test('gateway verification remains enabled and entrypoints use the same reviewed handler',()=>{
- for(const action of ['create','update','delete']){
-  assert.match(read('supabase/config.toml'),new RegExp('\\[functions\\.'+action+'-platform-user\\]\\s*verify_jwt = true'));
-  assert.match(read('supabase/functions/'+action+'-platform-user/index.ts'),new RegExp('Deno\\.serve\\(platformTeamHandler\\("'+action+'"\\)\\)'));
- }
-});
-test('frontend edit and removal never split team/Auth writes or trust cached Auth targets',async()=>{
- const ctx={pState:{currentUser:{role:'master_admin'},data:{platformUsers:[]}},FormData:class{constructor(form){this.form=form;}entries(){return Object.entries(this.form.values);}},alert(){},loadPlatform:async()=>{},render(){},pb:{from(){throw Error('No direct team write permitted');},functions:{invoke:async(name,args)=>{ctx.calls.push([name,args]);return {};}}},calls:[]};
- vm.createContext(ctx);vm.runInContext(read('src/forms.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ctx);
- await ctx.handleFormSubmit({preventDefault(){},target:{dataset:{pForm:'edit-platform-user'},values:{id:rowId,name:'Team',email:'team@example.test',role:'billing_person'}}});
- assert.equal(ctx.calls[0][0],'update-platform-user');assert.equal(ctx.calls[0][1].body.id,rowId);assert.ok(!('auth_user_id' in ctx.calls[0][1].body));
- const block=read('src/events.js').split('if (action === "remove-platform-user") {')[1].split('\n    /*')[0];
- ctx.confirmDialog=async()=>true;ctx.loadOperatorIdentity=async()=>({role:'master_admin'});ctx.el={dataset:{pId:rowId},isConnected:true};
- await vm.runInContext('async function remove(){'+block+'\nremove()',ctx);assert.equal(ctx.calls[1][0],'delete-platform-user');assert.equal(ctx.calls[1][1].body.id,rowId);
+test('shared handler fixture import is side-effect-free and registers no tests',()=>{
+ const r=spawnSync(process.execPath,['--input-type=module','-e',"import './tests/helpers/platform-team-fixture.mjs'; console.log('fixture-only');"],{encoding:'utf8',windowsHide:true});
+ assert.equal(r.status,0,r.stderr);assert.equal(r.stdout.trim(),'fixture-only');assert.doesNotMatch(r.stdout,/Subtest|tests \d+|TAP version/);
+ assert.match(read('tests/platform-team-database.test.mjs'),/from '\.\/helpers\/platform-team-fixture\.mjs'/);
 });

@@ -5,7 +5,6 @@ import { esc } from '../operations.js';
 export function pageSettings() {
   const role          = pState.currentUser.role;
   const isMaster      = role === "master_admin";
-  const platformUsers = pState.data.platformUsers || [];
   const accountField = `<label class="field"><span>Account</span><input name="username" type="text" autocomplete="username" readonly value="${esc(pState.currentUser.email || pState.currentUser.username || '')}"></label>`;
 
   /* Non-master roles: password change only */
@@ -38,8 +37,8 @@ export function pageSettings() {
 
   /* Master admin: full settings */
   return `
-    ${tit("Platform Settings", "Credentials and team management.", "")}
-    <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:16px">
+    ${tit("Platform Settings", "Your account, verification and platform information.", "")}
+    <div class="grid settings-grid">
 
       <div class="card" style="display:grid;gap:14px">
         <h2>Change Username</h2>
@@ -98,52 +97,9 @@ export function pageSettings() {
           <span class="muted">Open Tickets</span>
           <strong>${pState.data.support.filter(s => s.status === "Open").length}</strong>
         </div>
+        <hr class="divider"><h3>Master session continuity</h3>
+        <p class="muted">A non-destructive diagnostic checks temporary password verification, cleanup and the original session's refresh. Single-session Auth settings may sign you out. This never enables permanent deletion.</p>
+        <button class="secondary-button" data-p-modal="master-continuity">Check session continuity</button>
       </div>
-    </div>
-
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-        <div>
-          <h2>Team Members</h2>
-          <p class="muted" style="font-size:13px;margin-top:3px">
-            Billing Persons and Portfolio Managers
-          </p>
-        </div>
-        <button class="primary-button" data-p-modal="add-platform-user">+ Add User</button>
-      </div>
-      ${platformUsers.length ? `
-      <div class="table-wrap"><table>
-        <thead><tr>
-          <th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Added</th><th>Actions</th>
-        </tr></thead>
-        <tbody>
-          ${platformUsers.map(u => `<tr>
-            <td><strong>${u.name}</strong></td>
-            <td>${u.email}</td>
-            <td>
-              <span class="badge ${u.role === "billing_person" ? "good" : "warn"}">
-                ${u.role === "billing_person" ? "Billing Person" : "Portfolio Manager"}
-              </span>
-            </td>
-            <td><span class="badge ${u.status === "Pending" ? "warn" : "good"}">${u.status || "Active"}</span></td>
-            <td style="font-size:12px">${new Date(u.created_at).toLocaleDateString()}</td>
-            <td style="display:flex;gap:6px">
-              <button class="secondary-button" style="font-size:12px;padding:4px 10px"
-                data-p-action="edit-platform-user"
-                data-p-id="${u.id}"
-                data-p-name="${u.name}"
-                data-p-email="${u.email}"
-                data-p-role="${u.role}">
-                Edit
-              </button>
-              <button class="danger-button" style="font-size:12px;padding:4px 10px"
-                data-p-action="remove-platform-user" data-p-id="${u.id}">
-                Remove
-              </button>
-            </td>
-          </tr>`).join("")}
-        </tbody>
-      </table></div>` : `
-      <div class="empty">No team members yet.</div>`}
     </div>`;
 }

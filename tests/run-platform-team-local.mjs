@@ -3,7 +3,13 @@ import assert from 'node:assert/strict';
 import {randomBytes} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
 const nonce=randomBytes(8).toString('hex'),container='orbito-bootstrap-team-'+nonce,network=container+'-network';
-assert.equal(process.argv.length,2,'This runner accepts no target, URL or external container arguments');
+const lifecycleOnly=process.argv.length===3 && process.argv[2]==='--lifecycle-only';
+const readsOnly=process.argv.length===3 && process.argv[2]==='--reads-only';
+const retirementOnly=process.argv.length===3 && process.argv[2]==='--retirement-only';
+const resendOnly=process.argv.length===3 && process.argv[2]==='--resend-only';
+const securityOnly=process.argv.length===3 && process.argv[2]==='--pr4-security-only';
+const reviewOnly=process.argv.length===3 && process.argv[2]==='--review-only';
+assert.ok(process.argv.length===2 || lifecycleOnly || readsOnly || retirementOnly || resendOnly || reviewOnly || securityOnly,'This runner accepts only local suite selectors, never a target or external container');
 const password=randomBytes(32).toString('hex'),jwt=randomBytes(32).toString('hex'),label='com.retrasell.team-test='+nonce;
 let ownedContainer=false,ownedNetwork=false;
 const env={...process.env};for(const key of Object.keys(env))if(key.startsWith('SUPABASE_') || key.startsWith('PG') || key.startsWith('ORBITO_BOOTSTRAP_'))delete env[key];
@@ -21,8 +27,10 @@ try{
  }assert.ok(ready,'Disposable PG17 readiness timeout');
  run('docker',['exec','-i',container,'psql','-X','-q','-v','ON_ERROR_STOP=1','-U','supabase_admin','-d','postgres','-f','-'],{input:`alter role supabase_auth_admin password '${password}';`});
  run('docker',['run','--rm','--network',network,'-e','GOTRUE_DB_DRIVER=postgres','-e',`GOTRUE_DB_DATABASE_URL=postgres://supabase_auth_admin:${password}@${container}:5432/postgres`,'-e','GOTRUE_SITE_URL=http://localhost:4180','-e','API_EXTERNAL_URL=http://localhost:9999','-e','GOTRUE_JWT_SECRET='+jwt,'public.ecr.aws/supabase/gotrue:v2.197.0','auth','migrate']);
- for(const file of ['tests/production-bootstrap.test.mjs','tests/platform-team-database.test.mjs']){
-  console.log(run(process.execPath,['--test',file],{env:{...env,ORBITO_BOOTSTRAP_TEST_CONTAINER:container}}));
+ for(const file of securityOnly?['tests/pr4-security-postgres.test.mjs']:readsOnly?['tests/platform-role-reads-postgres.test.mjs']:lifecycleOnly || retirementOnly || resendOnly || reviewOnly?['tests/team-lifecycle-postgres.test.mjs']:['tests/production-bootstrap.test.mjs','tests/platform-team-database.test.mjs','tests/team-lifecycle-postgres.test.mjs','tests/platform-role-reads-postgres.test.mjs','tests/pr4-security-postgres.test.mjs']){
+  // Full SQL files can exceed three minutes on local Windows/Docker. Bound each
+  // child suite at eight minutes; retain individual Docker command deadlines.
+  console.log(run(process.execPath,['--test',...(reviewOnly?['--test-name-pattern=invitation review forward']:resendOnly?['--test-name-pattern=resend reservation']:retirementOnly?['--test-name-pattern=fresh full chain|durable delete|retirement and fresh onboarding|resend reservation']:[]),file],{timeout:480000,env:{...env,ORBITO_BOOTSTRAP_TEST_CONTAINER:container}}));
  }
  console.log('PASS: owned local PG17/Auth/Vault fixtures; no hosted Auth/SMTP/gateway validation claimed.');
 }finally{

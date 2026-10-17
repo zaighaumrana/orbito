@@ -1,5 +1,61 @@
 # Secure Platform team management and staging cutover
 
+## Later hosted acceptance update —2026-10-17
+
+The [final hosted acceptance and conditional merge decision](PR4_HOSTED_ACCEPTANCE_2026-10-17.md)
+supersedes earlier current-status statements below:staging has17 migrations;
+config12/support5/provision19 source matches541c46d,D1 source drift resolved;
+permanent deletion remains disabled;canonical Pages manual deployment56fa2285
+serves541c46d. A06 current-password configuration is directly verified enabled,
+not a hosted password-change test. Owner UI/API acceptance,independent reads and
+partial provider checks remain separately attributed. Merge is conditionally
+owner-authorized subject to gates/checks;production remains NO-GO and before-use
+Shop/finance/Support/provider obligations remain. Prior reports are historical.
+
+
+## Current superseding status — 2026-10-17
+
+The current reviewed code checkpoint is `27f6abde0274ac6c989664d0b363504b93128d10`
+on `feature/platform-team-lifecycle-v2`, Draft PR #4 targeting `development`.
+All 14 source/correction commits are committed and pushed; the cumulative code
+checkpoint is 131 paths, not the earlier 39/61/62/63-file local inventories.
+The definitive [acceptance/deferred-testing register](PR4_ACCEPTANCE_AND_DEFERRED_TESTS.md)
+and [120-case ledger](PR4_ACCEPTANCE_CASES.csv) supersede current-status claims below.
+The original dated checkpoints and failures remain historical evidence.
+
+Independent final review approved documentation finalization only: F1/F2/F3/N1/N2/N3
+are locally corrected and independently verified within their recorded scopes.
+Owner-reported employee staging journeys and independent state reads are separate
+from local tests. Staging has 16 genuine migrations; source migration 17 is unapplied.
+Eight employee bundles are deployed (12 functions total), while newer config/support
+corrections and D1 provisioner source drift still require authorized rollout.
+The permanent-deletion policy was last independently verified **false**.
+Git `development` remains `0dbde676ca57ed1599a295e221d274ef080cac41`;
+canonical staging Pages serves ad hoc `d3fc517aabb2b5d09ea939aa56830287b5d89bba`,
+not the latest feature corrections. Later correction SHAs were skipped by Cloudflare;
+production-branch auto-deploy remains enabled, so a future merge may deploy.
+No merge/deployment authorization or whole-Platform production GO follows.
+
+D18–D22/D40: Versions10/8/8 and the seven-function inventory below describe
+2026-10-09 evidence and have been superseded by secured versions16/14/14 plus
+five other employee handlers. The full current inventory is in the central register.
+Do not replay the three-endpoint, eleven-plus-one,12→13/14 or old destructive
+cutovers against already migrated staging. The SQL preflights that expect twelve
+predecessor rows are not post-16 validators.
+
+**Managed policy permissions:** inherited owner authority OR loaded registered
+`supautils.policy_grants` with exact caller/table allowlist is supported by the
+reviewed 13/14 source. CREATE POLICY executes as original caller and fails closed
+on denial; SET/inherit managed owner membership is not the sole prerequisite.
+Do not grant internal roles, change ownership or bypass RLS. Any contradictory
+owner-membership instruction below is historical and must not be executed.
+The migration14 [role matrix](PLATFORM_ROLE_READ_ISOLATION.md) supersedes the
+historical shared employee raw-read matrix. Scoped employee acceptance does not
+approve the deferred client/Shop/finance/provider workflows or production.
+
+## Historical findings and cutover instructions — do not replay
+
+
 Prepared 2026-10-09, Asia/Karachi. Local implementation and planning only.
 No deployment, backup, Auth change, migration, Git integration or production
 operation is authorized by this document. Review the exact target at each gate.
@@ -258,9 +314,11 @@ The disposable synthetic tests below are not a restore rehearsal of real staging
 Separately review/promote approved development to deployment; frozen main remains
 untouched. Verify the release commit and build-time Platform target. Use the fresh
 procedure for `mincersddxuaqojczcih`, organization `jcjsfijdfiunbfnkawpo`, Singapore
-ap-southeast-1: verify empty project, preflight, all twelve migrations in order,
+ap-southeast-1: verify empty project, preflight, all fourteen migrations in order,
 first intended Auth administrator, trusted config initialization/UUID binding,
-then the seven reviewed Platform functions including these secured team handlers.
+then the current reviewed function set and native Auth hook prerequisites in
+PLATFORM_TEAM_LIFECYCLE_REVIEW.md, including these secured team handlers. The
+earlier seven-function inventory is historical, not the complete new deployment.
 Set the production-only origin/Auth redirect/SMTP/CAPTCHA/server secrets and
 approved scheduler prerequisites. No staging data, users, credentials or history
 are imported. Production promotion/bootstrap/publication needs separate approval.
@@ -305,3 +363,52 @@ Primary references: [Auth invitation](https://supabase.com/docs/reference/javasc
 [Auth deletion](https://supabase.com/docs/reference/javascript/auth-admin-deleteuser),
 [Supabase backups](https://supabase.com/docs/guides/platform/backups),
 [PG17 pg_dump](https://www.postgresql.org/docs/17/app-pgdump.html).
+
+## 2026-10-13 — Current employee read contract and rollout sequence
+
+The owner's current requirement supersedes the earlier shared-SELECT permission
+matrix. See [PLATFORM_ROLE_READ_ISOLATION.md](PLATFORM_ROLE_READ_ISOLATION.md)
+for the exact role/column/RPC/loader inventory. Master retains legitimate full
+administration. Manager gets operational clients/support, own account, usage/
+charge/outstanding aggregates and invoice dates/totals/status; **View/print stays
+Master/Billing-only** by owner confirmation. Billing gets minimum client billing
+identity and financial projections, own account and aggregate ticket count;
+no support contents, other team, provider/config/audit/archive contents. Raw
+application SELECT is Master-only, with a restrictive ceiling against other
+permissive policies. Employees use checked fixed-projection RPCs, never fetch-all
+then discard in JavaScript. Live role edits keep their Auth session but invalidate
+old cached data/navigation/continuations when detected. Suspension cutoffs stay.
+
+Read-only staging history verified twelve genuine versions through 20261008191709;
+20261010233446 remains absent. Migration 13 bytes are unchanged. The new forward
+migration is 20261012231226; the full fresh chain is fourteen versions.
+
+Previous one-version commands are historical. The current separately authorized
+rollout plan is: independent source review; current backup/read-only Auth/catalog/
+configuration preflight; managed RLS/owner and explicit publication verification;
+coordinated freeze and reviewed backend replacements; **13 then 14**; matching
+frontend; actual signed-in Master/Manager/Billing and disposable-account smoke.
+Run team-lifecycle-preflight.sql and role-read-preflight.sql while twelve versions
+are present, then repeat the pinned CLI dry run: only those two reviewed forward
+versions, in order. Stop if the plan differs. Validate fourteen genuine final
+history rows with validate.sql and validate-role-reads.sql, retained data and
+real JWT identities. Do not synthesize user claims for hosted validation.
+
+Managed storage.objects and realtime.messages must exist, use RLS and allow the
+trusted operator to SET/inherit their existing owner role. Do not transfer owners
+or grant application users privileges. No ALL-TABLE/schema-level application
+Realtime publication is accepted. The frontend has no channel subscriptions;
+application membership is removed to avoid DELETE leakage. Review unknown hosted
+views/functions/GraphQL/public channels and exposed schemas before execution.
+
+Old employee loaders will fail under the new raw policies. Do not deploy this
+frontend early or resume employee operations against mismatched components.
+No blanket privilege restore, history repair, legacy handler downgrade, automatic
+retry of uncertain Auth writes or automatic rollback is approved. After commit,
+reverting frontend cannot undo SQL/Auth changes; recovery requires separately
+reviewed restore/reconciliation. Destructive approval remains default-off until
+native current-password and original Master refresh continuity are proven.
+
+Current correction is local/source-only. Staging and production remain NO-GO;
+PR #4 stays Draft/unmerged. No new hosted mutation, email, account, migration,
+frontend/function deployment or scheduler change was performed.

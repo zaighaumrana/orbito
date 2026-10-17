@@ -1,5 +1,52 @@
 # Production bootstrap implementation report
 
+## Later hosted acceptance update —2026-10-17
+
+The [final hosted acceptance and conditional merge decision](PR4_HOSTED_ACCEPTANCE_2026-10-17.md)
+supersedes earlier current-status statements below:staging has17 migrations;
+config12/support5/provision19 source matches541c46d,D1 source drift resolved;
+permanent deletion remains disabled;canonical Pages manual deployment56fa2285
+serves541c46d. A06 current-password configuration is directly verified enabled,
+not a hosted password-change test. Owner UI/API acceptance,independent reads and
+partial provider checks remain separately attributed. Merge is conditionally
+owner-authorized subject to gates/checks;production remains NO-GO and before-use
+Shop/finance/Support/provider obligations remain. Prior reports are historical.
+
+
+## Current superseding status — 2026-10-17
+
+The current reviewed code checkpoint is `27f6abde0274ac6c989664d0b363504b93128d10`
+on `feature/platform-team-lifecycle-v2`, Draft PR #4 targeting `development`.
+All 14 source/correction commits are committed and pushed; the cumulative code
+checkpoint is 131 paths, not the earlier 39/61/62/63-file local inventories.
+The definitive [acceptance/deferred-testing register](PR4_ACCEPTANCE_AND_DEFERRED_TESTS.md)
+and [120-case ledger](PR4_ACCEPTANCE_CASES.csv) supersede current-status claims below.
+The original dated checkpoints and failures remain historical evidence.
+
+Independent final review approved documentation finalization only: F1/F2/F3/N1/N2/N3
+are locally corrected and independently verified within their recorded scopes.
+Owner-reported employee staging journeys and independent state reads are separate
+from local tests. Staging has 16 genuine migrations; source migration 17 is unapplied.
+Eight employee bundles are deployed (12 functions total), while newer config/support
+corrections and D1 provisioner source drift still require authorized rollout.
+The permanent-deletion policy was last independently verified **false**.
+Git `development` remains `0dbde676ca57ed1599a295e221d274ef080cac41`;
+canonical staging Pages serves ad hoc `d3fc517aabb2b5d09ea939aa56830287b5d89bba`,
+not the latest feature corrections. Later correction SHAs were skipped by Cloudflare;
+production-branch auto-deploy remains enabled, so a future merge may deploy.
+No merge/deployment authorization or whole-Platform production GO follows.
+
+D29–D30: The a43db6a/uncommitted/unpushed report below describes its original
+2026-10-09 checkpoint. Later fourteen-source/twelve-staging/roles-not-deployed
+statements are superseded: inspected staging records1–16, including role isolation,
+and eight employee bundles exist. The full source now includes pending17.
+Keep every original result, failure and cutover record; do not replay its old
+future migration commands. See the central register for the latest independent
+findings, D1 and matching rollout gates.
+
+## Historical bootstrap implementation reports
+
+
 2026-10-09, Asia/Karachi. Local implementation only; awaiting owner review.
 
 ## Git and scope
@@ -402,3 +449,28 @@ No environment files were copied. The emitted bundle was checked for the
 synthetic URL/key and absence of both hosted project references or credentials.
 The owned output was removed; normal dist was untouched. This proves build
 compatibility, not a deployable release or hosted/preview backend isolation.
+
+## 2026-10-13 — Forward role-isolation review status
+
+Prior twelve/thirteen-version test statements are dated evidence. The current
+chain is fourteen versions; original twelve and lifecycle-13 bytes are preserved.
+Staging read-only history confirms twelve genuine records; new role permissions
+are not deployed. Forward 20261012231226 adds Master raw-read ceilings, bounded
+role projections/wrappers, private EXECUTE closure and managed/publication guards.
+No binding/configuration default, hosted data, Edge code or Shop artifact changes.
+
+Current regression evidence: original 243 plus seven loader cases; actual DOM
+failure-before/pass-after and role journeys; populated PG17/real Auth/Vault-schema
+and real PostgREST role/negative/write tests; existing bootstrap/canonical/lifecycle,
+GoTrue provider and Support checks; actual pinned CLI forward history-failure
+rollback/retry to fourteen genuine rows; Deno/build/integrity. Exact results,
+intermediate corrections, fixture/provider limits and 31-file manifest are in
+PRODUCTION_READINESS_REPORT. Hosted mail/CAPTCHA/Edge gateway/managed-service/
+GraphQL/custom surface/session settings remain SKIP and release gates.
+
+The current deployment plan is separately approved handlers, **13 then 14**, and
+matching frontend during a freeze, not the older one-version commands. New read
+preflight and structural validator use genuine history and never impersonate a
+browser user. Old employee loaders intentionally fail. Before checkpoint verify
+current trigger safety; use approved native CF-Pages-Skip, update only existing
+Draft PR #4 and inspect its exact provider skip. No merge or hosted deployment.

@@ -1,5 +1,34 @@
 # RetraSell Platform engineering history
 
+## Later hosted acceptance update —2026-10-17
+
+The [final hosted acceptance and conditional merge decision](docs/PR4_HOSTED_ACCEPTANCE_2026-10-17.md)
+supersedes earlier current-status statements below:staging has17 migrations;
+config12/support5/provision19 source matches541c46d,D1 source drift resolved;
+permanent deletion remains disabled;canonical Pages manual deployment56fa2285
+serves541c46d. A06 current-password configuration is directly verified enabled,
+not a hosted password-change test. Owner UI/API acceptance,independent reads and
+partial provider checks remain separately attributed. Merge is conditionally
+owner-authorized subject to gates/checks;production remains NO-GO and before-use
+Shop/finance/Support/provider obligations remain. Prior reports are historical.
+
+
+## Current superseding pointer — 2026-10-17
+
+Current reviewed source: `27f6abde0274ac6c989664d0b363504b93128d10`,
+`feature/platform-team-lifecycle-v2` → `development`, Draft/unmerged PR #4.
+Fourteen source commits are committed/pushed. The older current-integration and
+local-only statements below are point-in-time records, not today’s Git status.
+See [the permanent acceptance register](docs/PR4_ACCEPTANCE_AND_DEFERRED_TESTS.md)
+for all 120 cases, 40 documentation groups, independent correction results and gates.
+Staging has 16 genuine migrations, pending source 17; Pages serves ad hoc d3fc517
+while development remains0dbde676. Scoped employee staging acceptance does not
+certify undeployed corrections. Permanent deletion last verified off. Documentation
+finalization approved; merge/rollout require separate decisions; production NO-GO.
+
+## Historical decision memory
+
+
 Persistent decision memory: WHY meaningful changes happened, accepted boundaries,
 validation and impact. Git remains the exact source history. Follow `AGENTS.md`.
 Dates use Asia/Karachi where applicable. Initial phases summarize repository evidence,
@@ -724,3 +753,832 @@ only for the six specific local dialog groups. Minimal separately authorized rev
 staging alias/refresh validation is documented, not executed. No hosted/database/Auth,
 Edge, production, Shop or Cloudflare changes. Same draft PR, skip-prefixed feature push,
 no merge or deployment.
+
+## 2026-10-11 — Invitation onboarding and secure team lifecycle V2 (local)
+
+Branch: `feature/platform-team-lifecycle-v2`, based on verified clean `development`
+at `0dbde676ca57ed1599a295e221d274ef080cac41`.
+
+### Purpose / changes
+
+Corrected invitation callback routing and unchecked acceptance; replaced ambiguous
+Remove with distinct Active/Pending/Inactive/Archived management. Pending sessions
+enter verified setup on SIGNED_IN/INITIAL_SESSION; existing Master sessions are
+not activated by reset query hints. Logout/finish clears hints and queued callbacks.
+Server verifies password saving before checked acceptance and supports a saved-
+password activation retry without another provider password write.
+
+Reactivate now initiates Supabase recovery for the original Auth UUID and keeps
+Inactive until verified new-password setup; no separate reset button or new Auth
+account. Deactivation retains role/identity, cancels setup and denies old JWT
+operator authority. Permanent deletion requires canonical confirmed Master,
+current password, fresh CAPTCHA, isolated verification-session cleanup and repeat
+authorization. Durable request tracking revokes access before Auth dispatch, then
+archives/removes the live row only on database-proven absence with required audit.
+Uncertain deletion only reconciles absence; it never dispatches another deletion.
+
+CLI-generated forward migration `20261010233446` adds immutable archives, private
+operations, mapping constraints, trusted transitions and narrowly granted RPCs;
+closes browser/service direct team mutation and historical JWT-only acceptance.
+All 12 historical migrations and the Shop release artifact remain unchanged.
+The existing immutable audit trigger is preserved after local SQL caught a collision.
+Legacy Inactive origins stay unknown; missing/unlinked identities are never adopted,
+recreated or deleted by email. Ambiguous Auth links, Storage ownership and custom
+references fail closed. Older synthetic SQL fixtures now seed only as their owner
+with the guard flag narrowly scoped; ordinary authorization checks remain intact.
+
+### Decisions / release gates
+
+Native recovery requires a signed Supabase Send Email Hook; UI checks are not a
+claim of provider enforcement. The new hook replaces all SMTP and explicitly uses
+Resend, requiring owner-approved transport/sender/templates before enablement.
+The readiness secret is an operator attestation, not proof of hook configuration.
+Unsupported enabled notification types fail closed. Inactive's requested message
+deliberately discloses account status after CAPTCHA; unknown accounts stay generic.
+Active delivery is background/best effort with sanitized request/outcome auditing.
+Previously issued links cannot activate Inactive without the approved operation.
+
+Recovery proofs are memory-only in the browser and hash-only in private database
+state, with a 30-minute operation deadline plus native OTP expiry. Reload after
+scrubbing may require Master cancellation/new recovery; uncertain password writes
+remain restricted. Native provider session refresh/single-session behavior during
+destructive reauthentication still needs approved staging verification.
+
+### Validation / Git / deployment
+
+PASS: 221 broad local regressions, six PG17 bootstrap groups, two canonical pre/post
+UUID groups, six new PG17 lifecycle groups (including audit failure, stale JWT,
+Storage, tombstones and real concurrency), actual pinned CLI fresh/staging history-
+insertion rejection/full rollback/retry with 13 genuine rows, two actual signature
+tests, eight native Deno entrypoint checks, six real Chrome viewport/theme groups
+and synthetic Vite build. Auth/mail/CAPTCHA doubles and synthetic Storage fixture
+are explicit. Development failures in duplicate-trigger/fixture/assertion setup
+were corrected; final reruns pass. Existing Vite CJS warning remains.
+
+SKIP: hosted Auth/OTP/JWT gateway/email delivery, original refresh-session continuity,
+real employee writes/deletion and hosted visual smoke. No hosted connection, SQL,
+Auth/config, functions, frontend, Cloudflare, production or Shop changes. Source,
+tests, dependency integrity lock and rollout documentation only; authorized feature
+commit/push uses `[CF-Pages-Skip]` and a draft PR to development, no merge. Recovery
+limitations and ordered separate-approval gates: `docs/PLATFORM_TEAM_LIFECYCLE_REVIEW.md`.
+
+## 2026-10-12 — PR #4 final lifecycle/security stabilization (local; supersedes email reactivation)
+
+Branch: `fix/pr4-security-stabilization`, isolated at reviewed PR #4 HEAD
+`a0dae0fc90332f9fc4a498823c1851c00c3f17b6`. Prior entries are retained as historical
+checkpoints. Owner confirmed migration `20261010233446` has never been applied or
+manually executed on hosted databases; only this unreleased migration is revised.
+All twelve preceding migration Git blobs and frozen Shop artifact remain unchanged.
+
+### Changes and confirmed findings
+
+Replaced rejected email reactivation with exact-UUID retained-account suspension
+and restoration. SQL Inactive/cutoff/audit commits before provider ban dispatch;
+provider receipt, owned ban, original status and canonical Master are rechecked.
+Reactivate sends no email/link/invitation, preserves password/role, restores former
+Pending as Pending and requires fresh password login for ordinary access. Unknown
+legacy identities and independent/changed bans fail closed. Added permanent old-
+session cutoff, live owned Auth-session checks, Storage/private Realtime restrictive
+policies and read-only managed-owner/RLS/dependency preflight. Runtime deletion
+checks repeat custom Auth/team FKs and Storage ownership before dispatch; managed
+Auth FK allowlist verifies exact schema/owner/table/constraint/user_id column.
+
+Both ordinary password forms now send current_password; actual native API missing/
+wrong-password denials retain the original password and session. Native Require
+current password remains a hosted release prerequisite. Actual provider journeys
+caught implicit recovery OTP AMR and post-Reactivate setup gaps; verified native
+recovery can set a password without granting normal post-suspension authority or
+activating Inactive. Pending acceptance follows native password success, not email
+issuance. Removed Resend/custom Send Email Hook/recovery endpoint, reactivation
+proof/transport SQL, obsolete transport tests/dependency integrity entries and
+unused shared reexport. Required Pending retry/support compatibility stays.
+
+Independent Master verification remains memory-only/local-scope cleanup. Real
+single-session policy interrupts the original refresh during verification. Added
+a default-off, current-Master-bound, trusted/audited continuity approval; delete
+checks it before password grant/service client and again at SQL reservation/dispatch.
+Alias verification is withheld while unapproved. Approval does not configure Auth
+or establish actual safety; rebinding invalidates it.
+
+Browser canonical authority checks every minute/focus/visibility distinguish
+confirmed denial from network failure, cancel dialogs and clear private state.
+Late loaders/alias/authority responses cannot refill it; login loader ordering and
+logout cleanup are corrected. Wider audit found stored HTML/link injection in
+Support Tickets: text/attributes are escaped and links allow credential-free HTTP(S)
+only. Provisioning's preexisting Deno narrowing failure/nonexistent binding field
+is corrected against actual server/read-back state; existing activation/rotation
+contracts and digests are preserved. Fixed newline-portable hash tests without
+changing historical SQL. No unrelated refactor, publication or secret changes.
+
+### Validation and release gates
+
+PASS: 225 broad regressions (zero failures/skips); six real PG17 bootstrap groups;
+two canonical pre/post UUID groups; eight final real PG17 lifecycle groups; eight
+pinned CLI atomicity groups plus final two affected lifecycle history rejection/
+rollback/retry cases; six real GoTrue v2.197.0/PG17 Auth journeys; SQL-only Platform
+fresh/upgrade/late-rollback runner; actual one-winner support SQL concurrency;
+twelve native Chrome viewport/theme groups; all ten frozen Deno entrypoint checks;
+synthetic Vite build; syntax/whitespace/sensitive-value/historical/artifact checks.
+Local Auth tests use real HTTP/provider/schema and a SQL adapter for PostgREST;
+SQL-only fixtures and browser transport/CAPTCHA doubles are explicitly distinct.
+Development test/configuration failures were diagnosed and corrected before final
+PASS. Existing Vite CJS API deprecation and existing import cycles are not suppressed;
+no added circular participants. Shop test execution intentionally skipped.
+
+SKIP: hosted gateway/configuration, real email/CAPTCHA, timebox/inactivity, hosted
+session continuity and real employee writes. Production remains NO-GO: verify
+current-password enforcement and safe Master continuity before approval; built-in
+shared Auth sender restrictions conflict with unrestricted production onboarding;
+managed policy permissions/public Storage/open Realtime need hosted checks. No
+provider compare-and-set unban/arbitrary-UUID logout API is assumed. Freeze related
+DDL/provider/target writes around destructive work; ambiguous ban/unban requires
+trusted audited recovery. Frozen Shop suspension retains the intentional Orbito
+Support exception, but open tabs/existing Auth sessions need separate authorized
+session-hardening review. Backup restore/Vault and legal/provider gates unchanged.
+
+Documentation: `docs/PLATFORM_TEAM_LIFECYCLE_REVIEW.md` supersedes the rejected
+transport plan with ordered separate-approval gates. `docs/PRODUCTION_READINESS_REPORT.md`
+records fixes, evidence, exact file manifest, limitations and NO-GO. No hosted
+connection, mutation, deployment, email, Cloudflare/Shop/protected-branch change,
+commit or push. PR #4 remains Draft/open/unmerged at original remote HEAD. Local
+corrections await independent source review and explicit checkpoint/integration
+approval; no merge or deployment follows automatically.
+
+
+## 2026-10-12 — Authorized GitHub review checkpoint for PR #4 corrections
+
+Owner authorized committing/pushing the complete 39-file local correction set to
+update the existing Draft PR #4; no merge or deployment. The previous uncommitted
+audit checkpoint is preserved above. Verified exact manifest, reviewed base HEAD,
+twelve historical migration blobs, frozen Shop artifact, staged-source eligibility
+and existing local validation evidence. Only checkpoint documentation is refreshed;
+source behavior/test results remain those recorded in the final stabilization audit.
+
+Read-only Cloudflare inspection verified staging Pages `retrasellsaas`, repository
+orbito, development production branch, npm run build/dist/root and no deploy hooks.
+The PR source remains preview-eligible; prior skip-prefixed a0dae0f is skipped with
+no deployment. Use verified native [CF-Pages-Skip] commit prefix and explicitly push
+only the existing PR source ref. GitHub Pages disabled, no repository webhooks or
+source/development Actions workflows. Preview Access restriction is verified;
+backend isolation is not inferred. No settings/secrets/Supabase/Shop changes.
+
+Commit on isolated fix/pr4-security-stabilization, then fast-forward integration
+into feature/platform-team-lifecycle-v2 for independent review only. Recheck Draft/
+unmerged PR, exact source commit, protected refs, worktree and Cloudflare skipped
+record after push. Final SHA/status are supplied by Git/PR and the checkpoint report;
+this pre-commit history does not claim post-push verification before it occurs.
+
+## 2026-10-12 — PR #4 independent-review F1–F4 corrections
+
+Branch: feature/platform-team-lifecycle-v2. Verified published review base be43f28b3a2cea0b1d73b2b9611a96818bed810d, Draft/open/unmerged PR #4 -> development. Earlier local-only checkpoints remain historical. Owner's confirmation that lifecycle migration 20261010233446 is unapplied governs this source-only correction; twelve applied migration blobs and frozen Shop artifact remain untouched.
+
+### Changes and decisions
+
+F1: session-aware operator identity broke historical support helper impersonation. Issuance now runs under the actual Master caller JWT, with canonical UUID/role/owned live session checks in SQL; service-role issuance is revoked. Service-only exchange resolves the recorded canonical actor without setting user claims. Exact source/client/project/binding/lifecycle, hash-only 256-bit grant, 90-second expiry, one-winner consumption and audit stay unchanged. The diagnostic no longer impersonates a subject. SQL fixtures declare user sessions explicitly; service tests contain no fake user session.
+
+F2/F3: add authority UUID/session/role/view/selection/request/modal continuity guards to loaders and mutation continuations. Newer client loads win; mismatched/loading/failed detail cannot drive configuration. Logout, revocation, account/session switch and navigation discard late private results/follow-up writes. Related native link/setup and support-popup races were reproduced and corrected. Current-server mutations may already commit; no rollback or automatic resend is inferred. Username busy cleanup cannot remain stuck after navigation.
+
+F4: distinguish published be43f28 from the historical uncommitted audit and enclosing correction revision; update coordinated rollout to include the reviewed support handler. Shared Manager/Billing reads match the existing documented contract, not UI confidentiality; any narrower RBAC requires an owner decision. Real SQL finish_edit verifies the existing session immediately adopts the live reduced role without changing suspension cutoff behavior.
+
+### Validation / release boundary
+
+PASS: 235 broad tests, six PG17 bootstrap groups, two canonical groups (50 combined handler/database tests), nine lifecycle groups, eight actual CLI 2.120.0 atomicity groups, six local GoTrue journeys, SQL-only fresh/upgrade/late rollback, real support authorization/concurrency group, twelve native Chrome groups, ten frozen Deno checks and synthetic Vite build. Baseline F1 service issue/exchange and F2/F3/adjacent setup probes fail before fixes and pass on corrected source. Explicit synthetic SQL/browser transports remain separate from real provider proof; no emails sent.
+
+SKIP: full PostgREST/Edge gateway support journey (no cached PostgREST runtime), hosted Auth/CAPTCHA/mail/Storage/Realtime/continuity and real account writes. Existing Vite CJS deprecation remains. Staging/production NO-GO pending independent re-review, owner policy decisions and separately approved hosted preflight/rollout/backup/journeys.
+
+Git checkpoint is authorized only after current trigger review: development-only Pages build, no deploy hooks, no source/base Actions workflows/repository webhooks or local Git hooks; verified native CF-Pages-Skip prefix prevents this source update's Pages deployment. Backend isolation is not inferred. Push only existing PR source, keep Draft; final SHA/skip evidence belongs to Git/PR/final checkpoint report. No merge, hosted resource, protected branch, Shop or credential changes.
+
+## 2026-10-13 — Final targeted PR #4 source checkpoint preparation
+
+Work continued across midnight Asia/Karachi. The complete follow-up is 43 files: targeted source/forward SQL/diagnostic/docs and explicit session/context regression fixtures. Final SQL also retains the historical verified-email shape restriction at issuance. Affected PG17 support and CLI fresh/staging history-rejection/retry checks passed after that last SQL correction; full results and before/after probes are recorded in PRODUCTION_READINESS_REPORT. No hosted deployment/test is implied.
+
+Reconfirmed the reviewed be43f28 source base, Draft/open/unmerged PR #4 -> development, unchanged protected refs, twelve historical migrations/frozen Shop artifact and clean Shop. Stage exactly the recorded manifest; inspect staged diff, whitespace and sensitive values, commit with the verified native CF-Pages-Skip prefix, push only the existing feature ref and verify Cloudflare skip/PR SHA afterward. Keep staging/production NO-GO and stop for independent source review. No merge, hosted resource or production configuration change is authorized.
+
+### Final 2026-10-13 support boundary correction (supersedes provisional F1 design above)
+
+Before committing, rejected public/authenticated issuance because server-only Platform ref and nonce control must stay in Edge. Final SQL adds a service-only five-argument support RPC: native caller verification/canonical identity supplies the actual session_id, SQL rechecks confirmed active bound Master plus the owned live session, and all API access to the old four-argument RPC is revoked. Consumption validates the recorded actor/capability without user JWT impersonation. The service JWT contains no fake user claims. This matches the existing trusted team-command boundary and does not weaken operator_role. Tests use distinct Auth UUID/session IDs, direct browser/legacy API denials, missing/expired/wrong-owner/removed sessions, revoked/rebound actors and concurrent exchange.
+
+Also caught and tested an introduced modal/loading interaction: opening a modal must not cancel a still-current client detail load. Loaders ignore modal identity while retaining authority/view/selection/request guards; mutation completions retain modal/operation identity. Docker temporarily became unavailable, was restarted by the owner, and final affected checks reran rather than being waived. These were local development corrections, never hosted changes.
+
+## 2026-10-13 — PR #4 R1/R2 login and Shop-read ownership corrections
+
+Branch: feature/platform-team-lifecycle-v2, clean published base 65429dba0e19aea6467f1347222e044f5e7549bc. Independent review confirmed F1–F4 but reproduced cancelled-login locking/successor cleanup and modal-dependent config loading. Its CODE REVIEW FAIL supersedes the earlier local readiness recommendation; this follow-up requires focused independent re-review. Staging/production remain NO-GO.
+
+Login now owns a unique attempt and authority generation. Cancellation clears its lock; awaited success/failure/catch/finally work cannot touch a successor. Native SIGNED_OUT during authentication/loading cancels, while expected local preflight/failure-cleanup signout on already-cleared state retains its own cleanup lock. A controlled actual-handler probe also confirmed late startup session results could reset a later login; startup publication now checks the original generation. Canonical identity/CAPTCHA/local signout and stale-session enforcement remain intact.
+
+Shop configuration reads ignore modal identity but retain authority/page/target/selection/request guards. Owned success/error/rejection/cancellation cannot strand Loading or mutate a newer client/request. Failed detail offers the existing read-only Refresh status action; strict form/mutation modal ownership remains. No auth/RBAC/provisioning redesign or backend/SQL/Shop changes.
+
+PASS: 243 broad regressions (previous 235 plus eight actual-handler groups); six PG17 bootstrap, two canonical and nine lifecycle groups; six real GoTrue/PG17 groups; real support authorization/concurrency; twelve Chrome viewport/theme groups; ten frozen Deno checks; synthetic Vite build; syntax/whitespace/sensitive/historical/artifact/cycle checks. Pinned baseline reproduces seven failures and one retained-behavior pass; current source passes all eight. Initial existing fixture failures were corrected by declaring the actual initialized generation, without relaxing assertions. Provider doubles/SQL adapter/Vault fixtures are explicit; native SDK/hosted event scheduling is not certified by mocks.
+
+SKIP hosted Auth/CAPTCHA/email/gateway/Storage/Realtime and real account writes. CLI atomicity is prior-checkpoint evidence, not rerun: no migration/CLI changes. Existing Vite CJS deprecation remains. Native current-password/continuity/sender, owner policy, managed permissions, backup/Vault/legal and separate Shop gates stay open.
+
+Nine-file manifest and reproduction commands are in PRODUCTION_READINESS_REPORT. Owner authorizes safe commit/push to existing Draft PR #4 only after trigger verification, using the approved CF-Pages-Skip prefix. Final SHA/provider skip belongs to Git/PR/final checkpoint evidence after execution; no automatic merge or hosted rollout. No generated evidence, credentials or build artifacts are eligible for commit.
+
+Read-only trigger review completed before checkpoint: same Cloudflare staging build/branch/no hooks and prior 65429db skip; no source/base Actions, repository/local hooks; GitHub Pages disabled and same installed apps. Recovered an unresponsive browser target using a fresh same-browser tab, without environment or provider changes. Publish only the feature ref with native skip and verify exact new provider record afterward; preview access is not backend isolation.
+
+## 2026-10-13 — Client form DOM continuity and canonical employee read isolation
+
+Branch: feature/platform-team-lifecycle-v2; reviewed base 6ea96cbc. Existing PR #4
+remains Draft. Owner supersedes inherited shared reads and confirms Manager keeps
+invoice date/total/status summaries, while View/print is Master/Billing-only.
+
+The renderer retains owned actual Edit Client DOM, typed values/options and
+focus/caret during Shop and normal refreshes; logout/role/selection/modal changes
+invalidate retention. Strict prior read/request/mutation ownership stays.
+Forward 20261012231226 changes 17 raw-table policies and adds restrictive read
+ceilings, explicit per-role projections, private helper EXECUTE closure and
+scoped indirect RPCs. Bounded client/support RPCs preserve legitimate Manager
+writes; checked financial wrappers preserve Billing operations without private
+metadata. Storage/private channels require live Master; app publication membership
+is removed, with schema/ALL-TABLE and managed-prerequisite failure gates.
+
+Employee loaders fetch only approved datasets and own identity. Canonical role
+changes clear prior records/navigation/modal/continuations before native refresh,
+without a new-login role-edit contract. Read denial is explicit and blocks
+mutations rather than masquerading as empty finance. Unverified client save keeps
+its draft and reports refresh. Real browser testing found/fixed a selected-client
+refresh scope error; the final audit protects archived client financial records
+and adds permissive-policy/PUBLIC-grant and publication-schema regressions. A
+changed-role page followed by a failed native identity retry also reproduced old
+cached support retention; clearing the cache before retry now passes its actual
+production-loader regression without signing out or replacing the session.
+
+PASS: 250 regressions; baseline DOM expected FAIL then seven corrected real-browser
+groups plus twelve existing groups; six PG17 bootstrap, two canonical and nine
+lifecycle groups; four populated PG17/PostgREST groups; six native GoTrue provider
+groups; real Support concurrency/security; eight actual CLI groups extended for
+14 history failure/retry and read preflight/validator; ten Deno entries, synthetic
+Vite build and integrity checks. Final affected checks rerun before checkpoint.
+Explicit synthetic transport/SQL fixtures and hosted SKIPs remain documented;
+Single-session interruption continues to block destructive approval until hosted
+continuity is proven. Existing Vite CJS warning/five cycle participants unchanged.
+
+Only read-only staging migration history was accessed: twelve genuine records,
+13 absent. No customer/Auth/credential read, hosted mutation or production access.
+The twelve historical migrations, unapplied 13, Edge sources/config, frozen Shop
+artifact and protected refs are unchanged. New full-chain count is fourteen;
+future separately approved maintenance plan requires handlers, 13 then 14 and
+matching frontend, with real role/managed/custom surface/backup checks. No history
+repair or automatic rights broadening/redeployment rollback. Complete 31-file
+manifest/matrix/reproduction/limits are in PRODUCTION_READINESS_REPORT and
+PLATFORM_ROLE_READ_ISOLATION. Safe source commit/push uses the approved native
+CF-Pages-Skip prefix after trigger inspection and exact post-push verification;
+final SHA is Git/PR checkpoint evidence. No staging/production GO is declared.
+
+## 2026-10-13 — Focused role-response race and Manager entitlement corrections
+
+Branch: feature/platform-team-lifecycle-v2; reviewed base bfc24ca50d4f5d18b329f0c601473c0f9ee208df.
+The latest independent review reproduced a first dataset error suppressing a
+later canonical role change, and a Manager plan save skipping Shop sync because
+private provisioning fields are intentionally unavailable.
+
+Owned role-tagged responses now immediately clear former-role cache, client,
+modal and continuations independently of aggregate rejection. A bounded reload
+uses only the successor's permitted datasets; stale replies cannot reverse it.
+Manager entitlement sync uses approved operational status and the existing
+checked config path. Master verification remains supported. Incomplete sync
+reports the committed Platform update, refreshes status, closes the form and
+requires reconciliation of recorded uncertainty, never automatic write replay.
+Billing inventory-addon changes were also affected: rates remain authorized,
+while unconfirmed Shop sync is explicitly referred to Master/Manager rather than
+broadening Billing's deliberately denied configuration authority.
+
+PASS: five failure-before/pass-after cases; 27 affected loader/race/operation/
+configuration checks; syntax, synthetic Vite build, whitespace and integrity.
+Transport is synthetic. Full regression/browser/native database/Auth/CLI/Deno
+suites were not rerun because no server contract, SQL, Edge or dependency changed.
+Native/hosted behavior remains a separate gate; Vite CJS warning remains.
+
+Exactly six files: src/supabase.js, src/forms.js, tests/platform-role-loaders.test.mjs,
+tests/frontend-races.test.mjs, PRODUCTION_READINESS_REPORT.md and this history.
+All fourteen migrations, frozen Shop artifact and protected branches are preserved.
+Update only existing Draft PR #4 after current trigger inspection, native skip
+and exact provider confirmation. No merge, hosted change or deployment;
+independent review pending, staging/production remain NO-GO.
+
+## 2026-10-13 — Sync Edit Client entitlements only for a changed plan
+
+Branch: feature/platform-team-lifecycle-v2; base 7acc88b. A successful Edit Client
+save now compares its saved plan input with the captured original client plan
+before automatic Shop sync. Name, industry and Shop URL edits with the same plan
+therefore preserve customized Shop modules. Master/Manager plan synchronization,
+Billing addon reconciliation, ownership and uncertain-operation handling stay intact.
+
+Name-only regression failed before; both focused cases pass after, including the
+correct saved-plan entitlement request. PASS: 19 affected form/config checks,
+syntax and whitespace. No full, browser, PG/Auth/CLI/Deno suites or build were run.
+Only forms, its existing test file, this history and the readiness note change.
+No server/SQL/Shop change; safe native-skip checkpoint to Draft PR #4 only.
+Independent review pending; staging/production remain NO-GO.
+
+## 2026-10-13 — Managed policy creation through supported supautils
+
+Branch: feature/platform-team-lifecycle-v2; reviewed base 8909859. The hosted
+membership blocker was an overly restrictive prerequisite. Official Realtime
+documentation explicitly supports non-owner postgres policy statements; official
+Supabase PostgreSQL configuration allowlists both storage.objects and
+realtime.messages through supautils.policy_grants. See [Realtime authorization](https://supabase.com/docs/guides/realtime/authorization),
+[Storage policies](https://supabase.com/docs/guides/storage/security/access-control)
+and [provider configuration](https://github.com/supabase/postgres/blob/develop/ansible/files/postgresql_config/supautils.conf.j2).
+
+Unapplied migrations 13/14 now issue the identical restrictive policies directly
+as the migration caller, with permission errors propagating. Removed managed-owner
+membership gates and SET LOCAL ROLE; retained object/RLS gates. Matching read-only
+preflights accept inherited owner authority or a registered, loaded supautils
+policy_grants setting with the exact caller/table allowlist. These findings
+supersede older documentation's unconditional table-owner permission prerequisite.
+No managed ownership, internal membership, grants or application contracts change.
+
+PASS: two actual CLI 2.120.0 forward scenarios (fresh and staging-style) on cached
+Supabase PostgreSQL 17.6.1.155 with real supautils, non-superuser postgres and no
+USAGE/SET owner memberships. Local-only negative controls reproduce the obsolete
+guard and withhold Realtime policy permission; complete SQL/policy/history rollback,
+history-INSERT rejection, retry, exact genuine history counts and unchanged owner/
+membership/RLS state pass. Initial fixture setup failures were corrected; final
+result 2 PASS, 0 FAIL. Four affected SQL/PostgREST role-isolation groups, syntax,
+whitespace, original twelve migration and frozen Shop integrity checks pass.
+
+SKIP: hosted capability verification and unrelated full frontend/browser/Auth
+suites. No hosted SQL executed. A separately authorized read-only preflight must
+confirm staging's loaded policy allowlist; missing/invisible capability requires
+Supabase confirmation, not rights broadening. Local corrections only, no commit,
+push, deployment or merge. Staging and production remain NO-GO.
+
+## 2026-10-14 — Verified employee retirement, fresh re-onboarding and setup renewal
+
+Branch: feature/platform-team-lifecycle-v2; clean base 357775f. Draft PR #4 remains
+open/unmerged. Owner requested targeted deletion/reuse and sticky confirmation
+fixes, then added renewal from the Pending invitation status popup.
+
+Read-only staging metadata confirmed 14 migrations and disabled continuity approval:
+both legacy Auth mappings are absent with no same-email replacement; the Pending
+identity exists, is email-confirmed, has signed in and has no open operation. No
+deletion operations exist for those records. The 503 safety rejection happens before
+password verification/reservation; login alone does not justify enabling the gate.
+
+New forward 20261013214541 preserves all fourteen applied migrations. Immutable
+employee/Auth UUID tombstones remain; explicit latest-predecessor approval and Auth
+absence allow an email to start another fresh lifecycle. Live uniqueness/open-operation
+constraints remain. A private reservation nonce plus native creation/invitation
+evidence prevents adopting unrelated existing Auth identities. Exact-UUID deletion,
+dependency checks, default-off continuity, password/CAPTCHA, audit and reconciliation
+are preserved; mismatched email/UUID mappings fail closed at reservation/dispatch.
+
+Server codes distinguish definite pre-operation denials from later uncertainty.
+Deletion dialogs alone ignore backdrop clicks and preserve verification inputs.
+Pending renewal uses a new Master/JWT-only endpoint and durable single-dispatch
+request: native invite for unconfirmed identities, native recovery for confirmed
+Pending identities, retaining UUID/role/Pending status. No third-party sender or
+separate reset button; unknown sends require review, never blind replay.
+
+PASS: 17 focused server-source, two frontend, four dialog and four real PG17 groups;
+one native GoTrue group verifies hard deletion/new UUID/retired invite and recovery
+denial; one local Chromium group verifies sticky inputs, focus, cleanup and one-shot
+confirmation. Deno, syntax, synthetic build and integrity pass. Initial SQL-anchor
+and fixture failures corrected. SKIP: hosted continuity/CAPTCHA/email acceptance,
+wall-clock expiry and unrelated suites; mocks/local native behavior are distinguished.
+The existing lifecycle review records exact ordered rollout, backup, approval and
+recovery gates. No hosted writes, credentials/users changed, scheduler/Shop/Cloudflare
+modification, commit/push or merge. Source review pending; staging/production NO-GO.
+
+## 2026-10-14 — Independent review F1/F2/F3 corrections
+
+Branch/base: feature/platform-team-lifecycle-v2 / 357775f; local, unstaged,
+uncommitted. The complete independent report and reproduction logs/source were
+read before edits. All eighteen files matched its reviewed ZIP. Both F1 defect
+reproductions and the reported 121 PASS / 2 FAIL frontend run were reproduced.
+Independent FAIL remains prior evidence; this checkpoint is not independent approval.
+
+F1: the old uncertainty override knew only an operation loaded by the current
+invocation. Early retry failures could falsely deny an earlier Auth dispatch.
+Deletion errors now always retain review_required=true and unverified operation
+state; an explicit marker describes only rejection of this attempt. No privileged
+history query is added before canonical/session/password/continuity gates. The
+decoder preserves prior uncertainty and request IDs even for legacy false flags.
+Only existing exact-owned SQL reconciliation can confirm completion. No provider
+replay, account modification, permissions/RPC change or migration edit is introduced.
+
+F2: native "Resend invitation" is permitted while precise SDK/API/dependency/secret/
+legacy-transport checks reject deliberately inserted provider integrations. Commented
+native SMTP examples are distinguished from active configuration. Reusable handler
+fixtures moved to a side-effect-free helper; database tests no longer register the
+unit suite. Mock request ownership/completion now reflects existing SQL constraints.
+
+F3: invitation tests use the real state initializer plus loaded Master archive data;
+ordinary, approved/cancelled retirement, latest predecessor, duplicate/stale identity
+denials and unloaded state are exercised without production fallback changes.
+
+PASS: 125 focused tests, 14 new actual-handler/decoder regressions, corrected two-case
+independent reproduction, four retirement/rollback SQL groups, six native Auth groups,
+six actual Chromium groups (320/768/1440 light/dark), Deno, syntax and synthetic build.
+The complete PostgreSQL rerun passed 23/23 groups (6 bootstrap, 2 canonical,
+11 lifecycle, 4 role/API); the separate role-read run passed 4/4. All final runs
+exit 0. Overlapping selectors/reproductions are not
+added to unique totals. The first general runner passed eight groups but hit its old
+180-second eleven-group lifecycle deadline; only that suite receives a bounded
+480-second allowance. Initial fixture/guard conditions and sandbox build EPERM were
+resolved and retained in evidence, with no skipped assertions. Exact commands, exits,
+logs and hashes are outside Git in RetraSellReviewEvidence/2026-10-14-F1-F3.
+
+Applied migrations 1–14, reviewed forward 15, original Master/security contracts,
+frozen Shop artifact and protected refs are unchanged. Current set: 23 files (prior
+eighteen plus two affected test modules and three new test/helper files). Prior ZIP
+is preserved, not updated. SKIP/pending: hosted email/CAPTCHA/continuity/journeys,
+elapsed expiry, migration-15 CLI history/connection-loss fault test and unrelated
+Shop tests. No hosted access, policy enablement, scheduler change, deployment, Git
+checkpoint or PR modification. Fresh independent review and separate rollout approval
+remain required. Local corrections implemented and validated; ready for fresh
+independent review, with no staging deployment authorized. Staging/production NO-GO.
+
+## 2026-10-15 — Eleven corrections, dedicated Team page and official branding
+
+Clean starting branch/HEAD: feature/platform-team-lifecycle-v2 / 7113681; GitHub
+PR #4 independently verified Draft/open/unmerged to development at the same SHA.
+Current work is local and uncommitted. No protected branch, Shop artifact,
+Supabase project, Cloudflare configuration, real account, credential or email changed.
+
+Forward 16, 20261015003232_platform_team_invitation_review.sql, was created with
+CLI 2.120.0. Migrations 1–15 remain untouched. Explicit failed-create clearance
+requires exact actor/request/target, unchanged unlinked Pending reservation,
+settled review, Auth absence (including soft-deleted/nonce-linked identities),
+no competing operation/FK and a live canonical Master. Its locked cancellation,
+retained resolution and audit are retry/concurrency safe; it never deletes Auth
+or auto-reinvites. Late native responses cannot complete a cancelled reservation;
+later provider identities still require reviewed reconciliation, never email adoption.
+Minimal caller-checked deletion-history and own-session inactive-notice RPCs improve
+accurate errors without widening data access. Native user_banned remains generic:
+the provider checks it before the password. Unknown invite expiry/delivery remains
+explicit, with legitimate Pending renewal, no resend of unresolved/unlinked creation.
+
+The Master-only diagnostic uses a separate memory-only client and tests native
+refresh DURING the temporary grant as well as after local cleanup, then repeats
+canonical checks. This catches the single-session false-positive case. Obsolete
+continuations cannot refresh a successor; failures/cleanup are explicit. The
+diagnostic cannot enable deletion; its database policy stays FALSE. Lifecycle and
+recovery notices are action-specific and never claim delivery after a send failure.
+
+Team now has its own canonical Master-only /team page, tabs/counts/search, Manage
+dialogs, refresh, invitation review and read-only archive. Settings retains personal
+credentials, platform information and the diagnostic. The old Settings Team renderer
+and unused RA-logo styles are removed. Confirmed identity/role feedback, keyboard
+focus, private-overlay revocation cleanup and responsive table overflow are covered.
+
+Read the official 24-page PDF, editable guide/tokens and actual refined assets.
+Eleven exact SVG/PNG images under public/brand preserve original filenames/geometry;
+four supplied embedded Inter weights and official OFL are local. Supplied light/dark
+tokens cover Auth, shell/pages/forms/dialogs/notifications and invoice presentation;
+sidebar stays navy. Stable assets can be replaced without frontend source changes.
+The final audit found the newer branding 2.0 package (optical state C) and replaced
+the two horizontal SVGs using its exact original filenames. All eleven image hashes
+agree with final-C CSV/JSON manifests; other images, fonts and tokens match unchanged.
+Final owner visual acceptance is pending.
+Invoice calculations/ledger selection are unchanged. Print waits for the official
+image and rechecks original authority; invoice preview focus/Escape/private cleanup
+uses the common dialog lifetime. Client, plan/addon, billing mutation, provisioning,
+support, lifecycle and frozen Shop contracts are preserved.
+
+Final validation: 286 selected source regressions PASS (zero FAIL/SKIP). Real PG17
+suites PASS 24 groups
+(6 bootstrap, 2 canonical, 12 lifecycle/review, 4 SQL/PostgREST isolation); strengthened
+populated-upgrade/concurrent-clear/rollback check also PASS. Actual diagnostic with
+native GoTrue passes multi-session and rejects single-session loss; eight native
+groups PASS, using explicit SDK/PostgREST transport adapters. Final read-only validator/
+populated upgrade/concurrent clear/late SQL failure PASS. Eight affected native Deno
+checks PASS. Six actual Edge Chromium viewport/theme groups plus Team/Auth actions,
+three retained Client-modal and three employee-role journeys PASS with synthetic
+data and zero external traffic. Final synthetic Vite build, 31 JS syntax checks,
+TOML/manifest/whitespace and asset/source integrity PASS; no new literal-import cycles.
+All 23 supplied contrast pairs meet specified thresholds (not a full WCAG audit).
+Before screenshots use exact starting source. Initial fixture/assertion/selector
+failures, corrected mobile overflow and unavailable Chrome startup are retained.
+Docker/D: initially blocked final checks; the owner restored them and those checks
+then passed. No dependency failure is counted as a pass. Final set: 61 files,
+33 modified/28 new, nothing staged; exact manifest is in the detailed report.
+
+Hosted SMTP/CAPTCHA/session/SDK acceptance, exact native link validity, CLI-16 history/
+connection fault injection and final visual/independent review remain unverified.
+Full report: docs/PLATFORM_UI_BRANDING_REVIEW.md. Evidence is outside Git under
+RetraSellReviewEvidence/2026-10-15-ui. No commit/push/merge/deployment authorized;
+staging and production remain NO-GO.
+
+## 2026-10-16 — Independent F1 invoice print typography/readiness correction
+
+Branch: feature/platform-team-lifecycle-v2; committed HEAD remains 7113681.
+The starting 61-file uncommitted implementation exactly matched its prior hash
+ledger. Independent F1 was reproduced: the print document named Inter but did not
+load it. Only billing's print-window function changes: local approved 400/500/600/
+700 font faces, absolute same-origin paths, explicit font/image readiness, cached
+asset fast paths, one-shot cleanup and a 15-second browser-timer failure deadline.
+User-gesture popup creation, invoice layout/values/currency and authority checks
+are preserved. A native-browser-discovered popup-close/font-rejection race is
+also reproduced and corrected; cancellation stays quiet and never prints.
+
+PASS: 73 affected source tests, ten actual Edge popup/font/image scenarios,
+synthetic Vite build, three syntax checks, whitespace, font/artifact and scoped
+source integrity. Final runs have zero failures; expected before-failures and
+initial harness failures are retained. CDP routing stalled native popup requests;
+an owned loopback proxy resolved the test limitation without a product workaround.
+It blocked Edge background traffic and forwarded nothing externally. OS printing
+is intercepted; Chrome/other engines and hosted/printer acceptance are SKIP.
+Unchanged SQL/Auth/CLI/Deno/full suites were not rerun.
+
+Five follow-up files; 57 other starting files are byte-identical and existing
+history is preserved. Current set: 62 files (33 modified/29 new), nothing staged.
+Migrations 1–16, final-C assets/fonts/tokens, employee/Master/RBAC/diagnostic code,
+default-disabled deletion, protected refs and frozen Shop artifact are unchanged.
+Evidence: RetraSellReviewEvidence/2026-10-16-invoice-print; detailed F1 supplement
+in docs/PLATFORM_UI_BRANDING_REVIEW.md. Ready for focused independent re-review,
+not full security approval. No commit/push/PR change, hosted access or deployment;
+Draft PR #4 remains unmerged. Staging and production remain NO-GO.
+
+## 2026-10-16 — Migration 16 actual CLI atomicity and uncertain acknowledgments
+
+Branch/HEAD unchanged: feature/platform-team-lifecycle-v2 / 7113681. Starting
+62-file F1 checkpoint matched its ledger; application, invoice correction, assets,
+Shop artifact and all sixteen migration files remain untouched.
+
+Extended the existing CLI harness, with optional evidence/work isolation outside
+Git. Actual pinned Supabase frontend 2.120.0 (verified binary hash), PG17.6 image,
+native Auth migrations/Vault/pgcrypto/supautils and provider-owned table fixtures
+apply genuine history through 15, then test 16 as non-superuser postgres. Empty and
+populated scenarios retain Master/config, Active/Pending/Inactive employees, failed
+reservation, immutable archive/audit and representative billing records. No history
+repair or manual successful history INSERT is used; deletion remains FALSE.
+
+PASS: nine CLI scenarios (ten Node tests including parent), plus the existing
+focused migration-16 SQL/security group; zero final FAIL/SKIP. History rejection
+and exact owned-backend termination after SQL completion roll back SQL/history
+jointly; early DDL termination also rolls back. A wire proxy dropping post-commit
+ReadyForQuery instead leaves all changes and one genuine history row committed
+although CLI fails. Authoritative inspection precedes retry; never infer rollback
+from an error. Concurrent statuses [0,1] preserve one complete migration; runners
+must still be serialized. Repeated executions preserve schema/data/policies.
+
+Initial failures were a missing fixture field and administrator-owned clones;
+correcting synthetic data/database ownership required no migration or privilege
+relaxation. Logs remain. Owned resources were label-verified and removed. Syntax,
+whitespace and source preservation pass. Only CLI tests and two documentation files
+change this round; current set is 63 files (34 modified/29 new), nothing staged.
+Evidence: RetraSellReviewEvidence/2026-10-16-migration16-cli. Hosted/TLS/pooler/crash
+and exhaustive timing cases remain unverified; full frontend/Auth HTTP/Deno suites
+were not rerun. Local migration-16 atomicity PASS is not overall security approval.
+No commit, push, PR modification, hosted access or deployment. Staging/production
+remain NO-GO; independent review and separately authorized rollout are required.
+
+
+## 2026-10-16 — Login and Add Client presentation refinement
+
+Branch: feature/platform-team-lifecycle-v2; HEAD remains 015e82e.
+Read the supplied refined-brand HTML guidelines and packaged/current CSS tokens.
+Preserved official artwork, stable asset paths, Inter and both theme palettes.
+Login has balanced card spacing and a grouped verification area, with room for the
+standard 300px challenge at 320px. Credential and caught authorization failures
+share the owner's generic message; provider account/suspension details stay hidden.
+Existing checks, session ownership, CAPTCHA lifecycle and cleanup are unchanged.
+Add Client is a 1080px dialog with five labelled fieldsets, desktop columns,
+mobile stacking, fixed header and visible sticky actions over a scrolling form.
+All fourteen original controls, options, defaults, IDs and validation attributes
+are retained. Submission, addon behavior, creation and backend contracts are intact.
+
+Validation PASS: 36 focused login/UI/form-race regressions, six real Edge browser
+groups (320/768/1440, light/dark), synthetic-config production Vite build, JS syntax
+and whitespace. Browser checks compare every control against the committed form,
+verify required validation/addon visibility/Cancel/action visibility and no page
+overflow; zero page errors or external page requests. Initial sandbox browser
+startup failed; the same local checks passed outside that sandbox. Actual provider
+challenge/hosted login and client creation were not exercised. Evidence/screenshots
+and synthetic build are outside Git in RetraSellReviewEvidence/2026-10-16-ui-polish.
+No migrations/functions/permissions/official assets changed; no hosted access,
+commit, push, PR mutation or deployment. Changes remain local for owner review.
+
+
+## 2026-10-17 — PR #4 forensic F1/F2/F3 corrections and local validation
+
+Branch: `feature/platform-team-lifecycle-v2`; reviewed parent `d3fc517aabb2b5d09ea939aa56830287b5d89bba`.
+
+Reproduced all three independent findings against the exact parent on disposable
+PostgreSQL 17. The three new correctness oracles also failed there for the expected
+reasons. Forward migration `20261016160517_pr4_security_corrections.sql`, generated
+with CLI 2.120.0, preserves migrations 1–16 and the frozen Shop artifact.
+
+F1 permits an already-confirmed, canonically linked successor to submit its own
+unchanged normalized email during name/role edits. Actual email changes still
+check archived addresses, live employees and Auth identities; UUID tombstones,
+archive/audit retention, confirmation and authorization checks remain intact.
+
+F2 separates editable business URLs from a private, explicitly Master-approved
+support origin. No URL is backfilled or automatically trusted. Approval checks the
+current protected client/project/binding/source tuple, records an audited reason
+and prior approval, and uses revision-based compare-and-set. Only the canonical
+Master can review/approve/reapprove; a stale approval remains reviewable but cannot
+authorize handoff. Issuance, consumption and browser navigation verify the protected
+pairing/revision. Reapproval, re-pairing or Master-binding revision changes invalidate
+outstanding grants. Original single-use, expiry, live-session and tenant checks
+remain. The reproduced disclosure was not a demonstrated remote Shop takeover.
+
+F3 serializes commercial plan/addon intent and configuration reservations through
+the client row lock. New intent remains durably pending until verified; delayed
+old payloads/completions cannot certify a newer plan. An unresolved operation blocks
+competing commercial changes, while urgent suspension remains available when no
+operation is already in flight. Same-plan metadata edits preserve custom modules.
+Manager/Master can explicitly reconcile the current server-derived intent; Billing
+retains its existing financial boundary. Read-back alone never settles an uncertain
+write: Master recovery must acknowledge the exact original UUID/payload through
+the unchanged atomic Shop journal. Unknown outcomes cannot be discarded to unlock
+later writes. Verified suspension can complete without falsely clearing pending
+commercial intent. The recovery UI retains explicit unresolved messaging. Duplicate and completed-recovery
+responses also check current intent before reporting applied; a focused pre-fix
+test reproduced the early-return bypass.
+
+Final local PASS: 296 source regressions; 30 PG17 groups (6 bootstrap, 2 canonical
+team, 12 lifecycle, 4 role/PostgREST, 6 new forensic/security groups); 9 actual CLI-17
+scenarios (10 Node tests including parent); 8 native Auth groups; four real Chromium
+browser suites; all 12 Deno entrypoints; synthetic-config production build, syntax,
+whitespace and integrity checks. CLI cases cover fresh/populated upgrades, SQL/history
+rejection and termination, retries, early termination, lost post-commit acknowledgment
+and concurrent attempts. Lost acknowledgment can leave a complete committed migration:
+inspect authoritative state before retry. Initial fixture/assertion failures, a Deno
+flag error and interrupted/timed-out runs are retained separately from final passes.
+The local runner gives full child suites eight minutes without relaxing SQL assertions
+or individual Docker command deadlines. The exact frozen journal SQL was additionally
+tested on a minimal substrate; this is not full Shop integration.
+
+Native email delivery, hosted CAPTCHA/session continuity and provider configuration,
+TLS/pooler/network crash timing, hosted finance/provisioning/Shop/Support and production
+acceptance remain unverified. The PGlite cross-repository SQL suite was not run; real
+PG17 tests supply database evidence. Existing checksum fixture checks passed without
+changing or replacing Shop integrity checks. Default-off employee deletion remains off.
+D1 provisioner source/deployment drift remains unresolved and was not changed remotely.
+
+Future rollout needs separate approval: backup/freeze, resolve/drain old config jobs
+(the migration refuses open jobs), migration 17, matching `platform-config` and
+`platform-support` bundles, independently verified Master destination approvals, then
+matching frontend and scoped hosted acceptance. Support fails closed until approval;
+previously drifted plan/custom configurations require explicit review, not automatic
+retroactive certification. No hosted Supabase operation, deployment, tag mutation or
+protected-branch change is authorized here. The approved feature-only checkpoint uses
+`[CF-Pages-Skip]`; its exact commit and actual provider result must be verified after
+push. PR #4 stays Draft/unmerged. Independent re-review and staging/production NO-GO
+remain; full documentation finalization is deferred.
+
+
+## 2026-10-17 — PR #4 focused N1/N2 follow-up
+
+Branch: `feature/platform-team-lifecycle-v2`; parent `b832dec56b14592e44149462f127904c9c5225eb`.
+Read the latest independent Work report, results and reproduction scripts/logs.
+N1 shared any in-flight configuration promise by client ID and announced success
+without checking refreshed commercial intent. Configuration requests now coalesce
+only identical boolean-payload snapshots whose original and current views still
+own the operation; conflicts reject without queuing a write. Reconciliation requires
+an applied response and a fresh, error-free projection with the requested generation
+and `pending=false`. Session/role loss, newer intent, refresh failure and uncertainty
+cannot announce success. Normal operations acquire no additional status request.
+
+N2 checked open jobs before excluding legacy writers. Migration 17 now takes its
+eventual ACCESS EXCLUSIVE locks on clients, then configuration jobs, before preflight
+and holds them through the CLI transaction. A deferred constraint rejects a queued
+legacy body that resumes with an unversioned open reservation after transition;
+legitimate new reservations are stamped by the existing verified wrapper before
+commit. Completed legacy rows stay unchanged; no generation is fabricated.
+The private deferred lookup uses a fixed search path and owner execution because
+it runs after the RPC returns; all API-role EXECUTE privileges are revoked.
+Locking rationale follows PostgreSQL 17 explicit-locking documentation:
+https://www.postgresql.org/docs/17/explicit-locking.html.
+Latest owner/Work evidence lists staging migrations 1–16; 17 was only executed in
+our disposable local fixtures, with no authorized hosted application. Corrected
+that unapplied migration in place; migrations 1–16 remain immutable. Production
+was not inspected. The CLI-17 statement allowlist accepts the new lock/constraint
+statements without weakening its failure assertions.
+
+Executed PASS: 5 lightweight Node tests (3 helper/payment, 2 N1 handler groups),
+syntax for eight changed JS/test files and whitespace. Written but NOT executed:
+N2 two-connection queued-writer/preflight tests, extended completed-history/late
+rollback checks, and the adjusted browser/CLI fixtures. No SQL parser was installed,
+so SQL parsing is SKIP. Full source, PG17/Auth/Vault/Docker, actual CLI atomicity,
+browser, Deno and build suites were deliberately not run under the owner's minimal
+budget; the next independent Work review must execute them. Previous broad PASS
+records describe the preceding commit, not validation of these revised SQL bytes.
+No hosted changes, emails, deletion-policy enablement, deployment or protected-ref/
+tag changes are authorized. The approved feature-only checkpoint uses the native
+Cloudflare skip marker; PR #4 stays Draft/unmerged. D1 and hosted acceptance remain
+separate gates; staging and production remain NO-GO.
+
+
+## 2026-10-17 — PR #4 N3 CLI-compatible migration locks
+
+Parent: `7b7de2335da3ec264583dc4c23c508948f665ae8`; feature branch unchanged.
+Read the independent N1/N2 review, CLI failure/control logs and disposable candidate.
+The previous N2 correction placed LOCK TABLE at top level; pinned CLI 2.120.0
+rejects that placement with 25P01 before preflight. Move the same two locks inside
+the existing initial DO block, client before configuration job, before checking
+outstanding work. No authored transaction BEGIN/COMMIT is added: SQL and history
+remain under the supported CLI batch boundary. Deferred legacy fencing, completed
+history, permissions and all other migration/frontend logic are unchanged.
+Owner/latest review evidence confirms staging still has migrations 1–16; 17 is
+unapplied in the authorized persistent target, so correct it in place. No production
+inspection or hosted SQL was performed; migrations 1–16 remain immutable.
+
+Lightweight checks: exact transformation/candidate comparison, lock order and
+unchanged-remainder assertions, protected-file integrity, diff/whitespace and
+sensitive-value review. No runtime test is claimed this round. Independent Work
+must execute actual CLI application and all nine fault scenarios, history rollback/
+retry/duplicate handling, lost acknowledgment, concurrent migrators, original N2
+and queued legacy writers, deferred fencing, outstanding/completed-history checks,
+late SQL rollback/retry and relevant N1/F1/F2/F3 regressions on the new committed
+HEAD. The reviewer's candidate success is feasibility evidence, not acceptance of
+this commit. No Docker, Auth, browser, build or full-source campaign was run.
+Feature-only commit/push uses the verified Cloudflare skip convention; PR #4 stays
+Draft/unmerged. D1, independent acceptance and hosted gates remain unresolved;
+no merge/deploy/deletion enablement or staging/production readiness is authorized.
+
+
+## 2026-10-17 — PR #4 documentation and permanent acceptance ledger
+
+Branch: `feature/platform-team-lifecycle-v2`; reviewed code HEAD
+`27f6abde0274ac6c989664d0b363504b93128d10`.
+
+### Purpose and changed
+
+Reconciled D01–D40 from the independent forensic documentation audit with all 14
+source/correction commits. Added `docs/PR4_ACCEPTANCE_AND_DEFERRED_TESTS.md` and
+`docs/PR4_ACCEPTANCE_CASES.csv`: all 120 stable IDs and 42 joined risk records,
+original status plus dated current evidence/provenance, source SHAs, identities,
+expected/actual results, future procedures and gates. Dated superseding notes in
+status/runbook/role/Support documents preserve every original report and failure.
+The 23-file retirement correction set is 7113681; the earlier 39-file stabilization
+set is be43f28. The 63-file implementation/print/
+CLI16 follow-ups are 015e82e; the seven-file UI polish and its precommit history
+entry are enclosed by d3fc517. These local counts are not the full 131-path PR.
+
+### Decisions and validation
+
+Historical counts remain 21 owner manual, 9 independent reads, 45 independent local,
+27 deferred, 13 untested, 3 reproduced failures, 2 blocked. Latest statuses explicitly
+close L11/F1,S04/F2,C11/F3 locally and O04’s code gate; P03 remains independently
+blocked by unavailable Shop fixtures. Independent final 27f6abd evidence: nine CLI17
+fault scenarios, two CLI lock-lifetime schedules, one literal-first-ALTER interruption,
+four N2 probes and eight PG17 security groups PASS. N1 module/browser evidence
+carries forward from 7b7de23; no new broad suite or hosted result is invented.
+Only lightweight documentation consistency/link/count/commit/whitespace/confidentiality
+checks are authorized here. Runtime tests are not repeated. Existing records’
+Codex-only results remain author-attributed rather than newly independent passes.
+
+### Deployment / DB impact and deferred
+
+None. Owner employee journeys and independent state corroboration remain separate:
+audit 306 records two legacy orphan Platform rows cleaned; old Auth absent, distinct
+new Active identity and immutable archive retained; deletion policy last verified
+false. Staging history 1–16;17 unapplied. Git development 0dbde676 differs from
+canonical ad hoc Pages d3fc517. Eight employee bundles are present, but matching
+new config/support corrections and provisioner D1 require separately approved rollout.
+Freeze/drain, resolve uncertain jobs, serialize CLI17, inspect history/schema on
+ambiguous exit, reconcile bundles/approve protected Support destination and accept
+hosted workflows before use. Backup/Vault/Auth portability, provider/financial/Shop
+and production gates remain. Existing fallback tag is Git-only and untouched.
+
+### Git
+
+Owner authorizes one documentation-only `[CF-Pages-Skip]` commit/push and coherent
+existing PR #4 body update, preserving Draft/base/unmerged state and protected refs.
+Exact resulting documentation SHA and provider skip are reported after verification;
+this entry does not invent its own future commit SHA. No merge or production GO.
+
+
+## 2026-10-17 — Hosted acceptance evidence and controlled development merge
+
+Branch at preparation:`feature/platform-team-lifecycle-v2`;accepted/deployed source
+`541c46d64e8489c3aacc0e44d87f7b81b1f3a7ab`;base development0dbde676.
+Owner now conditionally authorizes normal GitHub PR4 merge,automatic staging Pages
+verification and only then merged-branch cleanup. Production remains excluded.
+
+Recorded27 owner UI/session passes,API01–API04 and CP01–CP03 owner-executed calls
+independently evaluated by Work,and17 provider probes (14 scoped PASS,3 partial
+Storage) with independent catalog provenance. Archived-only fixture:one client,
+no active client or populated invoice acceptance;client creation declined,not passed.
+Storage object/S3/URL and Realtime channel/event tests remain partial/untested.
+Original120 scenarios,42 risk rows,original statuses/procedures and earlier results
+are preserved;new scoped observations/status columns do not inflate full passes.
+
+Codex read-only checks confirmed A06 Require current password when updating enabled
+in the actual staging Dashboard Email provider (Save disabled,no mutation),all17
+migration rows,permanent-deletion policyfalse,no open config jobs or protected Support
+destinations,and live-session/cutoff/Active guards. Corrected config12/support5/
+provision19 ACTIVE;all11 returned file entries match source including frozen artifact.
+D1 source drift is resolved;no provisioning/Shop feature acceptance inferred.
+Pages canonical manual deployment56fa2285 serves541c46d;Git development remains
+premerge0dbde676. Build/env/public-key project claims target staging and Vite only.
+No migration,function,Auth setting/account,Shop or Cloudflare setting changed.
+
+New hosted acceptance report gives explicit historical MERGE-gate dispositions,
+technical boundaries and retained before-use/production holds. A06 configuration
+prerequisite is satisfied without silently marking its unexecuted password API
+procedure PASS. Added original-request journal acknowledgment precision and bounded
+migration17 operational RPC/status extension per independent documentation review.
+Checks are documentation-only links/CSV/status/history preservation/sensitive data/
+whitespace plus necessary hosted/Git/provider GETs;no runtime suite repeated.
+
+Documentation commit/push uses CF skip. Mark ready/normal merge only after final
+checks,without bypass or skip marker on merge;verify actual Pages revision/domain/
+assets/staging backend before deleting merged feature branch. Preserve main,
+deployment and fallback tag. Exact commit/merge/deployment/cleanup outcomes are
+recorded in final verified report,not invented inside this precommit entry.

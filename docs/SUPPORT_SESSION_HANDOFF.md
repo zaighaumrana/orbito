@@ -1,10 +1,65 @@
 # One-time Platform support handoff
 
+## Later hosted acceptance update —2026-10-17
+
+The [final hosted acceptance and conditional merge decision](PR4_HOSTED_ACCEPTANCE_2026-10-17.md)
+supersedes earlier current-status statements below:staging has17 migrations;
+config12/support5/provision19 source matches541c46d,D1 source drift resolved;
+permanent deletion remains disabled;canonical Pages manual deployment56fa2285
+serves541c46d. A06 current-password configuration is directly verified enabled,
+not a hosted password-change test. Owner UI/API acceptance,independent reads and
+partial provider checks remain separately attributed. Merge is conditionally
+owner-authorized subject to gates/checks;production remains NO-GO and before-use
+Shop/finance/Support/provider obligations remain. Prior reports are historical.
+
+
+## Current superseding status — 2026-10-17
+
+The current reviewed code checkpoint is `27f6abde0274ac6c989664d0b363504b93128d10`
+on `feature/platform-team-lifecycle-v2`, Draft PR #4 targeting `development`.
+All 14 source/correction commits are committed and pushed; the cumulative code
+checkpoint is 131 paths, not the earlier 39/61/62/63-file local inventories.
+The definitive [acceptance/deferred-testing register](PR4_ACCEPTANCE_AND_DEFERRED_TESTS.md)
+and [120-case ledger](PR4_ACCEPTANCE_CASES.csv) supersede current-status claims below.
+The original dated checkpoints and failures remain historical evidence.
+
+Independent final review approved documentation finalization only: F1/F2/F3/N1/N2/N3
+are locally corrected and independently verified within their recorded scopes.
+Owner-reported employee staging journeys and independent state reads are separate
+from local tests. Staging has 16 genuine migrations; source migration 17 is unapplied.
+Eight employee bundles are deployed (12 functions total), while newer config/support
+corrections and D1 provisioner source drift still require authorized rollout.
+The permanent-deletion policy was last independently verified **false**.
+Git `development` remains `0dbde676ca57ed1599a295e221d274ef080cac41`;
+canonical staging Pages serves ad hoc `d3fc517aabb2b5d09ea939aa56830287b5d89bba`,
+not the latest feature corrections. Later correction SHAs were skipped by Cloudflare;
+production-branch auto-deploy remains enabled, so a future merge may deploy.
+No merge/deployment authorization or whole-Platform production GO follows.
+
+D33: Five-argument service-only issuance with actual Master session and
+platform-support v4 is present in inspected staging, but its source matches
+d3fc517, not the latest protected-destination correction. Migration17 plus matching
+support/frontend requires independently verified, explicitly Master-approved
+protected destinations. The public Manager-editable Shop URL grants no recipient
+trust. F2 is locally corrected, not a demonstrated Shop takeover or hosted scope
+PASS. Real Shop exchange/session scope remains deferred. Preserve 256-bit tokens,
+90-second expiry, hash-only/single-use/binding/lifecycle checks and the distinction
+between ordinary logout lifetime and canonical Master revocation/rebinding.
+The historical branch/developmentv2 and “13 unapplied/source-only” statements
+below are superseded; legacy password forwarding is not the current architecture.
+
+## Historical handoff contracts and dated correction records
+
+
 > Repository status update — 2026-10-04: The handoff is committed and pushed in Platform a054e28 and Shop 68885d4; the no-commit/deployment statement below describes the original implementation task. Local HEAD and the live GitHub `feature/platform-overhaul-v1` head match at `a054e28`. Current integration target is `developmentv2`. Preserve the original validation/deployment evidence below as a point-in-time record; Git does not prove hosted deployment. See [engineering history](../ENGINEERING_HISTORY.md) for the owner-reported hosted checkpoint and pending smoke gate.
 
 This replaces the Shop's Platform password login. The confirmed hosted failure was Platform Auth returning `captcha_failed` because the Shop forwarded a valid master password without a Platform CAPTCHA token. Platform CAPTCHA remains enabled and unchanged. Shop customers keep their existing Shop login/CAPTCHA flow.
 
-## Authorization and transport
+## 2026-10-12 PR #4 forward correction — source only
+
+The historical service-only issuance description below applies to migration 12 and earlier. Unapplied migration 13 introduces service-only five-argument issuance. The reviewed Edge handler verifies the real Master caller, forwards the canonical session_id, and keeps actor/hash/Platform ref server-controlled. SQL independently rechecks canonical UUID/confirmed active Auth and the actual live owned session. The old four-argument issuance RPC is revoked from every API role; browser roles cannot mint capabilities directly. Service-only exchange validates the recorded capability's canonical actor without setting user claims. Its 90-second/hash-only/single-use/binding/lifecycle/audit contract is unchanged. Deploy the reviewed support handler together with lifecycle migration under separate approval: new handler requires the v13 canonical session/RPC contract and fails closed before migration; old four-argument handler cannot issue afterward. Preserve the mixed-transport gateway flag. No Shop artifact update is required. SQL fixtures no longer substitute a browser session into service claims. An issued capability survives browser logout until expiry but fails on canonical Master revocation/rebinding. Late browser issuance responses close the blank popup after logout/navigation rather than opening Shop. This local correction is not hosted validation.
+
+## Historical authorization and transport
 
 The authenticated Platform master selects **Clients → Client detail → Open Shop as Support**. The new `platform-support` Edge Function verifies `auth.getUser()` and the existing `platform_operator_identity()` under the caller JWT, requiring the same UUID and canonical `master_admin` role. Browser-supplied actor, email, destination, project or credentials are rejected.
 

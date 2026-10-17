@@ -1,5 +1,67 @@
 # RetraSell Platform production bootstrap
 
+## Later hosted acceptance update —2026-10-17
+
+The [final hosted acceptance and conditional merge decision](PR4_HOSTED_ACCEPTANCE_2026-10-17.md)
+supersedes earlier current-status statements below:staging has17 migrations;
+config12/support5/provision19 source matches541c46d,D1 source drift resolved;
+permanent deletion remains disabled;canonical Pages manual deployment56fa2285
+serves541c46d. A06 current-password configuration is directly verified enabled,
+not a hosted password-change test. Owner UI/API acceptance,independent reads and
+partial provider checks remain separately attributed. Merge is conditionally
+owner-authorized subject to gates/checks;production remains NO-GO and before-use
+Shop/finance/Support/provider obligations remain. Prior reports are historical.
+
+
+## Current superseding status — 2026-10-17
+
+The current reviewed code checkpoint is `27f6abde0274ac6c989664d0b363504b93128d10`
+on `feature/platform-team-lifecycle-v2`, Draft PR #4 targeting `development`.
+All 14 source/correction commits are committed and pushed; the cumulative code
+checkpoint is 131 paths, not the earlier 39/61/62/63-file local inventories.
+The definitive [acceptance/deferred-testing register](PR4_ACCEPTANCE_AND_DEFERRED_TESTS.md)
+and [120-case ledger](PR4_ACCEPTANCE_CASES.csv) supersede current-status claims below.
+The original dated checkpoints and failures remain historical evidence.
+
+Independent final review approved documentation finalization only: F1/F2/F3/N1/N2/N3
+are locally corrected and independently verified within their recorded scopes.
+Owner-reported employee staging journeys and independent state reads are separate
+from local tests. Staging has 16 genuine migrations; source migration 17 is unapplied.
+Eight employee bundles are deployed (12 functions total), while newer config/support
+corrections and D1 provisioner source drift still require authorized rollout.
+The permanent-deletion policy was last independently verified **false**.
+Git `development` remains `0dbde676ca57ed1599a295e221d274ef080cac41`;
+canonical staging Pages serves ad hoc `d3fc517aabb2b5d09ea939aa56830287b5d89bba`,
+not the latest feature corrections. Later correction SHAs were skipped by Cloudflare;
+production-branch auto-deploy remains enabled, so a future merge may deploy.
+No merge/deployment authorization or whole-Platform production GO follows.
+
+D23–D28: This remains a prerequisite/recovery reference, not an executable
+current release plan. The central register contains the authoritative **17-file
+source order**, staging 1–16 history,12-function inventory and controlled future17
+sequence. The twelve-file baseline table, fourteen-version staging commands,
+seven-function allowlist/deploy command,12→13/14 plan and source16-only status
+below are dated historical checkpoints. Do not execute those old commands as the
+next staging or production step. Fresh production needs its own verified empty
+project, complete current pending plan, managed prerequisites and approval; do not
+copy staging identities/data. Applied1–16 on inspected staging are immutable.
+
+**Managed policy permissions:** verified inherited owner authority OR loaded,
+registered `supautils.policy_grants` for the exact caller/table supports reviewed
+13/14 policy creation as original caller, failing on denial. Mandatory SET/inherit
+membership is obsolete as the only route. Never grant internal managed roles or
+change table ownership. Ordinary PG tests do not certify hosted supautils.
+
+Deploy only separately approved matching components, with individual JWT flags;
+never blanket `--no-verify-jwt`, prune inventory, or treat the old seven-slug list
+as complete. New17 schema and matching config/support/frontend must be coordinated
+under freeze/drain; preexisting ambiguous Shop writes must be resolved, not ignored.
+D1 remains open. Production identity/configuration/backup/Auth/Vault portability
+and every release gate require independent approval and validation.
+
+## Historical bootstrap procedure and dated addenda
+
+
 Prepared 2026-10-09 (Asia/Karachi). This is a reviewed-operator procedure, not
 permission to deploy. This task changed local source only. Do not execute the
 hosted steps until the owner approves the implementation and the exact target.
@@ -239,7 +301,7 @@ From the reviewed Platform checkout, inspect history and the exact dry-run list:
 ```powershell
 supabase migration list --db-url "$env:PLATFORM_DB_URL"
 supabase db push --db-url "$env:PLATFORM_DB_URL" --dry-run --skip-vault
-# Only after confirming the target, empty history and all twelve files:
+# Only after confirming the target, empty history and all fourteen files:
 supabase db push --db-url "$env:PLATFORM_DB_URL" --skip-vault
 supabase migration list --db-url "$env:PLATFORM_DB_URL"
 ```
@@ -247,10 +309,10 @@ supabase migration list --db-url "$env:PLATFORM_DB_URL"
 Use an explicit connection, without `supabase link`. Do not use reset, seed,
 include-seed, include-roles, include-all, migration repair, or a schema-only import
 as an alternative migration history. `--skip-vault` avoids automatic CLI secret
-synchronization; the actual Vault extension remains required. Check twelve
+synchronization; the actual Vault extension remains required. Check fourteen
 genuine applied versions, zero customers/operational records and empty config/
 binding after a fresh chain. Historical defaults existed only as schema defaults:
-no password/config row is inserted, and the final file removes the password
+no password/config row is inserted, and migration 20261008191709 removes the password
 default, clears an existing legacy password, and prohibits any future non-NULL
 value. No default password is ever used for Auth.
 
@@ -599,3 +661,69 @@ References: [PG17 GRANT/MAINTAIN](https://www.postgresql.org/docs/17/sql-grant.h
 Platform uses digest/random bytes/Vault, not the deprecated cipher path. The
 cached local engine is PG17.6; a production engine/version/provider-specific
 baseline is still subject to the target preflight, not assumed from local PASS.
+
+## 2026-10-13 — Current fourteen-version bootstrap and role read ceiling
+
+Earlier twelve-version results describe the protected original bootstrap. The
+current repository chain contains **fourteen** migrations: unchanged original
+12; unchanged, unapplied 20261010233446_platform_team_lifecycle_v2.sql; new
+20261012231226_platform_role_read_isolation.sql. Apply in filename order only
+through the pinned CLI; no seeds, staging imports or invented history records.
+Fresh initialization remains fail-closed until trusted configuration and verified
+real Auth UUID binding. No administrator UUID or default credential is introduced.
+
+Fresh Supabase preflight must additionally verify auth.sessions/AMR,
+storage.objects and realtime.messages, their RLS, existing managed owner-role
+permission, explicit-table postgres-owned supabase_realtime with no application
+schema/ALL-TABLE membership, and no unreviewed public/private views/functions.
+Complete actual provider migrations rather than fabricating those objects on a
+hosted target. Local policy fixtures are test infrastructure only. The current
+team/site/Auth/CAPTCHA/native mail/server-secret requirements still apply; no
+secret, JWT-signing, SMTP or service/Management value belongs in browser code.
+
+For existing staging, read-only history currently confirms twelve genuine rows
+through UUID bootstrap. Run team-lifecycle-preflight.sql and
+role-read-preflight.sql, with current backup and custom surface review, only after
+separate approval. The authorized future dry-run plan must list exactly 13 then
+14. Handlers, database and employee frontend must be coordinated in a freeze:
+legacy employee loaders fail under the new raw-read ceiling. Fourteen genuine
+rows plus validate-role-reads.sql, retained-data and actual signed-in role/API
+smoke are required after commit. Do not fabricate JWT user/session claims.
+
+Migration 14 has only transactional DDL/functions/policies/grants and DO blocks,
+no authored BEGIN/COMMIT or pipeline-incompatible statement. Real CLI tests force
+history INSERT failure after completed SQL and prove complete rollback/retry in
+fresh/staging fixtures. This is per-migration atomicity, not a whole-chain or Auth
+rollback guarantee: immutable historical authored commits and earlier successful
+migrations remain committed. Stop on schema/history mismatch; do not repair/delete
+history, blindly replay files or silently weaken privileges. Post-commit recovery
+requires an independently reviewed restore/reconciliation; old frontend rollback
+cannot restore employee functionality or reverse Auth mutations. Keep reviewed
+backups; provider/Vault portability and restore-rehearsal limits remain.
+
+Role/column/surface inventory: docs/PLATFORM_ROLE_READ_ISOLATION.md. Current tests,
+exact manifest and gates: docs/PRODUCTION_READINESS_REPORT.md. No hosted rollout
+is authorized by this documentation/source checkpoint; production stays NO-GO.
+
+## 2026-10-15 — Current source extension, through forward 16
+
+The current source chain now includes 13 (Team lifecycle), 14 (role read isolation),
+15 (retirement/re-onboarding/resend) and new 16
+`20261015003232_platform_team_invitation_review.sql` (safe failed-create clearance,
+minimal Master deletion-history evidence and own-identity suspension notice).
+Migrations 1–15 are immutable. These local additions do not prove hosted history.
+
+Before separately approved rollout, inspect the real target's genuine history and
+dry-run plan. Do not assume only 16 is pending, skip prerequisite files, fabricate
+history or replay already applied migrations. Use the existing credential-safe CLI
+procedure. Coordinate the reviewed pending migrations, matching Team bundles and
+frontend in a freeze. Run the read-only `bootstrap/validate-team-review.sql` after
+16 along with existing validators and genuine history/data checks.
+
+The exact component/asset inventory and limits are in
+[PLATFORM_UI_BRANDING_REVIEW.md](PLATFORM_UI_BRANDING_REVIEW.md). The new endpoint
+retains JWT verification and existing managed runtime/site-URL secrets; it sends no
+email and deletes no Auth user. The diagnostic checks refresh during/after its
+temporary Auth grant and cannot enable deletion. The deletion policy must remain
+FALSE until a separate reviewed owner decision. No hosted SQL, function/frontend
+deployment or PR merge is authorized by this source work.

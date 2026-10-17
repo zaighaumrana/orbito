@@ -1,6 +1,6 @@
 import { cancelDialogs } from './dialogs.js';
-import { pState, PCFG } from "./state.js";
-import { pb } from "./supabase.js";
+import { pState, PCFG, clearSensitiveState, refreshRoleState } from "./state.js";
+import { pb, loadPlatform } from "./supabase.js";
 
 export const money = (v, sym) =>
   `${sym || PCFG.currency_symbol || "Rs."} ${Number(v || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
@@ -26,14 +26,30 @@ export function moduleToggleRow(label, sub, enabled, action) {
     </div>`;
 }
 
-// Supabase Auth owns sessions. Backend role checks remain authoritative.
+let checking;
+// A successful canonical denial is different from a transient network failure.
 export async function validateSession(onInvalid) {
   if (!pState.authenticated) return;
-  const { data, error } = await pb.auth.getUser();
-  if (error || !data.user) {
-    cancelDialogs();
-    await pb.auth.signOut(); pState.authenticated = false; pState.page = 'login';
-    // The caller already imports render. Avoid a helpers → render → pages cycle.
-    onInvalid();
-  }
+  if(checking)return checking;
+  const generation=pState.authorityGeneration;
+  checking=(async()=>{
+    let result;
+    try{result=await pb.rpc('platform_session_status');}catch{return;}
+    if(generation!==pState.authorityGeneration)return;
+    if(!result.error && result.data?.authorized===true && result.data.auth_user_id===pState.currentUser.auth_user_id
+      && result.data.role && result.data.role!==pState.currentUser.role){
+      // Clear the old role's records as soon as the canonical change is detected,
+      // even if the subsequent verified-user/data refresh cannot be reached.
+      if(!['master_admin','portfolio_manager','billing_person'].includes(result.data.role))return;
+      cancelDialogs();refreshRoleState({...pState.currentUser,role:result.data.role});const roleGeneration=pState.authorityGeneration;onInvalid();
+      try{await loadPlatform();}catch{/* Explicit read-error state blocks financial actions. */}
+      if(roleGeneration===pState.authorityGeneration)onInvalid();return;
+    }
+    const invalidJwt=result.error && (result.error.status===401 || ['PGRST301','PGRST303'].includes(result.error.code));
+    const identityDrift=!result.error && result.data?.authorized===true && result.data.auth_user_id!==pState.currentUser.auth_user_id;
+    if(!invalidJwt && !identityDrift && (result.error || result.data?.authorized!==false))return;
+    cancelDialogs();pState.setupRouter?.clear();clearSensitiveState();pState.page='login';onInvalid();
+    try{await pb.auth.signOut({scope:'local'});}catch{/* Revoked state stays cleared even offline. */}
+  })().finally(()=>checking=null);
+  return checking;
 }

@@ -6,6 +6,7 @@ select pg_temp.assert((select identities=(select jsonb_agg(to_jsonb(u) order by 
  and exists(select 1 from platform_private.master_identity where auth_user_id='92000000-0000-4000-8000-000000000001')
  from platform_private.identity_upgrade_before),'hardening preserves Auth users, existing alias and master UUID');
 select set_config('request.jwt.claim.sub','92000000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claims','{"sub":"92000000-0000-4000-8000-000000000001","session_id":"92000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
 set local role authenticated;
 select pg_temp.assert(public.platform_operator_identity()->>'role'='master_admin'
  and public.platform_operator_identity()->>'auth_user_id'='92000000-0000-4000-8000-000000000001'
@@ -27,6 +28,7 @@ select pg_temp.assert(public.platform_operator_identity()->>'role'='master_admin
  and public.platform_operator_identity()->>'email'='changed-master-email@example.test','existing UUID remains master after an authorized Auth email change');
 reset role;
 select set_config('request.jwt.claim.sub','92000000-0000-4000-8000-000000000002',true);
+select set_config('request.jwt.claims','{"sub":"92000000-0000-4000-8000-000000000002","session_id":"92000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
 set local role authenticated;
 do $$ declare denied boolean:=false;begin
  begin perform public.platform_operator_identity();exception when insufficient_privilege then denied:=true;end;
@@ -35,6 +37,7 @@ do $$ declare denied boolean:=false;begin
 end $$;
 reset role;
 select set_config('request.jwt.claim.sub','92000000-0000-4000-8000-000000000003',true);
+select set_config('request.jwt.claims','{"sub":"92000000-0000-4000-8000-000000000003","session_id":"92000000-0000-4000-8000-000000000003","role":"authenticated"}',true);
 set local role authenticated;
 do $$ declare denied boolean:=false;begin
  begin perform public.platform_operator_identity();exception when insufficient_privilege then denied:=true;end;

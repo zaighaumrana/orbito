@@ -5,6 +5,7 @@ select platform_private.initialize_config('Fixture master','Disposable currency 
 select platform_private.bind_master('00000000-0000-4000-8000-000000009201',null,'Disposable currency fixture');
 insert into public.clients(id,name,supabase_url,supabase_anon,event_rate) values(9201,'USD fixture','https://example.invalid','public',5),(9202,'EUR fixture','https://example.invalid','public',7);
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000009201',true);
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000009201","session_id":"00000000-0000-4000-8000-000000009201","role":"authenticated"}',true);
 set local role authenticated;
 select public.platform_set_currency(9201,'USD');
 select public.platform_set_currency(9202,'EUR');

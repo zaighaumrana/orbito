@@ -31,6 +31,7 @@ insert into auth.users(id,email,email_confirmed_at) values('30000000-0000-4000-8
 select platform_private.initialize_config('Fixture master','Disposable onboarding fixture');
 select platform_private.bind_master('30000000-0000-4000-8000-000000000001',null,'Disposable onboarding fixture');
 select set_config('request.jwt.claim.sub','30000000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claims','{"sub":"30000000-0000-4000-8000-000000000001","session_id":"30000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
 do $$
 declare c integer; r jsonb; first_payload jsonb; blocked boolean; call_key text; source_key text;
 begin

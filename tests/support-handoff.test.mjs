@@ -6,19 +6,22 @@ import {stripTypeScriptTypes} from 'node:module';
 import {createHash,webcrypto} from 'node:crypto';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const sha=s=>createHash('sha256').update(s).digest('hex');
-const actor='99000000-0000-4000-8000-000000000001',source='99000000-0000-4000-8000-000000000003',token='a'.repeat(64),secret='test-source-credential-'.repeat(3);
-function fixture({role='master_admin',identityId=actor,denied=false}={}){
+const actor='99000000-0000-4000-8000-000000000001',source='99000000-0000-4000-8000-000000000003',session='99000000-0000-4000-8000-000000000005',token='a'.repeat(64),secret='test-source-credential-'.repeat(3);
+const destination={client_id:42,origin:'https://shop.example.test',project_ref:'dexzxxqkbwnpetbsuxxv',client_binding:'client-42',source_id:source,revision:session};
+function fixture({role='master_admin',identityId=actor,sessionId=session,denied=false}={}){
  let handler;const calls=[],logs=[];
- const admin={rpc:async(name,args)=>{calls.push({name,args});return denied?{error:{message:'private database detail'}}:{data:name==='platform_support_issue'?{shop_url:'https://shop.example.test',expires_at:'2026-10-04T00:01:30Z'}:{ok:true,contract:'orbito-support-handoff-v1',platform_user_id:actor,platform_email:'master@example.test',client_id:42,project_ref:'dexzxxqkbwnpetbsuxxv',client_binding:'client-42',source_id:source,private_extra:'privileged-test-secret'}};}};
- const caller={auth:{getUser:async()=>({data:{user:{id:actor}}})},rpc:async name=>{assert.equal(name,'platform_operator_identity');return {data:{role,auth_user_id:identityId,email:'master@example.test'}};}};
+ const admin={rpc:async(name,args)=>{calls.push({name,args});return denied?{error:{message:'private database detail'}}:{data:name==='platform_support_issue'?{destination,shop_url:'https://shop.example.test',expires_at:'2026-10-04T00:01:30Z'}:{ok:true,contract:'orbito-support-handoff-v1',platform_user_id:actor,platform_email:'master@example.test',client_id:42,project_ref:'dexzxxqkbwnpetbsuxxv',client_binding:'client-42',source_id:source,private_extra:'privileged-test-secret'}};}};
+ const caller={auth:{getUser:async()=>({data:{user:{id:actor}}})},rpc:async(name,args)=>{
+  assert.equal(name,'platform_operator_identity','browser RPC client cannot supply server-only issuance parameters');return {data:{role,auth_user_id:identityId,email:'master@example.test',session_id:sessionId}};
+ }};
  const env={SUPABASE_URL:'https://ukbhyerxshteyetwomqy.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'service-test',SUPABASE_ANON_KEY:'sb_publishable_test'};
- const ctx=vm.createContext({Request,Response,TextEncoder,TextDecoder,Uint8Array,crypto:webcrypto,Deno:{env:{get:k=>env[k]},serve:fn=>handler=fn},console:{log:(...a)=>logs.push(a),error:(...a)=>logs.push(a)},createClient:(_url,key)=>key==='service-test'?admin:caller});
+ const ctx=vm.createContext({URL,Request,Response,TextEncoder,TextDecoder,Uint8Array,crypto:webcrypto,Deno:{env:{get:k=>env[k]},serve:fn=>handler=fn},console:{log:(...a)=>logs.push(a),error:(...a)=>logs.push(a)},createClient:(_url,key)=>key==='service-test'?admin:caller});
  vm.runInContext(stripTypeScriptTypes(read('supabase/functions/platform-support/index.ts').replace(/^import .*$/gm,'')),ctx);
  return {calls,logs,send:async body=>{const r=await handler(new Request('https://platform.test',{method:'POST',headers:{Authorization:`Bearer ${secret}`},body:JSON.stringify(body)}));return {status:r.status,headers:r.headers,body:await r.json()};}};
 }
 test('authenticated canonical master issues a 256-bit opaque grant; server RPC receives only SHA256',async()=>{
  const f=fixture(),r=await f.send({action:'issue',client_id:42});assert.equal(r.status,200);assert.match(r.body.token,/^[a-f0-9]{64}$/);
- assert.equal(f.calls[0].args.p_actor,actor);assert.equal(f.calls[0].args.p_client,42);assert.equal(f.calls[0].args.p_token_hash,sha(r.body.token));
+ assert.equal(f.calls[0].args.p_session,session);assert.equal(f.calls[0].args.p_actor,actor);assert.equal(f.calls[0].args.p_client,42);assert.equal(f.calls[0].args.p_token_hash,sha(r.body.token));
  assert.doesNotMatch(JSON.stringify(f.calls),new RegExp(r.body.token));assert.equal(r.headers.get('cache-control'),'no-store');assert.deepEqual(f.logs,[]);
  const second=await f.send({action:'issue',client_id:42});assert.notEqual(second.body.token,r.body.token);
 });
@@ -31,7 +34,7 @@ test('support button is master-only for Active/Suspended managed pairing and abs
  assert.doesNotMatch(ctx.renderClientSetup(client,detail,false),/data-p-action="open-shop-support"/);
 });
 test('master UUID/role and server target restrictions fail closed, never accepting browser identity or URL',async()=>{
- for(const options of [{role:'portfolio_manager'},{identityId:source}]){const f=fixture(options),r=await f.send({action:'issue',client_id:42});assert.equal(r.status,403);assert.equal(f.calls.length,0);}
+ for(const options of [{role:'portfolio_manager'},{role:'billing_person'},{identityId:source},{sessionId:null},{sessionId:'malformed'}]){const f=fixture(options),r=await f.send({action:'issue',client_id:42});assert.equal(r.status,403);assert.equal(f.calls.length,0);}
  const f=fixture();assert.equal((await f.send({action:'issue',client_id:42,shop_url:'https://attacker.test'})).status,400);assert.equal(f.calls.length,0);
  assert.equal((await fixture({denied:true}).send({action:'issue',client_id:42})).status,409);
 });
@@ -44,9 +47,19 @@ test('server exchange hashes source credential and grant, returns only verified 
 });
 test('Platform opens registered Shop with fragment only and closes tab if issuance fails',async()=>{
  let url,closed=0,invoked=0;const tab={opener:{},location:{replace:v=>url=v},close:()=>closed++};
- const ctx=vm.createContext({URL,window:{open:()=>tab},pb:{functions:{invoke:async(name,{body})=>{invoked++;assert.equal(name,'platform-support');assert.equal(body.client_id,42);assert.equal(tab.opener,null);return {data:{token,shop_url:'https://shop.example.test'}};}}}});
+ const ctx=vm.createContext({URL,pState:{authenticated:true,currentUser:{auth_user_id:actor,session_id:source,role:'master_admin'},selectedClient:{id:42}},window:{open:()=>tab},pb:{rpc:async()=>({data:destination}),functions:{invoke:async(name,{body})=>{invoked++;assert.equal(name,'platform-support');assert.equal(body.client_id,42);assert.equal(tab.opener,null);return {data:{token,destination,shop_url:'https://shop.example.test'}};}}}});
+ vm.runInContext(read('src/async-context.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ctx);
  vm.runInContext(read('src/support-handoff.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ctx);await ctx.openShopSupport({id:42});
  assert.equal(url,'https://shop.example.test/#support='+token);assert.equal(new URL(url).search,'');assert.equal(invoked,1);
  ctx.pb.functions.invoke=async()=>({error:{}});await assert.rejects(()=>ctx.openShopSupport({id:42}));assert.equal(closed,1);
  assert.doesNotMatch(read('src/support-handoff.js'),/localStorage|sessionStorage|console\./);
+});
+
+test('handoff rejects foreign origin, changed approval and cross-client metadata before navigation',async()=>{
+ for(const altered of [{shop_url:'https://attacker.example.test'},{destination:{...destination,revision:actor}},{destination:{...destination,client_id:43}}]){
+  let redirected=0,closed=0;const tab={location:{replace(){redirected++;}},close(){closed++;}};
+  const ctx=vm.createContext({URL,pState:{authenticated:true,currentUser:{auth_user_id:actor,session_id:source,role:'master_admin'},selectedClient:{id:42}},window:{open:()=>tab},pb:{rpc:async()=>({data:destination}),functions:{invoke:async()=>({data:{token,destination,shop_url:destination.origin,...altered}})}}});
+  for(const file of ['src/async-context.js','src/support-handoff.js'])vm.runInContext(read(file).replace(/^import .*$/gm,'').replace(/^export /gm,''),ctx);
+  await assert.rejects(()=>ctx.openShopSupport({id:42}),/pairing changed/);assert.equal(redirected,0);assert.equal(closed,1);
+ }
 });

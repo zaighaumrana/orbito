@@ -7,7 +7,7 @@ const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 function fixture() {
  const listeners=new Map(),timers=new Map();let nextTimer=0;const doc={activeElement:null};
  class Node {
-  constructor(tag){this.tagName=tag;this.children=[];this.attributes={};this.handlers={};this.style={};this.inert=false;this.disabled=false;this.value='';}
+  constructor(tag){this.tagName=tag;this.children=[];this.attributes={};this.handlers={};this.style={};this.dataset={};this.inert=false;this.disabled=false;this.value='';}
   setAttribute(k,v){this.attributes[k]=v;}getAttribute(k){return this.attributes[k];}
   append(...nodes){for(const n of nodes){n.parent=this;this.children.push(n);}}
   remove(){if(this.parent)this.parent.children=this.parent.children.filter(n=>n!==this);this.parent=null;}
@@ -28,7 +28,7 @@ function fixture() {
  doc.dispatch=(type,event={})=>{event.preventDefault ||= ()=>event.prevented=true;event.stopPropagation ||= ()=>{};for(const fn of [...(listeners.get(type) || [])])fn(event);return event;};
  const app=new Node('main');app.id='platform-app';const opener=new Node('button');app.append(opener);doc.body.append(app);opener.focus();
  const ctx={document:doc,setTimeout:fn=>{timers.set(++nextTimer,fn);return nextTimer;},clearTimeout:id=>timers.delete(id)};
- vm.createContext(ctx);vm.runInContext(read('src/dialogs.js').replace(/^export /gm,''),ctx);const api=vm.runInContext('({notify,confirmDialog,inputDialog,showMessage,cancelDialogs,safeMessage})',ctx);
+ vm.createContext(ctx);vm.runInContext(read('src/dialogs.js').replace(/^export /gm,''),ctx);const api=vm.runInContext('({notify,confirmDialog,inputDialog,deleteUserDialog,showMessage,cancelDialogs,safeMessage})',ctx);
  const panel=()=>doc.body.all().find(n=>n.getAttribute('aria-modal')==='true');
  return {doc,api,app,opener,timers,listeners,panel,buttons:()=>panel().querySelectorAll('button'),form:()=>panel().querySelectorAll('form')[0]};
 }
@@ -45,6 +45,17 @@ test('Cancel, backdrop dismissal, queued logout cancellation and repeated Enter 
  const first=f.api.confirmDialog({}),queued=f.api.inputDialog({});const form=f.form();form.emit('submit');form.emit('submit');assert.equal(await first,true);
  f.api.cancelDialogs();assert.equal(await queued,null);assert.equal(f.panel(),undefined);assert.equal(f.app.inert,false);
  const active=f.api.confirmDialog({}),pending=f.api.confirmDialog({});f.api.cancelDialogs();assert.equal(await active,false);assert.equal(await pending,false);
+});
+test('permanent deletion preserves inputs on backdrop/inside clicks and cleans verification on explicit cancel or one valid submit',async()=>{
+ const f=fixture();let cleanups=0,token='fresh',resolutions=0;
+ const open=()=>f.api.deleteUserDialog({accountEmail:'master@example.test',captchaToken:()=>token,onClose:()=>cleanups++});
+ let p=open(),panel=f.panel(),inputs=panel.querySelectorAll('input');const password=inputs.find(n=>n.type==='password');password.value='Secret fixture';
+ panel.parent.emit('click');panel.emit('click');assert.equal(f.panel(),panel);assert.equal(password.value,'Secret fixture');assert.equal(cleanups,0);
+ f.buttons().find(b=>b.textContent==='Cancel').emit('click');assert.equal(await p,null);assert.equal(password.value,'');assert.equal(cleanups,1);assert.equal(f.doc.activeElement,f.opener);
+ p=open().then(v=>{resolutions++;return v;});panel=f.panel();inputs=panel.querySelectorAll('input');inputs.find(n=>n.type==='password').value='Fixture1!';inputs.find(n=>n.type==='checkbox').checked=true;
+ const submit=f.buttons().find(b=>b.type==='submit');token='';submit.disabled=false;f.form().emit('submit');assert.ok(f.panel());token='fresh';submit.disabled=true;f.form().emit('submit');assert.ok(f.panel());
+ submit.disabled=false;const form=f.form();form.emit('submit');form.emit('submit');assert.equal((await p).captchaToken,'fresh');assert.equal(resolutions,1);assert.equal(cleanups,2);
+ p=open();f.doc.dispatch('keydown',{key:'Escape'});assert.equal(await p,null);assert.equal(cleanups,3);
 });
 test('input validation is labelled, text-only, cancel-safe and preserves password spaces',async()=>{
  const f=fixture();let result=f.api.inputDialog({label:'Reason',validate:value=>value.length<5?'Enter a longer reason.':''});
@@ -67,6 +78,12 @@ test('toast variants, safe text, independent timers, persistent errors and manua
 });
 test('styles use both theme variables, small-screen modal rules and reduced-motion override',()=>{
  const css=read('src/styles.css');assert.match(css,/\[data-theme="dark"\]/);assert.match(css,/\.platform-toast[\s\S]*background: var\(--surface\); color: var\(--text\)/);assert.match(css,/width: min\(390px, calc\(100vw - 32px\)\)/);assert.match(css,/prefers-reduced-motion: reduce/);assert.match(css,/\.modal-actions button \{ width: 100%/);
+});
+
+test('authority cancellation removes old notifications while routine rerender preserves confirmed outcomes',()=>{
+ const f=fixture();f.api.notify.success('Employee role updated.',{duration:0});
+ f.app.textContent='Refreshed team';assert.match(f.doc.getElementById('platform-notifications').textContent,/role updated/);
+ f.api.cancelDialogs();assert.equal(f.doc.getElementById('platform-notifications'),undefined);assert.equal(f.timers.size,0);
 });
 test('fresh Turnstile expiry/reset and busy state work in both themes without retaining old challenges',async()=>{
  for(const theme of ['dark','light']){

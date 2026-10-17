@@ -5,7 +5,7 @@ const ui={URL,esc};vm.createContext(ui);vm.runInContext(read('src/client-setup.j
 const client={id:50,name:'Example Shop',owner_name:'Owner',owner_email:'owner@example.test',onboarding_version:2,pairing_mode:'byo',plan:'Pro',shop_url:'https://shop.example.test',supabase_url:'https://abcdefghijklmnopqrst.supabase.co',technician_module_enabled:true,live_tracking_enabled:true};
 const keys=['migrations','database_privileges','rpc_privileges','sequence_privileges','private_config','storage','owner_reservation','bridge_mode','config_projection','database_reachable','bridge_configuration','edge_functions','runtime_configuration','authentication'];
 const health={checks:Object.fromEntries(keys.map(k=>[k,true])),contract:'orbito-onboarding-runtime-v1',owner_account:'missing',infrastructure:'ready',owner_setup:'owner_setup_pending',onboarding:'onboarding_pending'};
-const detail=h=>({provisioning:{connection:{health:h,bridge_call_configured:true,client_binding:'orbito-client-50'}},operations:{}});
+const detail=h=>({clientId:50,requestGeneration:0,config:{id:50},provisioning:{connection:{health:h,bridge_call_configured:true,client_binding:'orbito-client-50'}},operations:{}});
 test('Client Detail has one dominant setup action, six stages and collapsed diagnostics',()=>{
  const html=ui.renderClientSetup(client,detail(health),true);assert.equal((html.match(/class="primary-button"/g)||[]).length,1);
  for(const label of ['Client Created','Shop Connected','Runtime Verified','Owner Reserved','Owner Activated','Shop Setup Complete','Check Owner Account'])assert.match(html,new RegExp(label));
@@ -52,13 +52,14 @@ test('operator identity is verified by server UUID/role independently of optiona
  assert.doesNotMatch(read('src/main.js'),/VITE_PLATFORM_AUTH_EMAIL/);assert.match(read('src/events.js'),/const identity = await loadOperatorIdentity/);
 });
 // Exercise the complete detail renderer as well as the isolated setup component.
-Object.assign(ui,{pState:{currentUser:{role:'master_admin'},data:{invoices:[]}},computeClientBilling:()=>({billCount:0,inventoryCount:0,grandTotal:0}),moduleToggleRow:()=>''});
+Object.assign(ui,{pState:{authenticated:true,clientRequestGeneration:0,currentUser:{role:'master_admin'},data:{invoices:[]}},computeClientBilling:()=>({billCount:0,inventoryCount:0,grandTotal:0}),moduleToggleRow:()=>''});
+vm.runInContext(read('src/async-context.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ui);
 vm.runInContext(read('src/lifecycle.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ui);
 vm.runInContext(read('src/provisioning.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ui);
 vm.runInContext(read('src/pages/clients.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ui);
 test('full detail header renders copyable client ID and safe Shop link; legacy Client 1 stays outside V2',()=>{
  ui.pState.selectedClient=client;ui.pState.clientData=detail(health);const html=ui.pageClientDetail();assert.match(html,/Client #50/);assert.match(html,/href="https:\/\/shop.example.test\/"/);assert.doesNotMatch(html,/\/\^https:/);
- ui.pState.selectedClient={...client,id:1,onboarding_version:0};ui.pState.clientData={...detail({connection:'Connected'}),operations:{source:{enabled:true,usage_from_sequence:37},thermal:{}}};
+ ui.pState.selectedClient={...client,id:1,onboarding_version:0};ui.pState.clientData={...detail({connection:'Connected'}),clientId:1,config:{id:1},operations:{source:{enabled:true,usage_from_sequence:37},thermal:{}}};
  const legacy=ui.pageClientDetail();assert.match(legacy,/Existing Shop/);assert.doesNotMatch(legacy,/Client Created|bootstrap-shop|Complete BYO Setup|value="pair-shop"/);assert.match(legacy,/<details class="setup-advanced"><summary>Advanced/);
 });
 

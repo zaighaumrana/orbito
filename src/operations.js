@@ -3,16 +3,22 @@ export const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'
 const flights = new Map();
 // Config intent lives on the server. localStorage remains only for the separate
 // payment protocol, where its existing retry semantics must remain unchanged.
-export function serverConfigOperation(clientId,payload,readStatus,send){
+export function serverConfigOperation(clientId,payload,readStatus,send,current=()=>true){
   const key=`server-config:${clientId}`;
-  if(flights.has(key))return flights.get(key);
+  const changes={...payload},signature=JSON.stringify(changes,Object.keys(changes).sort());
+  const active=flights.get(key);
+  if(active){
+    if(active.signature===signature && active.current() && current())return active.promise;
+    return Promise.reject(Error('Another configuration request is in progress. Wait for completion, then refresh server status before retrying.'));
+  }
+  const operation={signature,current};
   const work=(async()=>{
     const status=await readStatus();
     localStorage.removeItem(`orbito-operation:config:${clientId}`);
     if(status.config_jobs?.length)throw Error('A server operation is unresolved. Open Client Detail and recover its recorded request.');
-    return send(crypto.randomUUID(),payload);
-  })().finally(()=>flights.delete(key));
-  flights.set(key,work);return work;
+    return send(crypto.randomUUID(),changes);
+  })().finally(()=>{if(flights.get(key)===operation)flights.delete(key);});
+  operation.promise=work;flights.set(key,operation);return work;
 }
 export function retryOperation(key, payload, send) {
   if (flights.has(key)) return flights.get(key);

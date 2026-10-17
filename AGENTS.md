@@ -6,7 +6,13 @@ authorization; preserve these safeguards unless an explicit later decision chang
 ## 1. Start of task
 
 - Confirm the repository, current branch and `git status` before meaningful work.
-- Current branch: `feature/platform-overhaul-v1`; integration base: `developmentv2`.
+- Verify live branch/PR on every task. Current PR #4 source (2026-10-17):
+  `feature/platform-team-lifecycle-v2`; integration target: `development`.
+  Older overhaul/developmentv2 references describe their historical checkpoints.
+- Current acceptance and release gates: `docs/PR4_ACCEPTANCE_AND_DEFERRED_TESTS.md`.
+  Documentation approval alone is not merge approval. The later owner-authorized
+  controlled merge must satisfy `docs/PR4_HOSTED_ACCEPTANCE_2026-10-17.md`; keep
+  Draft until its gates are met. After verified merge use `development`.
 - `main` is legacy, not the current integration target.
 - Do not merge the overhaul branch until the hosted smoke gate is complete.
 - Do not create branches, commit, push, merge or deploy unless the user requests it.

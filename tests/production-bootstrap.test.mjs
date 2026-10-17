@@ -9,7 +9,8 @@ const container=process.env.ORBITO_BOOTSTRAP_TEST_CONTAINER;
 assert.match(container || '',/^orbito-bootstrap-[a-z0-9-]+$/,'Set ORBITO_BOOTSTRAP_TEST_CONTAINER to the isolated test container');
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const migration='20261008191709_production_bootstrap_hardening.sql';
-const files=readdirSync(new URL('../supabase/migrations/',import.meta.url)).filter(f=>f.endsWith('.sql')).sort();
+// This suite proves the historical bootstrap contract independently of later features.
+const files=readdirSync(new URL('../supabase/migrations/',import.meta.url)).filter(f=>f.endsWith('.sql') && f<=migration).sort();
 function sql(query,database='postgres',variables=[],user='postgres'){
  const result=spawnSync('docker',['exec','-i',container,'psql','-X','-q','-A','-t','-v','ON_ERROR_STOP=1','-U',user,'-d',database,...variables,'-f','-'],{input:query,encoding:'utf8',windowsHide:true,maxBuffer:8*1024*1024});
  if(result.error || result.status!==0)throw Error(result.error?.message || result.stderr.trim());

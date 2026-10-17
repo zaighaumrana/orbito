@@ -8,6 +8,7 @@ insert into auth.users(id,email,email_confirmed_at) values('31000000-0000-4000-8
 select platform_private.initialize_config('Fixture master','Disposable owner activation fixture');
 select platform_private.bind_master('31000000-0000-4000-8000-000000000001',null,'Disposable owner activation fixture');
 select set_config('request.jwt.claim.sub','31000000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claims','{"sub":"31000000-0000-4000-8000-000000000001","session_id":"31000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
 do $$
 declare c integer; blocked boolean; r jsonb; old_health jsonb; n integer;
 begin

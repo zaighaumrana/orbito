@@ -33,14 +33,19 @@ async function verifySupportHandoff(db){
  await db.exec(read('..','tests/support-handoff.sql'));
  const actor='99000000-0000-4000-8000-000000000001',manager='99000000-0000-4000-8000-000000000002';
  const row=(await db.query(`select s.project_ref,s.client_binding,b.source_id,sc.secret_sha256 from platform_private.shop_credentials s join public.bridge_sources b using(client_id) join platform_private.source_credentials sc using(source_id) where s.client_id=9900`)).rows[0];
- const issue=async(hash,user=actor)=>(await db.query('select public.platform_support_issue(9900,$1,$2,$3) as result',[user,hash,'ukbhyerxshteyetwomqy'])).rows[0].result;
+ const issue=async(hash,user=actor)=>{
+  await db.exec(`reset role;set request.jwt.claim.sub='';set request.jwt.claims='{"role":"service_role","iss":"supabase"}';set role service_role`);
+  try{return (await db.query('select public.platform_support_issue(9900,$1,$2,$3,$4) as result',[user,hash,'ukbhyerxshteyetwomqy',actor])).rows[0].result;}
+  finally{try{await db.exec('reset role');}catch{}}
+ };
  const consume=async(hash,overrides={})=>{
   const values={hash,secret:row.secret_sha256,client:9900,project:row.project_ref,binding:row.client_binding,source:row.source_id,...overrides};
-  return (await db.query('select public.platform_support_consume($1,$2,$3,$4,$5,$6) as result',Object.values(values))).rows[0].result;
+  await db.exec(`reset role;set request.jwt.claim.sub='';set request.jwt.claims='{"role":"service_role","iss":"supabase"}';set role service_role`);
+  try{return (await db.query('select public.platform_support_consume($1,$2,$3,$4,$5,$6) as result',Object.values(values))).rows[0].result;}
+  finally{await db.exec('reset role');}
  };
  const snapshot=()=>db.query(`select to_jsonb(c) as client,(select to_jsonb(s) from platform_private.shop_credentials s where client_id=9900) as credentials,(select jsonb_agg(to_jsonb(j)) from platform_private.provision_jobs j where client_id=9900) as jobs from public.clients c where id=9900`);
  const before=(await snapshot()).rows;
- await db.exec('set role service_role');
  assert.equal((await issue('a'.repeat(64))).shop_url,'https://shop.example.test','Suspended grants allowed');
  await assert.rejects(()=>issue('b'.repeat(64),manager),/Verified master/);
  await db.exec('reset role');
@@ -56,7 +61,8 @@ async function verifySupportHandoff(db){
  await issue('c'.repeat(64));await db.exec("update auth.users set email=null where id='99000000-0000-4000-8000-000000000001'");
  assert.equal((await consume('c'.repeat(64))).ok,false,'canonical actor rechecked at consumption');
  await db.exec("update auth.users set email='canonical-master@example.test' where id='99000000-0000-4000-8000-000000000001'");
- await assert.rejects(()=>db.query('select public.platform_support_issue(9901,$1,$2,$3)',[actor,'f'.repeat(64),'ukbhyerxshteyetwomqy']),/Eligible paired/);
+ await db.exec(`set request.jwt.claim.sub='${actor}';set request.jwt.claims='{"sub":"${actor}","session_id":"${actor}"}'`);
+ await assert.rejects(()=>db.query('select public.platform_support_issue(9901,$1,$2,$3,$4)',[actor,'f'.repeat(64),'ukbhyerxshteyetwomqy',actor]),/Eligible paired/);
  for(const state of ['Archived','destroyed','decommissioned']){
   await db.exec('begin');
   await issue('d'.repeat(64));
@@ -72,7 +78,7 @@ async function verifySupportHandoff(db){
  await db.exec("update public.clients set lifecycle_state='Suspended' where id=9900");
  assert.deepEqual((await snapshot()).rows,before,'support does not change lifecycle/billing/pairing/provisioning');
  for(const role of ['anon','authenticated']){
-  const acl=(await db.query(`select has_table_privilege($1,'platform_private.support_grants','SELECT') as table_read,has_function_privilege($1,'public.platform_support_issue(integer,uuid,text,text)','EXECUTE') as issue,has_function_privilege($1,'public.platform_support_consume(text,text,integer,text,text,uuid)','EXECUTE') as consume`,[role])).rows[0];
+  const acl=(await db.query(`select has_table_privilege($1,'platform_private.support_grants','SELECT') as table_read,has_function_privilege($1,'public.platform_support_issue(integer,uuid,text,text,uuid)','EXECUTE') as issue,has_function_privilege($1,'public.platform_support_consume(text,text,integer,text,text,uuid)','EXECUTE') as consume`,[role])).rows[0];
   assert.deepEqual(acl,{table_read:false,issue:false,consume:false});
  }
  const audits=(await db.query("select action,detail from public.operator_audit where action like 'support_grant_%' and client_id=9900")).rows;

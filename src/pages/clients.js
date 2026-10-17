@@ -1,3 +1,4 @@
+import { clientDataMatches } from '../async-context.js';
 import { copyValue } from '../client-setup.js';
 import { lifecycleState, canContactShop, visibleClients, lifecyclePanel } from '../lifecycle.js';
 import { provisioningPanel } from '../provisioning.js';
@@ -13,9 +14,9 @@ export function pageClients() {
     ${tit("All Clients", "Manage every client on the platform.", `
       <button class="primary-button" data-p-modal="add-client">+ Add Client</button>`)}
     <div class="toolbar">
-      ${[['current','Current clients'],['historical','Historical / Archived'],['all','All clients']].map(([view,label])=>`<button class="secondary-button" data-p-action="client-view" data-view="${view}" aria-pressed="${pState.clientView===view}">${label}</button>`).join('')}
-      <input class="search" data-p-filter placeholder="Search clients…"
-        value="${esc(pState.filter)}" style="min-width:260px">
+      ${(pState.currentUser.role==='master_admin'?[['current','Current clients'],['historical','Historical / Archived'],['all','All clients']]:[['current','Current clients']]).map(([view,label])=>`<button class="secondary-button" data-p-action="client-view" data-view="${view}" aria-pressed="${pState.clientView===view}">${label}</button>`).join('')}
+      <label class="field"><span>Search clients</span><input class="search" data-p-filter placeholder="Name or industry"
+        value="${esc(pState.filter)}" style="min-width:260px"></label>
     </div>
     <div class="grid tenant-grid">
       ${clients.length ? clients.map(c => {
@@ -79,20 +80,21 @@ export function pageClientDetail() {
   } catch {}
   const head = `<div class="page-title client-detail-header"><div><div class="setup-heading"><h1>${esc(c.name)}</h1><span class="badge ${lifecycleState(c)==='Active'?'good':'warn'}">${esc(lifecycleState(c))}</span><span class="badge">${esc(c.plan)}</span></div><p>Client #${esc(c.id)} ${copyValue(c.id,'Copy ID')} · ${esc(c.industry||'Business')} · ${c.pairing_mode==='byo'?'Client-owned Supabase':'Managed Supabase'}</p></div><div class="setup-secondary">${canContactShop(c)?openShop+'<button class="secondary-button" data-p-modal="edit-client">Edit Client</button>':''}<button class="secondary-button" data-p-page="clients">← Back</button></div></div>` + (canContactShop(c) ? '' : renderRetainedClientMetadata(c));
 
-  if (cd._error) return head + `<div class="card">Operations unavailable: ${esc(cd._error)}</div>`;
-  if (!o) return head + '<div class="card">Loading operations…</div>';
+  if (cd._error) return head + `<div class="card">Operations unavailable: ${esc(cd._error)} <button class="secondary-button" data-p-action="refresh-operations">Refresh status</button></div>`;
+  if (!o || !clientDataMatches(c)) return head + '<div class="card">Loading operations…</div>';
   const billing = computeClientBilling(c.id), thermal = o.thermal || {}, source = o.source;
   const metres = value => (Number(value || 0) / 1000).toLocaleString(undefined, { maximumFractionDigits: 3 });
   const flag = (label, field, action) => moduleToggleRow(label,
     field === 'paper_resupply_enabled' ? 'Owner request capability only; thermal collection always continues' : (cd.verifiedAt || c.config_synced_at) ? 'Last verified Shop configuration' : 'Not yet verified with Shop', cd.config?.[field] === true, action);
-  const canConfig = canContactShop(c) && ['master_admin','portfolio_manager'].includes(pState.currentUser.role);
+  const canConfig = clientDataMatches(c) && canContactShop(c) && ['master_admin','portfolio_manager'].includes(pState.currentUser.role);
   const canBill = ['master_admin','billing_person'].includes(pState.currentUser.role);
   const ready = c.billing_policy === 'usage-v1' && c.currency && !c.accounting_review_required;
   const projection = o.projection?.payload;
   const safeAmount = value => value == null ? 'Unavailable' : esc(`${c.currency || c.currency_symbol} ${Number(value).toLocaleString()}`);
-  return head + lifecyclePanel(c,cd,pState.currentUser.role==='master_admin') + (canContactShop(c)?provisioningPanel(c, cd):'') + `
+  const master=pState.currentUser.role==='master_admin';
+  return head + (master?lifecyclePanel(c,cd,true)+(canContactShop(c)?provisioningPanel(c,cd):''):lifecycleState(c)==='Provisioning'?'<p class="card">A master administrator must complete secure Shop setup before remote configuration is available.</p>':'') + `
   <div class="grid two-col">
-    <div class="card"><h2>Modules / Entitlements</h2><details><summary>Manage modules</summary>
+    <div class="card"><h2>Modules / Entitlements</h2>${cd.overhaul?.entitlement_intent?.pending?`<p role="status">The saved plan or addon configuration is not yet verified with the Shop. Resolve any recorded operation first.</p>${canConfig?'<button class="secondary-button" data-p-action="reconcile-plan-config">Reconcile current plan</button>':''}`:''}<details><summary>Manage modules</summary>
       ${canConfig ? [flag('Repairs','repair_module_enabled','toggle-repair'),flag('Inventory','inventory_module_enabled','toggle-inventory'),
         flag('Technician / Workshop','technician_module_enabled','toggle-technician'),flag('Live Tracking','live_tracking_enabled','toggle-tracking'),
         flag('EMS','ems_enabled','toggle-ems'),flag('Paper Resupply','paper_resupply_enabled','toggle-paper')].join('') : '<p>Module changes require a portfolio manager or master administrator.</p>'}
@@ -109,14 +111,14 @@ export function pageClientDetail() {
       <p class="muted">Per-event rate snapshots; unpaid invoices remain separate. THERMAL adds no charge.</p>
       ${canBill ? `<button class="secondary-button" data-p-action="edit-client-rates" data-p-id="${c.id}">Edit Rates</button>
       <button class="secondary-button" data-p-action="generate-invoice" data-p-id="${c.id}" ${ready ? '' : 'disabled'}>Generate Invoice</button>` : ''}
-      <details class="setup-advanced"><summary>Advanced / Technical Details · Billing Sync</summary>
+      ${master?`<details class="setup-advanced"><summary>Advanced / Technical Details · Billing Sync</summary>
       <p>Source: ${esc(source?.source_id || 'Not provisioned')}</p>
       <p>Last exchange: ${esc(source?.last_received_at || 'Never')} · ${source?.enabled ? 'Enabled' : 'Disabled'}</p>
       <p>Billing revision: ${esc(o.projection?.sync_version || 'Unavailable')} · ${esc(o.projection?.updated_at || '')}</p>
       <p>Received / billed / settled through: ${esc(projection?.estimate_through ?? "—")} / ${esc(projection?.billed_through ?? "—")} / ${esc(projection?.settled_through ?? "—")}</p>
       <p>Usage cutover sequence: ${esc(source?.usage_from_sequence ?? 'Not configured')}</p>
       <p class="muted">${esc(source?.last_error || 'No recorded event rejection')}. Exchange time does not prove the Shop applied a projection or that its outbox is empty.</p>
-      <button class="secondary-button" data-p-action="refresh-operations">Refresh</button></details>
+      <button class="secondary-button" data-p-action="refresh-operations">Refresh</button></details>`:''}
     </div>
   </div>
   <div class="card"><h2>Thermal Usage / Paper Audit</h2>
@@ -141,10 +143,10 @@ export function pageClientDetail() {
       <button class="secondary-button" type="submit">Confirm delivered supply / fulfill request</button></form>` : ''}
     <h3>Recent confirmed supplies</h3>${(o.supplies || []).map(d=>`<p>${esc(d.reference)} · ${d.roll_count} × ${metres(d.usable_length_mm)} m · width ${d.paper_width_mm} mm · ${esc(d.delivered_at)}</p>`).join('') || '<p>No delivered supply recorded.</p>'}
   </div>
-  <div class="card"><h2>Invoice History</h2>${(pState.data.invoices || []).filter(i=>i.client_id===c.id).map(i=>`<div class="list-row"><span>INV-${i.id} · ${esc(i.period_start)} — ${esc(i.period_end)}</span><strong>${safeAmount(i.total_due)} · ${esc(i.payment_status)}</strong><span><button data-p-action="view-invoice" data-p-id="${i.id}">View</button>${canBill && ready && i.payment_status!=='Paid' ? `<button data-p-action="mark-paid" data-p-id="${i.id}" data-p-client-id="${c.id}">Record Payment</button>` : ''}</span></div>`).join('') || '<p>No invoices.</p>'}</div>
-  <details class="card setup-advanced"><summary>Advanced / Reconciliation History</summary>
+  <div class="card"><h2>Invoice History</h2>${(pState.data.invoices || []).filter(i=>i.client_id===c.id).map(i=>`<div class="list-row"><span>INV-${i.id} · ${esc(i.period_start)} — ${esc(i.period_end)}</span><strong>${safeAmount(i.total_due)} · ${esc(i.payment_status)}</strong>${canBill?`<span><button data-p-action="view-invoice" data-p-id="${i.id}">View</button>${ready && i.payment_status!=='Paid' ? `<button data-p-action="mark-paid" data-p-id="${i.id}" data-p-client-id="${c.id}">Record Payment</button>` : ''}</span>`:''}</div>`).join('') || '<p>No invoices.</p>'}</div>
+  ${master?`<details class="card setup-advanced"><summary>Advanced / Reconciliation History</summary>
     ${(o.failures || []).map(f=>`<p>${esc(f.recorded_at)} · ${esc(f.event_id)} · ${esc(f.reason)}</p>`).join('') || '<p>No ingestion failures recorded.</p>'}
     ${(o.config_jobs || []).map(j=>`<p>${esc(j.created_at)} · ${esc(j.state)} · ${esc(JSON.stringify(j.changes))}</p>`).join('')}
     <p class="muted">Uncertain configuration writes require server-side read-back before releasing the pending operation. No automatic concurrent retry.</p>
-  </details>`;
+  </details>`:''}`;
 }

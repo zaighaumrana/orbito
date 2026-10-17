@@ -16,15 +16,15 @@ for (const action of ['bootstrap-shop','onboarding-status','repair-support-acces
   const form={dataset:{pForm:'client-provisioning'},elements:{},querySelectorAll:()=>buttons};
   const event={target:form,submitter:{value:action},preventDefault:()=>{}};
   const ctx={
-   pState:{selectedClient:client,clientData:{provisioning:{}},modal:'setup'},
+   pState:{authenticated:true,currentUser:{auth_user_id:'synthetic-master'},clientRequestGeneration:0,selectedClient:client,clientData:{clientId:50,requestGeneration:0,config:{id:50},provisioning:{}},modal:'setup'},
    crypto:{randomUUID:()=>payload.request_id},
    document:{addEventListener:(type,handler)=>{assert.equal(type,'submit');submit=handler;}},
    pb:{functions:{invoke:async(name,{body})=>{calls.push({name,body});await invocation;return {data:{}};}}},
-   loadClientData:async selected=>{assert.equal(form.dataset.busy,'true');loads.push(selected);},
+   loadClientData:async selected=>{assert.equal(form.dataset.busy,'true');loads.push(selected);return true;},
    render:()=>assert.equal(form.dataset.busy,'true'),
    alert:message=>assert.fail(message),
   };
-  ctx.cancelDialogs ||= ()=>{}; ctx.notify ||= {error:message=>assert.fail(String(message)),success:()=>{},info:()=>{}}; vm.createContext(ctx);
+  ctx.cancelDialogs ||= ()=>{}; ctx.notify ||= {error:message=>assert.fail(String(message)),success:()=>{},info:()=>{}}; vm.createContext(ctx);vm.runInContext(read('src/async-context.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ctx);
   for(const path of ['src/provisioning.js','src/forms.js'])vm.runInContext(read(path).replace(/^import .*$/gm,'').replace(/^export /gm,''),ctx);
   vm.runInContext(read('src/main.js').split('initEvents();')[0].replace(/^import .*$/gm,''),ctx);
   const pending=submit(event);
@@ -45,7 +45,7 @@ function fixture({mode='managed',token='test-management',http=200,network=false,
   pollShopBridge:async()=>({ok:projection}),
   fetch:async(url,init)=>{requests.push({url,init});if(network)throw Error('private-network-credential');return new Response(malformed?'invalid-json':JSON.stringify({contract:'orbito-onboarding-runtime-v1',checks:Object.fromEntries(['migrations','database_privileges','rpc_privileges','sequence_privileges','private_config','storage','owner_reservation','bridge_mode','config_projection','database_reachable','bridge_configuration','edge_functions','runtime_configuration','authentication'].map(k=>[k,true])),owner_account:'missing',invitation,infrastructure:'ready',owner_setup:'owner_setup_pending',owner_invite:'owner_invite_not_started',onboarding:'onboarding_pending',source_id:'50000000-0000-4000-8000-000000000001',client_binding:'orbito-client-50',config:{}}),{status:http});},
  };
- vm.createContext(ctx);vm.runInContext(stripTypeScriptTypes(read('supabase/functions/_shared/onboarding.ts').replace(/^import .*$/gm,'').replace(/^export /gm,'')),ctx);
+ vm.createContext(ctx);vm.runInContext(read('src/async-context.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ctx);vm.runInContext(stripTypeScriptTypes(read('supabase/functions/_shared/onboarding.ts').replace(/^import .*$/gm,'').replace(/^export /gm,'')),ctx);
  const admin={rpc:async(name,args)=>{calls.push({name,args});return {data:args.p_step==='prepare'?target:{}};}};
  return {calls,requests,run:action=>ctx.runOnboarding(admin,{request_id:payload.request_id,client_id:50,action},'https://platform.supabase.co')};
 }

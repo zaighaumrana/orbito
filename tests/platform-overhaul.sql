@@ -4,8 +4,12 @@ create function pg_temp.assert(ok boolean,msg text) returns void language plpgsq
 insert into auth.users(id,email,email_confirmed_at) values('99000000-0000-4000-8000-000000000001','fixture-master@example.test',now()),('99000000-0000-4000-8000-000000000002','overhaul-manager@example.test',now());
 select platform_private.initialize_config('Fixture master','Disposable lifecycle fixture');
 select platform_private.bind_master('99000000-0000-4000-8000-000000000001',null,'Disposable lifecycle fixture');
+-- Fixture seeding as database owner only; production mutations use audited RPCs.
+select set_config('platform.team_transition','trusted',true);
 insert into public.platform_users(auth_user_id,name,email,role,status) values('99000000-0000-4000-8000-000000000002','Synthetic manager','overhaul-manager@example.test','portfolio_manager','Active');
+select set_config('platform.team_transition','',true);
 select set_config('request.jwt.claim.sub','99000000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claims','{"sub":"99000000-0000-4000-8000-000000000001","session_id":"99000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
 insert into public.clients(id,name,status,supabase_url,supabase_anon) values(9100,'Synthetic lifecycle','Active','https://cdefghijklmnopqrstuv.supabase.co',''),(9101,'Synthetic gone','Suspended','https://abcdefghijklmnopqrst.supabase.co','');
 select public.platform_begin_config(9100,'99000000-0000-4000-8000-000000000010','{"suspended":true}');
 select public.platform_finish_config('99000000-0000-4000-8000-000000000010','applied','{"repair_module_enabled":true,"inventory_module_enabled":false,"technician_module_enabled":false,"live_tracking_enabled":false,"ems_enabled":false,"ems_track_breaks":false,"suspended":true}');
@@ -80,6 +84,7 @@ do $$ declare health jsonb;begin
  perform pg_temp.assert((select lifecycle_state='Active' from public.clients where id=9200),'completed owner onboarding and preflight activate lifecycle');
 end $$;
 select set_config('request.jwt.claim.sub','99000000-0000-4000-8000-000000000002',true);
+select set_config('request.jwt.claims','{"sub":"99000000-0000-4000-8000-000000000002","session_id":"99000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
 do $$ begin
  begin perform public.platform_client_lifecycle(9200,'archive','Manager must not archive this',null);raise exception 'manager archive accepted';exception when insufficient_privilege then null;end;
  begin perform public.platform_config_recovery(9100,'99000000-0000-4000-8000-000000000015','close','Manager must not recover this');raise exception 'manager recovery accepted';exception when insufficient_privilege then null;end;
@@ -87,6 +92,7 @@ end $$;
 select pg_temp.assert(not has_function_privilege('authenticated','public.platform_managed_stage(uuid,text,text,text)','EXECUTE') and not has_function_privilege('authenticated','public.platform_provision_status_service(integer)','EXECUTE'),'stage writes and privileged status are service-only');
 select pg_temp.assert(exists(select 1 from public.operator_audit where client_id=9100 and action='archive') and exists(select 1 from public.operator_audit where client_id=9200 and action='provision_stage'),'recovery/lifecycle/stages audited');
 select set_config('request.jwt.claim.sub','99000000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claims','{"sub":"99000000-0000-4000-8000-000000000001","session_id":"99000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
 select public.platform_provision_step('99000000-0000-4000-8000-000000000020','complete','{}');
 select public.platform_provision_begin(9200,'99000000-0000-4000-8000-000000000021','rotate-turnstile','{"site_key":"synthetic-public-site"}');
 select public.platform_managed_stage('99000000-0000-4000-8000-000000000021','turnstile','running','fixture-oneway-fingerprint');

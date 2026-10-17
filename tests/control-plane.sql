@@ -42,6 +42,7 @@ do $$ declare e jsonb; r jsonb; begin
 end $$;
 reset role;
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","session_id":"00000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
 set local role authenticated;
 do $$ declare i public.billing_cycles; pay public.payments; version bigint; j jsonb; begin
  i:=public.platform_generate_invoice(9001,'40000000-0000-4000-8000-000000000001');
@@ -72,6 +73,7 @@ do $$ declare i public.billing_cycles; pay public.payments; version bigint; j js
 end $$;
 reset role;
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000002',true);
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000002","session_id":"00000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
 set local role authenticated;
 do $$ begin
  begin
@@ -84,6 +86,7 @@ do $$ begin
 end $$;
 reset role;
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000001","session_id":"00000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
 set local role service_role;
 select public.platform_ingest(repeat('a',64),pg_temp.envelope(8,14,'resupply','request_paper_resupply',
  '{"request_id":"30000000-0000-4000-8000-000000000008","schema_version":1,"requested_at":"2026-09-25T00:00:00Z"}'));

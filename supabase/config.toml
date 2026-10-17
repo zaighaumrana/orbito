@@ -431,8 +431,23 @@ verify_jwt = false
 [functions.create-platform-user]
 verify_jwt = true
 
+[functions.resend-platform-invitation]
+verify_jwt = true
+
 [functions.update-platform-user]
 verify_jwt = true
 
 [functions.delete-platform-user]
+verify_jwt = true
+
+[functions.deactivate-platform-user]
+verify_jwt = true
+
+[functions.reactivate-platform-user]
+verify_jwt = true
+
+[functions.platform-password-setup]
+verify_jwt = true
+
+[functions.clear-failed-platform-invitation]
 verify_jwt = true

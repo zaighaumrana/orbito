@@ -1,3 +1,4 @@
+import { captureView, viewCurrent, clientDataMatches } from './async-context.js';
 import { notify, confirmDialog } from './dialogs.js';
 import { renderClientSetup } from './client-setup.js';
 import { pb, loadClientData } from './supabase.js';
@@ -7,6 +8,8 @@ import { render } from './render.js';
 
 async function submitOnboarding(form, requestedAction) {
   const client = pState.selectedClient, job = pState.clientData.provisioning?.job;
+  const context=captureView(),current=()=>viewCurrent(context);
+  if(!current() || !clientDataMatches(client))return;
   let publicEnv;
   form.querySelectorAll('button').forEach(button => { button.disabled = true; });
   try {
@@ -28,6 +31,7 @@ async function submitOnboarding(form, requestedAction) {
         return result.data;
       };
       const data = await invoke(action, requestedAction === 'resume' ? job.request_id : crypto.randomUUID());
+      if(!current())return;
       publicEnv=data.public_env;
       if (data.message) {
         const notices = {
@@ -44,11 +48,18 @@ async function submitOnboarding(form, requestedAction) {
         const link = document.createElement('a'); link.href=url; link.download='orbito-shop-pairing.env'; link.click();
         setTimeout(() => URL.revokeObjectURL(url),1000);
       } else if (action === 'pair-shop' && data.state === 'paired') {
-        await invoke('bootstrap-shop',crypto.randomUUID());
+        if(current())await invoke('bootstrap-shop',crypto.randomUUID());
       }
     }
-  } catch (error) { notify.error(error); }
-  finally { pState.modal=null;await loadClientData(client);if(publicEnv)pState.clientData.publicEnv=publicEnv; render(); }
+  } catch (error) { if(current())notify.error(error); }
+  finally {
+    if(current()){
+      pState.modal=null;const refreshed=captureView();
+      if(await loadClientData(client) && viewCurrent(refreshed)){
+        if(publicEnv && clientDataMatches(client))pState.clientData.publicEnv=publicEnv;render();
+      }
+    }
+  }
 }
 
 export function provisioningPanel(client, detail) {
@@ -105,6 +116,8 @@ export function provisioningPanel(client, detail) {
 
 export async function submitProvisioning(form, requestedAction) {
   const client = pState.selectedClient, job = pState.clientData.provisioning?.job;
+  const context=captureView(),current=()=>viewCurrent(context);
+  if(!current() || !clientDataMatches(client))return;
   if (!client || !requestedAction) return;
   if (client.onboarding_version === 2) return submitOnboarding(form, requestedAction);
 
@@ -126,6 +139,7 @@ export async function submitProvisioning(form, requestedAction) {
         if (!await confirmDialog({title:'Activate bridge billing?',message:'Activate this client at the exact Shop sequence captured by the server? Keep Shop writes paused until success.',confirmLabel:'Activate bridge'})) return;
       }
       if (action === 'rotate' && !await confirmDialog({title:'Rotate bridge secret?',message:'Rotate the secret server-side? Delivery may pause until this operation completes.',confirmLabel:'Rotate secret',danger:true})) return;
+      if(!current())return;
       const body = { client_id:client.id,request_id:requestedAction === 'resume' ? job.request_id : crypto.randomUUID(),action,params };
       const result = await pb.functions.invoke('platform-provision',{ body });
       if (result.error || result.data?.error) {
@@ -134,11 +148,11 @@ export async function submitProvisioning(form, requestedAction) {
         throw new Error(message || 'Provisioning response unavailable. Refresh status before trying again.');
       }
     }
-    await loadClientData(client); render();
+    if(current() && await loadClientData(client))render();
   } catch (error) {
     // Status is server-owned and survives reload; never persist request bodies containing credentials.
-    try { await loadClientData(client); render(); } catch {}
-    notify.error(error);
+    if(current()){try { if(await loadClientData(client))render(); } catch {}
+    if(current())notify.error(error);}
   } finally {
     buttons.forEach((button,index) => { if (button.isConnected) button.disabled = disabled[index]; });
   }

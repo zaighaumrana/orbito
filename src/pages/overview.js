@@ -9,7 +9,7 @@ export function pageOverview() {
   const clients = pState.data.clients;
   const active  = clients.filter(c => lifecycleState(c) === 'Active').length;
   const suspended = clients.filter(c => lifecycleState(c) === 'Suspended').length;
-  const openTickets = pState.data.support.filter(s => s.status === "Open").length;
+  const openTickets = role==='billing_person'?pState.data.openTickets:pState.data.support.filter(s => s.status === "Open").length;
 
   const showFinancials = role === "master_admin" || role === "billing_person";
   const showAddClient  = role === "master_admin" || role === "portfolio_manager";
@@ -55,7 +55,7 @@ export function pageOverview() {
         <table>
           <thead><tr>
             <th>Business</th><th>Plan</th><th>Status</th>
-            <th>Shop URL</th>
+            ${role==='billing_person'?'':'<th>Shop URL</th>'}
             ${showFinancials ? "<th>Uninvoiced estimate</th>" : ""}
             <th>Actions</th>
           </tr></thead>
@@ -73,13 +73,13 @@ export function pageOverview() {
                   <span class="badge ${lifecycleState(c) === 'Active' ? 'good' : 'warn'}">${esc(lifecycleState(c))}</span>
                   ${lifecycle ? `<span class="badge ${lifecycle.cls}" style="margin-left:4px">${lifecycle.label}</span>` : ""}
                 </td>
-                <td>${/^https?:\/\//i.test(c.shop_url || "")
+                ${role==='billing_person'?'':`<td>${/^https?:\/\//i.test(c.shop_url || "")
                   ? `<a href="${esc(c.shop_url)}" target="_blank" rel="noopener noreferrer" style="color:var(--primary);font-size:13px">Open ↗</a>`
-                  : "—"}</td>
+                  : "—"}</td>`}
                 ${showFinancials ? `<td><strong>${esc(c.currency || "Unconfigured")} ${b.grandTotal.toLocaleString()}</strong></td>` : ""}
                 <td>
-                  <button class="secondary-button" data-p-action="open-client" data-p-id="${c.id}">
-                    Manage
+                  <button class="secondary-button" ${role==='billing_person'?'data-p-page="billing"':`data-p-action="open-client" data-p-id="${c.id}"`}>
+                    ${role==='billing_person'?'Billing':'Manage'}
                   </button>
                 </td>
               </tr>`;

@@ -5,7 +5,7 @@ import {stripTypeScriptTypes} from 'node:module';
 import vm from 'node:vm';
 import {webcrypto,createHash} from 'node:crypto';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const load=(p,context={})=>{const ctx=vm.createContext({console,URL,Response,AbortSignal,FormData,Blob,Uint8Array,TextEncoder,crypto:webcrypto,atob,...context});if(p==='supabase/functions/_shared/managed-setup.ts')for(const dependency of ['public-api-key.ts','support-auth.ts'])vm.runInContext(stripTypeScriptTypes(read('supabase/functions/_shared/'+dependency).replace(/^import .*$/gm,'').replace(/^export /gm,'')),ctx);vm.runInContext(stripTypeScriptTypes(read(p).replace(/^import .*$/gm,'').replace(/^export /gm,'')),ctx);return ctx;};
+const load=(p,context={})=>{const ctx=vm.createContext({console,URL,Response,AbortSignal,FormData,Blob,Uint8Array,TextEncoder,crypto:webcrypto,atob,...context});if(p.startsWith('src/'))vm.runInContext(read('src/async-context.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ctx);if(p==='supabase/functions/_shared/managed-setup.ts')for(const dependency of ['public-api-key.ts','support-auth.ts'])vm.runInContext(stripTypeScriptTypes(read('supabase/functions/_shared/'+dependency).replace(/^import .*$/gm,'').replace(/^export /gm,'')),ctx);vm.runInContext(stripTypeScriptTypes(read(p).replace(/^import .*$/gm,'').replace(/^export /gm,'')),ctx);return ctx;};
 const esc=String,noop=()=>{};
 const ui=load('src/lifecycle.js',{esc});
 const anon='header.'+Buffer.from(JSON.stringify({role:'anon',ref:'abcdefghijklmnopqrst'})).toString('base64url')+'.signature';
@@ -29,10 +29,10 @@ test('outer submit dispatcher owns busy state while special forms execute and re
    await pending;return {data:{state:'applied'}};
   };
   const ctx=load('src/forms.js',{
-   pState:{selectedClient:{id:42,supabase_url:'https://abcdefghijklmnopqrst.supabase.co'},clientData:{config:{}},modal:'open'},
+   pState:{authenticated:true,currentUser:{auth_user_id:'synthetic-master'},clientRequestGeneration:0,selectedClient:{id:42,supabase_url:'https://abcdefghijklmnopqrst.supabase.co'},clientData:{clientId:42,requestGeneration:0,config:{id:42}},modal:'open'},
    rpc:operation,pb:{functions:{invoke:operation}},publicEnvironment:ui.publicEnvironment,
    navigator:{clipboard:{writeText:operation}},notify:{error:value=>alerts.push(value?.userMessage || 'The operation could not be completed. Refresh its status before retrying.')},
-   loadPlatform:async()=>{refreshes++;assert.equal(form.dataset.busy,'true');},loadClientData:async()=>{},render:()=>renders++,
+   loadPlatform:async()=>{refreshes++;assert.equal(form.dataset.busy,'true');},loadClientData:async()=>true,render:()=>renders++,
    document:{addEventListener:(name,listener)=>{assert.equal(name,'submit');submit=listener;}}
   });
   // Execute the actual registration from main.js, without unrelated app boot/network work.
@@ -277,7 +277,7 @@ test('recovery reads first then retries EXACT original identity and changes',asy
 });
 test('reconcile mismatch/read-only/unknown timeout never clears the original uncertainty',async()=>{
  for(const [action,options] of [['reconcile',{}],['read',{match:true}],['retry',{timeout:true}]]){const f=await recoveryFixture(action,options);assert.equal(f.calls[0].args.p_state,null);assert.equal(f.result.state,'unresolved');}
- const matched=await recoveryFixture('reconcile',{match:true});assert.equal(matched.calls[0].args.p_state,'applied');assert.equal(matched.writes.length,1);
+ const matched=await recoveryFixture('reconcile',{match:true});assert.equal(matched.calls[0].args.p_state,null);assert.equal(matched.result.state,'unresolved');assert.equal(matched.writes.length,1,'Matching observation cannot acknowledge a possibly delayed original write');
 });
 test('closed server operation is authoritative, recovery never contacts a vanished Shop',async()=>{
  const f=await recoveryFixture('close',{closed:true});assert.equal(f.writes.length,0);assert.equal(f.result.complete,true);
