@@ -1,5 +1,28 @@
 # Platform employee read isolation — 2026-10-13
 
+## Later hosted acceptance update —2026-10-17
+
+The [final hosted acceptance and conditional merge decision](PR4_HOSTED_ACCEPTANCE_2026-10-17.md)
+supersedes earlier current-status statements below:staging has17 migrations;
+config12/support5/provision19 source matches541c46d,D1 source drift resolved;
+permanent deletion remains disabled;canonical Pages manual deployment56fa2285
+serves541c46d. A06 current-password configuration is directly verified enabled,
+not a hosted password-change test. Owner UI/API acceptance,independent reads and
+partial provider checks remain separately attributed. Merge is conditionally
+owner-authorized subject to gates/checks;production remains NO-GO and before-use
+Shop/finance/Support/provider obligations remain. Prior reports are historical.
+
+
+## Migration17 bounded operational extension —2026-10-17
+
+Migration17 is now recorded on staging. Master/Manager additionally receive bounded
+generation,pending and desired-entitlement data through `platform_config_intent`,
+and `entitlement_intent` generation/pending in `platform_overhaul_status`.
+Billing remains denied these operational surfaces. Raw-row ceilings and the
+migration14 field matrix remain unchanged;this is not private provisioning exposure.
+The matching config/support/frontend contracts are deployed at541c46d source.
+Source comparison does not certify hosted Shop synchronization or Support exchange.
+
 ## Current superseding status — 2026-10-17
 
 The current reviewed code checkpoint is `27f6abde0274ac6c989664d0b363504b93128d10`

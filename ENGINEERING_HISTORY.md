@@ -1,5 +1,18 @@
 # RetraSell Platform engineering history
 
+## Later hosted acceptance update —2026-10-17
+
+The [final hosted acceptance and conditional merge decision](docs/PR4_HOSTED_ACCEPTANCE_2026-10-17.md)
+supersedes earlier current-status statements below:staging has17 migrations;
+config12/support5/provision19 source matches541c46d,D1 source drift resolved;
+permanent deletion remains disabled;canonical Pages manual deployment56fa2285
+serves541c46d. A06 current-password configuration is directly verified enabled,
+not a hosted password-change test. Owner UI/API acceptance,independent reads and
+partial provider checks remain separately attributed. Merge is conditionally
+owner-authorized subject to gates/checks;production remains NO-GO and before-use
+Shop/finance/Support/provider obligations remain. Prior reports are historical.
+
+
 ## Current superseding pointer — 2026-10-17
 
 Current reviewed source: `27f6abde0274ac6c989664d0b363504b93128d10`,
@@ -1529,3 +1542,43 @@ Owner authorizes one documentation-only `[CF-Pages-Skip]` commit/push and cohere
 existing PR #4 body update, preserving Draft/base/unmerged state and protected refs.
 Exact resulting documentation SHA and provider skip are reported after verification;
 this entry does not invent its own future commit SHA. No merge or production GO.
+
+
+## 2026-10-17 — Hosted acceptance evidence and controlled development merge
+
+Branch at preparation:`feature/platform-team-lifecycle-v2`;accepted/deployed source
+`541c46d64e8489c3aacc0e44d87f7b81b1f3a7ab`;base development0dbde676.
+Owner now conditionally authorizes normal GitHub PR4 merge,automatic staging Pages
+verification and only then merged-branch cleanup. Production remains excluded.
+
+Recorded27 owner UI/session passes,API01–API04 and CP01–CP03 owner-executed calls
+independently evaluated by Work,and17 provider probes (14 scoped PASS,3 partial
+Storage) with independent catalog provenance. Archived-only fixture:one client,
+no active client or populated invoice acceptance;client creation declined,not passed.
+Storage object/S3/URL and Realtime channel/event tests remain partial/untested.
+Original120 scenarios,42 risk rows,original statuses/procedures and earlier results
+are preserved;new scoped observations/status columns do not inflate full passes.
+
+Codex read-only checks confirmed A06 Require current password when updating enabled
+in the actual staging Dashboard Email provider (Save disabled,no mutation),all17
+migration rows,permanent-deletion policyfalse,no open config jobs or protected Support
+destinations,and live-session/cutoff/Active guards. Corrected config12/support5/
+provision19 ACTIVE;all11 returned file entries match source including frozen artifact.
+D1 source drift is resolved;no provisioning/Shop feature acceptance inferred.
+Pages canonical manual deployment56fa2285 serves541c46d;Git development remains
+premerge0dbde676. Build/env/public-key project claims target staging and Vite only.
+No migration,function,Auth setting/account,Shop or Cloudflare setting changed.
+
+New hosted acceptance report gives explicit historical MERGE-gate dispositions,
+technical boundaries and retained before-use/production holds. A06 configuration
+prerequisite is satisfied without silently marking its unexecuted password API
+procedure PASS. Added original-request journal acknowledgment precision and bounded
+migration17 operational RPC/status extension per independent documentation review.
+Checks are documentation-only links/CSV/status/history preservation/sensitive data/
+whitespace plus necessary hosted/Git/provider GETs;no runtime suite repeated.
+
+Documentation commit/push uses CF skip. Mark ready/normal merge only after final
+checks,without bypass or skip marker on merge;verify actual Pages revision/domain/
+assets/staging backend before deleting merged feature branch. Preserve main,
+deployment and fallback tag. Exact commit/merge/deployment/cleanup outcomes are
+recorded in final verified report,not invented inside this precommit entry.

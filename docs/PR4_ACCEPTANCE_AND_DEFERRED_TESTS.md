@@ -1,5 +1,59 @@
 # PR #4 acceptance and deferred-testing register
 
+## Later hosted acceptance and conditional merge decision —2026-10-17
+
+The [final hosted acceptance record](PR4_HOSTED_ACCEPTANCE_2026-10-17.md) supersedes
+the deployment/merge-gate status of the earlier same-day reconciliation below.
+Owner reports27 UI/session passes;owner-executed API01–API04 and CP01–CP03 were
+independently evaluated by Work. Provider17 requests give14 scoped PASS outcomes
+plus3 partial empty-Storage observations. These categories overlap;do not sum them
+as full hosted feature passes. No fake client/project or financial mutation occurred.
+
+Codex directly read the staging dashboard: **Require current password when updating
+is enabled**,Save disabled;no setting/password/account change. A06's missing
+configuration prerequisite is resolved,while its hosted negative-password HTTP
+procedure remains unexecuted. Staging now records **all17 migrations**. Corrected
+config12/support5/provision19 are ACTIVE and all11 returned file entries match541c46d;
+D1 deployment/source drift is resolved,not a provisioning acceptance PASS. Deletion
+policy remains **false**. Canonical Pages is manual541c46d deployment56fa2285,
+not the earlierd3fc517. Both Pages build environments target staging;public anon
+claims confirm the staging ref/role without retaining key values.
+
+The owner conditionally authorizes the normal GitHub merge into development after
+checks. See the hosted record's explicit gate decisions/technical boundaries and
+before-use holds;this is not a blanket waiver or production GO. Do not delete the
+feature branch until merge **and** intended automatic deployment are verified.
+The existing fallback tag remains Git-only and untouched.
+
+| Latest classification after this evidence | Cases |
+| --- | ---: |
+| OWNER_PASS |21|
+| READ_PASS |7|
+| LOCAL_PASS |45|
+| DEFERRED |25|
+| UNTESTED |12|
+| CORRECTED_LOCAL |3|
+| BLOCKED |1|
+| CODE_GATE_CLOSED |1|
+| PARTIAL_HOSTED |4|
+| CONFIG_VERIFIED_API_UNTESTED |1|
+| **Total distinct stable IDs** |**120**|
+
+Original17 fields,historical statuses,all42 risk rows and previous current results
+remain preserved. The CSV adds pre_hosted_latest_status/pre_hosted_actual_evidence
+and scoped hosted observations. R06/M07/M08/M09 are **partial**,not converted to
+full passes;A06 is configuration evidence,not executed password mutation tests.
+R10 offset1000 with one record does not establish large-data completeness.
+
+Matching remote read-back is observation only. Recover an uncertain config operation
+through the existing Shop journal with the **exact original request UUID and payload**;
+require acknowledgment of that original request before settling intent. If unavailable,
+keep the operation unresolved and stop. This clarifies the historical rollout steps
+below;never manually mark completion or use a new UUID to repeat an uncertain write.
+
+## Earlier same-day documentation reconciliation —historical checkpoint
+
+
 Current reconciliation: **2026-10-17, Asia/Karachi**, reviewed source
 `27f6abde0274ac6c989664d0b363504b93128d10`. This documentation checkpoint
 adds no runtime validation or deployment. PR #4 remains Draft, open and unmerged,
