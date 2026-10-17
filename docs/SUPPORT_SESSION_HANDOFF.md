@@ -1,5 +1,43 @@
 # One-time Platform support handoff
 
+## Current superseding status — 2026-10-17
+
+The current reviewed code checkpoint is `27f6abde0274ac6c989664d0b363504b93128d10`
+on `feature/platform-team-lifecycle-v2`, Draft PR #4 targeting `development`.
+All 14 source/correction commits are committed and pushed; the cumulative code
+checkpoint is 131 paths, not the earlier 39/61/62/63-file local inventories.
+The definitive [acceptance/deferred-testing register](PR4_ACCEPTANCE_AND_DEFERRED_TESTS.md)
+and [120-case ledger](PR4_ACCEPTANCE_CASES.csv) supersede current-status claims below.
+The original dated checkpoints and failures remain historical evidence.
+
+Independent final review approved documentation finalization only: F1/F2/F3/N1/N2/N3
+are locally corrected and independently verified within their recorded scopes.
+Owner-reported employee staging journeys and independent state reads are separate
+from local tests. Staging has 16 genuine migrations; source migration 17 is unapplied.
+Eight employee bundles are deployed (12 functions total), while newer config/support
+corrections and D1 provisioner source drift still require authorized rollout.
+The permanent-deletion policy was last independently verified **false**.
+Git `development` remains `0dbde676ca57ed1599a295e221d274ef080cac41`;
+canonical staging Pages serves ad hoc `d3fc517aabb2b5d09ea939aa56830287b5d89bba`,
+not the latest feature corrections. Later correction SHAs were skipped by Cloudflare;
+production-branch auto-deploy remains enabled, so a future merge may deploy.
+No merge/deployment authorization or whole-Platform production GO follows.
+
+D33: Five-argument service-only issuance with actual Master session and
+platform-support v4 is present in inspected staging, but its source matches
+d3fc517, not the latest protected-destination correction. Migration17 plus matching
+support/frontend requires independently verified, explicitly Master-approved
+protected destinations. The public Manager-editable Shop URL grants no recipient
+trust. F2 is locally corrected, not a demonstrated Shop takeover or hosted scope
+PASS. Real Shop exchange/session scope remains deferred. Preserve 256-bit tokens,
+90-second expiry, hash-only/single-use/binding/lifecycle checks and the distinction
+between ordinary logout lifetime and canonical Master revocation/rebinding.
+The historical branch/developmentv2 and “13 unapplied/source-only” statements
+below are superseded; legacy password forwarding is not the current architecture.
+
+## Historical handoff contracts and dated correction records
+
+
 > Repository status update — 2026-10-04: The handoff is committed and pushed in Platform a054e28 and Shop 68885d4; the no-commit/deployment statement below describes the original implementation task. Local HEAD and the live GitHub `feature/platform-overhaul-v1` head match at `a054e28`. Current integration target is `developmentv2`. Preserve the original validation/deployment evidence below as a point-in-time record; Git does not prove hosted deployment. See [engineering history](../ENGINEERING_HISTORY.md) for the owner-reported hosted checkpoint and pending smoke gate.
 
 This replaces the Shop's Platform password login. The confirmed hosted failure was Platform Auth returning `captcha_failed` because the Shop forwarded a valid master password without a Platform CAPTCHA token. Platform CAPTCHA remains enabled and unchanged. Shop customers keep their existing Shop login/CAPTCHA flow.

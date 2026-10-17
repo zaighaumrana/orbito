@@ -1,5 +1,47 @@
 # Platform team lifecycle — corrected PR #4 review and rollout gates
 
+## Current superseding status — 2026-10-17
+
+The current reviewed code checkpoint is `27f6abde0274ac6c989664d0b363504b93128d10`
+on `feature/platform-team-lifecycle-v2`, Draft PR #4 targeting `development`.
+All 14 source/correction commits are committed and pushed; the cumulative code
+checkpoint is 131 paths, not the earlier 39/61/62/63-file local inventories.
+The definitive [acceptance/deferred-testing register](PR4_ACCEPTANCE_AND_DEFERRED_TESTS.md)
+and [120-case ledger](PR4_ACCEPTANCE_CASES.csv) supersede current-status claims below.
+The original dated checkpoints and failures remain historical evidence.
+
+Independent final review approved documentation finalization only: F1/F2/F3/N1/N2/N3
+are locally corrected and independently verified within their recorded scopes.
+Owner-reported employee staging journeys and independent state reads are separate
+from local tests. Staging has 16 genuine migrations; source migration 17 is unapplied.
+Eight employee bundles are deployed (12 functions total), while newer config/support
+corrections and D1 provisioner source drift still require authorized rollout.
+The permanent-deletion policy was last independently verified **false**.
+Git `development` remains `0dbde676ca57ed1599a295e221d274ef080cac41`;
+canonical staging Pages serves ad hoc `d3fc517aabb2b5d09ea939aa56830287b5d89bba`,
+not the latest feature corrections. Later correction SHAs were skipped by Cloudflare;
+production-branch auto-deploy remains enabled, so a future merge may deploy.
+No merge/deployment authorization or whole-Platform production GO follows.
+
+D08–D13: The owner’s “migration13 never applied” statement was true at the
+2026-10-12 editing checkpoint; staging now records13–16. Migration16’s nine actual
+CLI scenarios have independent local PASS evidence. The retirement/re-onboarding
+corrections were committed in7113681; the63-file set in015e82e and seven-file UI
+polish in d3fc517. Neither original local manifest is the cumulative PR manifest.
+Audit306 independently corroborates two legacy orphan Platform records removed,
+with successor retained. Owner invitation/deactivation/reactivation/deletion/
+re-onboarding acceptance is scoped in the central ledger; do not repeat destructive
+acceptance or replay the old migration15 plan. Final reactivation retains the
+existing UUID/password/role and sends no recovery/invitation email; rejected custom
+mail/recovery architecture remains removed. F1 successor-edit is now corrected
+locally through 17; hosted acceptance of that correction is still separate.
+
+## Historical lifecycle checkpoints and proposed rollout plans
+
+All old future-tense cutover commands below are preserved evidence, not the next
+staging procedure. Use the central register’s controlled17 rollout instead.
+
+
 > 2026-10-15 local supplement: [eleven corrections and official UI](PLATFORM_UI_BRANDING_REVIEW.md).
 > Additive migration `20261015003232_platform_team_invitation_review.sql` follows
 > 15; none of 1–15 is edited. The new explicit failed-create clearance checks exact

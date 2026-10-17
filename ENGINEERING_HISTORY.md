@@ -1,5 +1,21 @@
 # RetraSell Platform engineering history
 
+## Current superseding pointer — 2026-10-17
+
+Current reviewed source: `27f6abde0274ac6c989664d0b363504b93128d10`,
+`feature/platform-team-lifecycle-v2` → `development`, Draft/unmerged PR #4.
+Fourteen source commits are committed/pushed. The older current-integration and
+local-only statements below are point-in-time records, not today’s Git status.
+See [the permanent acceptance register](docs/PR4_ACCEPTANCE_AND_DEFERRED_TESTS.md)
+for all 120 cases, 40 documentation groups, independent correction results and gates.
+Staging has 16 genuine migrations, pending source 17; Pages serves ad hoc d3fc517
+while development remains0dbde676. Scoped employee staging acceptance does not
+certify undeployed corrections. Permanent deletion last verified off. Documentation
+finalization approved; merge/rollout require separate decisions; production NO-GO.
+
+## Historical decision memory
+
+
 Persistent decision memory: WHY meaningful changes happened, accepted boundaries,
 validation and impact. Git remains the exact source history. Follow `AGENTS.md`.
 Dates use Asia/Karachi where applicable. Initial phases summarize repository evidence,
@@ -1461,3 +1477,55 @@ this commit. No Docker, Auth, browser, build or full-source campaign was run.
 Feature-only commit/push uses the verified Cloudflare skip convention; PR #4 stays
 Draft/unmerged. D1, independent acceptance and hosted gates remain unresolved;
 no merge/deploy/deletion enablement or staging/production readiness is authorized.
+
+
+## 2026-10-17 — PR #4 documentation and permanent acceptance ledger
+
+Branch: `feature/platform-team-lifecycle-v2`; reviewed code HEAD
+`27f6abde0274ac6c989664d0b363504b93128d10`.
+
+### Purpose and changed
+
+Reconciled D01–D40 from the independent forensic documentation audit with all 14
+source/correction commits. Added `docs/PR4_ACCEPTANCE_AND_DEFERRED_TESTS.md` and
+`docs/PR4_ACCEPTANCE_CASES.csv`: all 120 stable IDs and 42 joined risk records,
+original status plus dated current evidence/provenance, source SHAs, identities,
+expected/actual results, future procedures and gates. Dated superseding notes in
+status/runbook/role/Support documents preserve every original report and failure.
+The 23-file retirement correction set is 7113681; the earlier 39-file stabilization
+set is be43f28. The 63-file implementation/print/
+CLI16 follow-ups are 015e82e; the seven-file UI polish and its precommit history
+entry are enclosed by d3fc517. These local counts are not the full 131-path PR.
+
+### Decisions and validation
+
+Historical counts remain 21 owner manual, 9 independent reads, 45 independent local,
+27 deferred, 13 untested, 3 reproduced failures, 2 blocked. Latest statuses explicitly
+close L11/F1,S04/F2,C11/F3 locally and O04’s code gate; P03 remains independently
+blocked by unavailable Shop fixtures. Independent final 27f6abd evidence: nine CLI17
+fault scenarios, two CLI lock-lifetime schedules, one literal-first-ALTER interruption,
+four N2 probes and eight PG17 security groups PASS. N1 module/browser evidence
+carries forward from 7b7de23; no new broad suite or hosted result is invented.
+Only lightweight documentation consistency/link/count/commit/whitespace/confidentiality
+checks are authorized here. Runtime tests are not repeated. Existing records’
+Codex-only results remain author-attributed rather than newly independent passes.
+
+### Deployment / DB impact and deferred
+
+None. Owner employee journeys and independent state corroboration remain separate:
+audit 306 records two legacy orphan Platform rows cleaned; old Auth absent, distinct
+new Active identity and immutable archive retained; deletion policy last verified
+false. Staging history 1–16;17 unapplied. Git development 0dbde676 differs from
+canonical ad hoc Pages d3fc517. Eight employee bundles are present, but matching
+new config/support corrections and provisioner D1 require separately approved rollout.
+Freeze/drain, resolve uncertain jobs, serialize CLI17, inspect history/schema on
+ambiguous exit, reconcile bundles/approve protected Support destination and accept
+hosted workflows before use. Backup/Vault/Auth portability, provider/financial/Shop
+and production gates remain. Existing fallback tag is Git-only and untouched.
+
+### Git
+
+Owner authorizes one documentation-only `[CF-Pages-Skip]` commit/push and coherent
+existing PR #4 body update, preserving Draft/base/unmerged state and protected refs.
+Exact resulting documentation SHA and provider skip are reported after verification;
+this entry does not invent its own future commit SHA. No merge or production GO.

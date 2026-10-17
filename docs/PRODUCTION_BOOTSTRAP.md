@@ -1,5 +1,54 @@
 # RetraSell Platform production bootstrap
 
+## Current superseding status — 2026-10-17
+
+The current reviewed code checkpoint is `27f6abde0274ac6c989664d0b363504b93128d10`
+on `feature/platform-team-lifecycle-v2`, Draft PR #4 targeting `development`.
+All 14 source/correction commits are committed and pushed; the cumulative code
+checkpoint is 131 paths, not the earlier 39/61/62/63-file local inventories.
+The definitive [acceptance/deferred-testing register](PR4_ACCEPTANCE_AND_DEFERRED_TESTS.md)
+and [120-case ledger](PR4_ACCEPTANCE_CASES.csv) supersede current-status claims below.
+The original dated checkpoints and failures remain historical evidence.
+
+Independent final review approved documentation finalization only: F1/F2/F3/N1/N2/N3
+are locally corrected and independently verified within their recorded scopes.
+Owner-reported employee staging journeys and independent state reads are separate
+from local tests. Staging has 16 genuine migrations; source migration 17 is unapplied.
+Eight employee bundles are deployed (12 functions total), while newer config/support
+corrections and D1 provisioner source drift still require authorized rollout.
+The permanent-deletion policy was last independently verified **false**.
+Git `development` remains `0dbde676ca57ed1599a295e221d274ef080cac41`;
+canonical staging Pages serves ad hoc `d3fc517aabb2b5d09ea939aa56830287b5d89bba`,
+not the latest feature corrections. Later correction SHAs were skipped by Cloudflare;
+production-branch auto-deploy remains enabled, so a future merge may deploy.
+No merge/deployment authorization or whole-Platform production GO follows.
+
+D23–D28: This remains a prerequisite/recovery reference, not an executable
+current release plan. The central register contains the authoritative **17-file
+source order**, staging 1–16 history,12-function inventory and controlled future17
+sequence. The twelve-file baseline table, fourteen-version staging commands,
+seven-function allowlist/deploy command,12→13/14 plan and source16-only status
+below are dated historical checkpoints. Do not execute those old commands as the
+next staging or production step. Fresh production needs its own verified empty
+project, complete current pending plan, managed prerequisites and approval; do not
+copy staging identities/data. Applied1–16 on inspected staging are immutable.
+
+**Managed policy permissions:** verified inherited owner authority OR loaded,
+registered `supautils.policy_grants` for the exact caller/table supports reviewed
+13/14 policy creation as original caller, failing on denial. Mandatory SET/inherit
+membership is obsolete as the only route. Never grant internal managed roles or
+change table ownership. Ordinary PG tests do not certify hosted supautils.
+
+Deploy only separately approved matching components, with individual JWT flags;
+never blanket `--no-verify-jwt`, prune inventory, or treat the old seven-slug list
+as complete. New17 schema and matching config/support/frontend must be coordinated
+under freeze/drain; preexisting ambiguous Shop writes must be resolved, not ignored.
+D1 remains open. Production identity/configuration/backup/Auth/Vault portability
+and every release gate require independent approval and validation.
+
+## Historical bootstrap procedure and dated addenda
+
+
 Prepared 2026-10-09 (Asia/Karachi). This is a reviewed-operator procedure, not
 permission to deploy. This task changed local source only. Do not execute the
 hosted steps until the owner approves the implementation and the exact target.

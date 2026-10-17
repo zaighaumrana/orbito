@@ -1,5 +1,39 @@
 # Production bootstrap implementation report
 
+## Current superseding status — 2026-10-17
+
+The current reviewed code checkpoint is `27f6abde0274ac6c989664d0b363504b93128d10`
+on `feature/platform-team-lifecycle-v2`, Draft PR #4 targeting `development`.
+All 14 source/correction commits are committed and pushed; the cumulative code
+checkpoint is 131 paths, not the earlier 39/61/62/63-file local inventories.
+The definitive [acceptance/deferred-testing register](PR4_ACCEPTANCE_AND_DEFERRED_TESTS.md)
+and [120-case ledger](PR4_ACCEPTANCE_CASES.csv) supersede current-status claims below.
+The original dated checkpoints and failures remain historical evidence.
+
+Independent final review approved documentation finalization only: F1/F2/F3/N1/N2/N3
+are locally corrected and independently verified within their recorded scopes.
+Owner-reported employee staging journeys and independent state reads are separate
+from local tests. Staging has 16 genuine migrations; source migration 17 is unapplied.
+Eight employee bundles are deployed (12 functions total), while newer config/support
+corrections and D1 provisioner source drift still require authorized rollout.
+The permanent-deletion policy was last independently verified **false**.
+Git `development` remains `0dbde676ca57ed1599a295e221d274ef080cac41`;
+canonical staging Pages serves ad hoc `d3fc517aabb2b5d09ea939aa56830287b5d89bba`,
+not the latest feature corrections. Later correction SHAs were skipped by Cloudflare;
+production-branch auto-deploy remains enabled, so a future merge may deploy.
+No merge/deployment authorization or whole-Platform production GO follows.
+
+D29–D30: The a43db6a/uncommitted/unpushed report below describes its original
+2026-10-09 checkpoint. Later fourteen-source/twelve-staging/roles-not-deployed
+statements are superseded: inspected staging records1–16, including role isolation,
+and eight employee bundles exist. The full source now includes pending17.
+Keep every original result, failure and cutover record; do not replay its old
+future migration commands. See the central register for the latest independent
+findings, D1 and matching rollout gates.
+
+## Historical bootstrap implementation reports
+
+
 2026-10-09, Asia/Karachi. Local implementation only; awaiting owner review.
 
 ## Git and scope

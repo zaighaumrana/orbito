@@ -1,5 +1,48 @@
 # Secure Platform team management and staging cutover
 
+## Current superseding status — 2026-10-17
+
+The current reviewed code checkpoint is `27f6abde0274ac6c989664d0b363504b93128d10`
+on `feature/platform-team-lifecycle-v2`, Draft PR #4 targeting `development`.
+All 14 source/correction commits are committed and pushed; the cumulative code
+checkpoint is 131 paths, not the earlier 39/61/62/63-file local inventories.
+The definitive [acceptance/deferred-testing register](PR4_ACCEPTANCE_AND_DEFERRED_TESTS.md)
+and [120-case ledger](PR4_ACCEPTANCE_CASES.csv) supersede current-status claims below.
+The original dated checkpoints and failures remain historical evidence.
+
+Independent final review approved documentation finalization only: F1/F2/F3/N1/N2/N3
+are locally corrected and independently verified within their recorded scopes.
+Owner-reported employee staging journeys and independent state reads are separate
+from local tests. Staging has 16 genuine migrations; source migration 17 is unapplied.
+Eight employee bundles are deployed (12 functions total), while newer config/support
+corrections and D1 provisioner source drift still require authorized rollout.
+The permanent-deletion policy was last independently verified **false**.
+Git `development` remains `0dbde676ca57ed1599a295e221d274ef080cac41`;
+canonical staging Pages serves ad hoc `d3fc517aabb2b5d09ea939aa56830287b5d89bba`,
+not the latest feature corrections. Later correction SHAs were skipped by Cloudflare;
+production-branch auto-deploy remains enabled, so a future merge may deploy.
+No merge/deployment authorization or whole-Platform production GO follows.
+
+D18–D22/D40: Versions10/8/8 and the seven-function inventory below describe
+2026-10-09 evidence and have been superseded by secured versions16/14/14 plus
+five other employee handlers. The full current inventory is in the central register.
+Do not replay the three-endpoint, eleven-plus-one,12→13/14 or old destructive
+cutovers against already migrated staging. The SQL preflights that expect twelve
+predecessor rows are not post-16 validators.
+
+**Managed policy permissions:** inherited owner authority OR loaded registered
+`supautils.policy_grants` with exact caller/table allowlist is supported by the
+reviewed 13/14 source. CREATE POLICY executes as original caller and fails closed
+on denial; SET/inherit managed owner membership is not the sole prerequisite.
+Do not grant internal roles, change ownership or bypass RLS. Any contradictory
+owner-membership instruction below is historical and must not be executed.
+The migration14 [role matrix](PLATFORM_ROLE_READ_ISOLATION.md) supersedes the
+historical shared employee raw-read matrix. Scoped employee acceptance does not
+approve the deferred client/Shop/finance/provider workflows or production.
+
+## Historical findings and cutover instructions — do not replay
+
+
 Prepared 2026-10-09, Asia/Karachi. Local implementation and planning only.
 No deployment, backup, Auth change, migration, Git integration or production
 operation is authorized by this document. Review the exact target at each gate.

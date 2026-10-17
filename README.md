@@ -1,5 +1,26 @@
 # Orbito Platform
 
+## Current PR #4 status — 2026-10-17
+
+RetraSell Platform source is on `feature/platform-team-lifecycle-v2`, reviewed at
+`27f6abde0274ac6c989664d0b363504b93128d10`, targeting `development` through
+[Draft PR #4](https://github.com/zaighaumrana/orbito/pull/4). All 14 implementation/
+correction commits are committed/pushed; this checkpoint adds documentation only.
+Development remains `0dbde676ca57ed1599a295e221d274ef080cac41`; staging Pages
+serves ad hoc d3fc517, not the latest corrections. Staging has 16 migrations and
+12 functions; source 17 remains unapplied. Deletion policy last verified false.
+
+See the [definitive acceptance/deferred register](docs/PR4_ACCEPTANCE_AND_DEFERRED_TESTS.md),
+[120 stable cases](docs/PR4_ACCEPTANCE_CASES.csv), [readiness report](docs/PRODUCTION_READINESS_REPORT.md)
+and [engineering history](ENGINEERING_HISTORY.md). Employee staging journeys have
+scoped owner acceptance, independently corroborated state and separate local tests.
+F1/F2/F3/N1/N2/N3 are locally corrected; D1 provisioner drift and hosted integration/
+provider/recovery gates remain. Documentation finalization is approved; merge is
+not approved and production is NO-GO. Older status below describes its dated era.
+
+## Historical project overview and October4 status
+
+
 Orbito Platform is the administration application for connected Orbito Shop clients. It manages client accounts, usage billing, payments, module settings, thermal print reporting and paper resupply.
 
 The frontend uses JavaScript and Vite. Supabase provides authentication, PostgreSQL accounting transactions and server-side bridge/configuration functions.
