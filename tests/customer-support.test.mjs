@@ -9,7 +9,7 @@ import {sha,proof,fields,CONTRACT} from '../supabase/functions/platform-support-
 const platform='https://ukbhyerxshteyetwomqy.supabase.co',local='https://abcdefghijklmnopqrst.supabase.co';
 const uid='97000000-0000-4000-8000-000000000001',sid='97000000-0000-4000-8000-000000000002',source='98000000-0000-4000-8000-000000000001',request='99000000-0000-4000-8000-000000000001';
 const secret='f'.repeat(64),ticket='99000000-0000-4000-8000-000000000010';
-const jwt=claims=>'eyJhbGciOiJIUzI1NiJ9.'+Buffer.from(JSON.stringify({sub:uid,session_id:sid,exp:Math.floor(Date.now()/1000)+1800,...claims})).toString('base64url')+'.fixture-signature';
+const jwt=claims=>'eyJhbGciOiJIUzI1NiJ9.'+Buffer.from(JSON.stringify({sub:uid,session_id:sid,exp:Math.floor(Date.now()/1000)+1800,iss:local+'/auth/v1',aud:'authenticated',...claims})).toString('base64url')+'.fixture-signature';
 const token=jwt({}),body={action:'create',request_id:request,subject:' Scanner ',category:'technical',message:'Disconnects <script>plain text</script>'};
 const context={auth_user_id:uid,session_id:sid,role:'Business Owner',source_id:source,client_binding:'client-42',platform_client_id:42};
 const server=b=>({...b,contract:CONTRACT,project_ref:'abcdefghijklmnopqrst',source_id:source,client_binding:'client-42'});
@@ -25,10 +25,14 @@ function fixture(opt={}){
   const u=new URL(url),b=settings.body?JSON.parse(settings.body):null,h=new Headers(settings.headers);
   const reply=(data,status=200)=>Response.json(data,{status});
   if(url===platform+'/functions/v1/platform-support-tickets')return c(new Request(url,settings));
-  if(url===local+'/functions/v1/support-tickets')return s(new Request(url,settings));
+  if(url===local+'/functions/v1/support-tickets'){
+   if(opt.capabilityUnavailable)throw Error('uncertain installation');
+   const r=await s(new Request(url,settings));
+   if(opt.badProof && r.ok){const c=await r.json();return Response.json({...c,proof:'invalid'});}return r;
+  }
   if(u.pathname==='/auth/v1/user'){
    const t=h.get('authorization')?.slice(7);
-   return t===token||t===jwt({role:'forged'})?reply({id:uid}):reply({error:'denied'},401);
+   return !opt.authDenied && (t===token||t===opt.validToken||t===jwt({role:'forged'}))?reply({id:uid}):reply({error:'denied'},401);
   }
   if(u.pathname.endsWith('/support_ticket_actor_context'))return opt.actorDenied?reply({code:'42501'},403):reply({...context,...opt.actor});
   if(u.pathname.endsWith('/support_ticket_capability_context'))return reply({source_id:source,client_binding:'client-42',platform_client_id:42});
@@ -40,6 +44,7 @@ function fixture(opt={}){
    commands.push(b);if(b.p_action==='material')return reply({secret,secret_sha256:await sha(secret),project_ref:'abcdefghijklmnopqrst',source_id:source,client_binding:'client-42',client_id:42,shop_public_api_key:jwt({role:'anon',ref:'abcdefghijklmnopqrst'}),pairing_mode:'managed'});
    return reply({enabled:b.p_action==='enable',request_id:request});
   }
+  if(url==='https://api.supabase.com/v1/projects/abcdefghijklmnopqrst/secrets' && opt.installUncertain)throw Error('uncertain Management response');
   if(url==='https://api.supabase.com/v1/projects/abcdefghijklmnopqrst/secrets')return new Response(null,{status:201,headers:{'Content-Length':'0'}});
   throw Error('Unexpected URL: '+url);
  };
@@ -92,4 +97,28 @@ test('managed installation stays disabled until the exact installed key, pairing
 test('shared protocol bytes match across repositories and browser source has no server key references',()=>{
  const read=p=>readFileSync(new URL(p,import.meta.url),'utf8');assert.equal(read('../supabase/functions/platform-support-tickets/protocol.ts'),read('../../Orbitoshopv2-v1/supabase/functions/support-tickets/protocol.ts'));
  for(const p of ['../../Orbitoshopv2-v1/src/platform/support.js','../../Orbitoshopv2-v1/src/admin/pages/support.js'])assert.doesNotMatch(read(p),/SERVICE_ROLE|PLATFORM_SUPPORT_TICKETS_SECRET|PLATFORM_MANAGEMENT_TOKEN/);
+});
+
+// These are provider-transport doubles; the native Auth test separately issues
+// a real two-hour GoTrue token. Claims are never treated as authentication.
+test('verified longer JWTs work; issuer/audience/expiry/user/session/provider failures remain denied',async()=>{
+ const longer=jwt({exp:Math.floor(Date.now()/1000)+7200});
+ const f=fixture({validToken:longer});assert.equal((await f.invoke('shop',body,{Authorization:'Bearer '+longer})).status,202);
+ assert.equal(f.calls.filter(u=>u.endsWith('/auth/v1/user')).length,2);
+ for(const claim of [{iss:platform+'/auth/v1'},{iss:'https://evil.invalid'},{aud:'service_role'},{exp:1},{exp:'future'},{sub:request},{session_id:request}]){
+  const t=jwt(claim),f=fixture({validToken:t});assert.ok((await f.invoke('shop',body,{Authorization:'Bearer '+t})).status>=400);assert.equal(f.creates.length,0);
+ }
+ for(const t of ['x.'+Buffer.from('null').toString('base64url')+'.x','x.bad.x'])assert.equal((await fixture().invoke('shop',body,{Authorization:'Bearer '+t})).status,401);
+ const denied=fixture({validToken:longer,authDenied:true});assert.equal((await denied.invoke('shop',body,{Authorization:'Bearer '+longer})).status,401);assert.equal(denied.creates.length,0);
+ const revoked=fixture({validToken:longer,actorDenied:true});assert.equal((await revoked.invoke('shop',body,{Authorization:'Bearer '+longer})).status,403);assert.equal(revoked.creates.length,0);
+});
+test('uncertain installation and invalid capability never enable; replay verifies the same enrollment',async()=>{
+ const b={client_id:42,request_id:request};
+ const uncertain=fixture({installUncertain:true});assert.equal((await uncertain.invoke('enrollment',{...b,action:'install'})).status,503);
+ assert.ok(uncertain.commands.some(c=>c.p_action==='installation_started'));assert.ok(!uncertain.commands.some(c=>['installation_acknowledged','enable'].includes(c.p_action)));
+ for(const opt of [{capabilityUnavailable:true},{badProof:true},{shopEnv:{PLATFORM_SUPPORT_TICKETS_ENDPOINT:'https://bcdefghijklmnopqrstu.supabase.co/functions/v1/platform-support-tickets'}}]){
+  const f=fixture(opt);assert.equal((await f.invoke('enrollment',{...b,action:'verify'})).status,503);assert.ok(!f.commands.some(c=>c.p_action==='enable'));
+ }
+ const f=fixture();for(let i=0;i<2;i++)assert.equal((await f.invoke('enrollment',{...b,action:'verify'})).status,200);
+ assert.ok(f.commands.every(c=>c.p_request===request));
 });

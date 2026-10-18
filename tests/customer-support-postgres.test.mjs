@@ -3,7 +3,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync,readdirSync} from 'node:fs';
 import {spawnSync,execFile} from 'node:child_process';
-import {createHash} from 'node:crypto';
+import {createHash,createHmac,randomBytes} from 'node:crypto';
+import {actor as verifyActor} from '../supabase/functions/platform-support-tickets/protocol.ts';
 const container=process.env.ORBITO_BOOTSTRAP_TEST_CONTAINER;
 assert.match(container||'',/^orbito-bootstrap-team-[a-f0-9]{16}$/);
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
@@ -123,6 +124,72 @@ test('concurrent duplicates converge and quotas reject extra creates without cha
  sql(`update platform_private.support_ticket_budgets set used=1;update platform_private.support_ticket_budgets set used=50 where bucket='source:${sources[0]}'`,platform);
  assert.throws(()=>sql(service(create(6,0,actor(0,employee,'Manager'))),platform),/quota/);
 });
+// Keep transactions open over stdin to observe actual overlapping backend locks.
+// READY is emitted only after the RPC has returned and acquired its locks.
+function connection(name,q,hold=false){
+ let out='',err='',readyResolve,readyReject;
+ const ready=new Promise((resolve,reject)=>{readyResolve=resolve;readyReject=reject;});
+ const child=execFile('docker',['exec','-i',container,'psql','-X','-qAt','-v','ON_ERROR_STOP=1','-U','postgres','-d',platform],{windowsHide:true,timeout:25000},(e)=>{if(e)readyReject(Error(err||e.message));});
+ const done=new Promise((resolve,reject)=>{child.on('close',code=>code===0?resolve(out):reject(Error(err)));child.on('error',reject);});
+ // A rejected backend can exit before the caller reaches ready/done.
+ done.catch(()=>{});ready.catch(()=>{});
+ child.stdout.on('data',c=>{out+=c;if(out.includes('SUPPORT_READY'))readyResolve();});child.stderr.on('data',c=>err+=c);
+ child.stdin.write("begin;set local application_name='"+name+"';set local statement_timeout='20s';"+q+";select 'SUPPORT_READY';\n");
+ if(!hold)child.stdin.end('commit;\n');
+ return {ready,done,finish:(commit=true)=>{child.stdin.end(commit?'commit;\n':'rollback;\n');return done;}};
+}
+async function blocked(name){
+ const deadline=Date.now()+12000;
+ while(Date.now()<deadline){if(sql("select exists(select 1 from pg_stat_activity where application_name='"+name+"' and cardinality(pg_blocking_pids(pid))>0)",platform)==='t')return;await new Promise(r=>setTimeout(r,25));}
+ assert.fail('Expected an observed backend lock wait for '+name);
+}
+test('shared reads overlap; create/revoke/re-pair/config/billing/resolution writers retain client-first fences',async()=>{
+ sql('update platform_private.support_ticket_budgets set used=1',platform);
+ const held=[];const open=async(name,q)=>{const c=connection(name,q,true);held.push(c);await c.ready;return c;};
+ try{
+  const r1=await open('support_read_one',readTickets());
+  const r2=await open('support_read_two',readTickets());
+  assert.equal(sql("select count(*) from pg_stat_activity where application_name in ('support_read_one','support_read_two') and cardinality(pg_blocking_pids(pid))=0",platform),'2','readers coexist in independent backends');
+  await r2.finish();held.splice(held.indexOf(r2),1);
+  const createWriter=connection('support_create_wait',create(9001));await blocked('support_create_wait');
+  await r1.finish();held.splice(held.indexOf(r1),1);await createWriter.done;
+  // The existing public configuration/billing mutation boundaries lock client
+  // before jobs, cycles or credentials. Use the actual business RPC where safe.
+  const cases=[
+   ['revoke',"select public.platform_support_credential_command('"+master+"','"+master+"',100,'"+request(100)+"','revoke','{}')"],
+   ['repair',"select 1 from public.clients where id=100 for update;update platform_private.shop_credentials set client_binding='race-new-binding' where client_id=100"],
+   ['config',claims(master)+"set local role authenticated;select public.platform_begin_config(100,'"+request(9002)+"','{\"suspended\":false}')"],
+   ['provision',claims(master)+"set local role authenticated;select public.platform_provision_begin(100,'"+request(9003)+"','verify','{}')"],
+   ['billing',claims(billing)+"set local role authenticated;select public.platform_set_rates(100,3,2,false)"],
+   ['resolve',claims(master)+"set local role authenticated;select public.platform_resolve_ticket("+sql("select ticket_id from platform_private.support_ticket_context where request_id='"+request(9001)+"'",platform)+")"]
+  ];
+  for(const [name,q] of cases){
+   const reader=await open('support_read_'+name,readTickets());
+   // Hold the mutation for rollback: no fixture authority or billing intent changes.
+   const writer=connection('support_write_'+name,q,true);held.push(writer);await blocked('support_write_'+name);
+   await reader.finish();held.splice(held.indexOf(reader),1);await writer.ready;await writer.finish(false);held.splice(held.indexOf(writer),1);
+  }
+  // Writer first: after a committed revocation, a queued read revalidates and fails.
+  const revoke=await open('support_revoke_first',"select public.platform_support_credential_command('"+master+"','"+master+"',100,'"+request(100)+"','revoke','{}')");
+  const queued=connection('support_read_after_revoke',readTickets());await blocked('support_read_after_revoke');await revoke.finish();held.splice(held.indexOf(revoke),1);
+  await assert.rejects(queued.done,/denied/);
+  // Only fixture owner restores this synthetic key for the remaining campaigns.
+  sql("update platform_private.support_ticket_credentials set revoked_at=null,enabled=true where secret_sha256='"+hashes[0]+"'",platform);
+  const pairing=await open('support_pair_first',"select 1 from public.clients where id=100 for update;update platform_private.shop_credentials set client_binding='race-new-binding' where client_id=100");
+  const afterPair=connection('support_read_after_pair',readTickets());await blocked('support_read_after_pair');const createPair=connection('support_create_after_pair',create(9012));await blocked('support_create_after_pair');await pairing.finish();held.splice(held.indexOf(pairing),1);await assert.rejects(afterPair.done,/denied/);await assert.rejects(createPair.done,/denied/);
+  sql("update platform_private.shop_credentials set client_binding='support-client-100' where client_id=100;update platform_private.support_ticket_credentials set revoked_at=null,enabled=true where secret_sha256='"+hashes[0]+"'",platform);
+ }finally{for(const c of held)await c.finish(false).catch(()=>{});}
+});
+test('creation queued behind credential rotation is denied after fresh client-first revalidation',async()=>{
+ const data={project_ref:refs[0],source_id:sources[0],client_binding:'support-client-100',shop_public_api_key:'synthetic-approved-public-key',secret_sha256:'9'.repeat(64),scopes:['ticket:create','ticket:read']};
+ const command=(action,d={})=>"select public.platform_support_credential_command('"+master+"','"+master+"',100,'"+request(9010)+"','"+action+"',"+literal(d)+")";
+ value(service(command('prepare',data)));
+ const rotation=connection('support_rotation',command('enable',{capability:'retrasell-support-v1'}),true);await rotation.ready;
+ const queued=connection('support_create_after_rotation',create(9011));await blocked('support_create_after_rotation');await rotation.finish();await assert.rejects(queued.done,/denied/);
+ assert.equal(sql("select count(*) from platform_private.support_ticket_context where request_id='"+request(9011)+"'",platform),'0');
+ value(service(command('revoke')));sql("update platform_private.support_ticket_credentials set enabled=true,revoked_at=null where secret_sha256='"+hashes[0]+"'",platform);
+});
+
 test('Master-only disabled enrollment, recovery identity, rotation, revocation and re-pair invalidation',()=>{
  const data={project_ref:refs[0],source_id:sources[0],client_binding:'support-client-100',shop_public_api_key:'synthetic-approved-public-key',secret_sha256:'c'.repeat(64),scopes:['ticket:create','ticket:read']};
  const cmd=(who,action,d={},req=request(200))=>`select public.platform_support_credential_command('${who}','${who}',100,'${req}','${action}',${literal(d)})`;
@@ -162,7 +229,59 @@ test('managed credentials retain one protected Vault value through uncertain-ins
 test('staged anonymous closure removes effective table/column/sequence access; private objects have no browser grants',()=>{
  sql(read('supabase/staged-migrations/close_anonymous_support.sql'),platform);
  for(const role of ['anon','authenticated'])assert.throws(()=>sql(`begin;set local role ${role};insert into public.support_tickets(client_name,subject,message) values('Forged','Denied','Denied');commit;`,platform),/permission denied/);
+ // Closure must retain the narrow server intake and canonical staff workflow.
+ const accepted=value(service(create(10000,1)));assert.equal(value(service(readTickets(1,actor(1),accepted.ticket_id))).length,1);
+ const tid=sql("select ticket_id from platform_private.support_ticket_context where public_id='"+accepted.ticket_id+"'",platform);
+ assert.equal(value(user(manager,"select public.platform_support_ticket_resolve("+tid+",1,'Closure fixture resolved')")).resolved,true);
+ assert.ok(value(user(master,'select public.platform_support_ticket_page(0)')).rows.some(t=>t.id===Number(tid)));
+ for(const role of ['anon','authenticated']){
+  assert.throws(()=>sql('begin;set local role '+role+';'+create(10001,1)+';commit;',platform),/permission denied/);
+  assert.equal(sql("select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('platform_support_ticket_source','platform_support_ticket_create','platform_support_ticket_read','platform_support_credential_command') and has_function_privilege('"+role+"',p.oid,'EXECUTE')",platform),'0');
+ }
  assert.equal(sql("select has_any_column_privilege('anon','public.support_tickets','INSERT') or has_sequence_privilege('anon','public.support_tickets_id_seq','USAGE,SELECT,UPDATE')",platform),'f');
  assert.equal(sql("select count(*) from pg_tables where schemaname='platform_private' and tablename like 'support_ticket_%' and not rowsecurity",platform),'0');
  for(const role of ['anon','authenticated','service_role'])assert.equal(sql(`select count(*) from pg_tables where schemaname='platform_private' and tablename like 'support_ticket_%' and has_table_privilege('${role}',schemaname||'.'||tablename,'SELECT,INSERT,UPDATE,DELETE')`,platform),'0');
+});
+
+// Real local Auth issues a configured two-hour JWT; real PostgREST verifies it
+// before the actual canonical actor RPC. No provider or gateway mock here.
+test('real GoTrue two-hour user JWT remains valid through Auth and live PostgREST; forged/revoked sessions fail',async()=>{
+ const nonce=randomBytes(8).toString('hex'),authName='orbito-support-auth-'+nonce,restName='orbito-support-rest-'+nonce;
+ const password=randomBytes(32).toString('hex'),jwtSecret=randomBytes(32).toString('hex'),loginPassword=randomBytes(24).toString('hex');
+ const label='com.retrasell.support-auth',url='https://'+refs[0]+'.supabase.co';const owned=[];
+ const command=args=>run(args);
+ const sign=claims=>{const h=Buffer.from(JSON.stringify({alg:'HS256',typ:'JWT'})).toString('base64url'),b=Buffer.from(JSON.stringify({role:'authenticated',aud:'authenticated',iss:url+'/auth/v1',exp:Math.floor(Date.now()/1000)+7200,...claims})).toString('base64url');return h+'.'+b+'.'+createHmac('sha256',jwtSecret).update(h+'.'+b).digest('base64url');};
+ try{
+  // Schema-only fixtures need the matching GoTrue migration ledger before
+  // starting Auth; replaying old migrations against upgraded tables is invalid.
+  sql(run(['exec',container,'pg_dump','-U','supabase_admin','-d','postgres','--data-only','--table=auth.schema_migrations']),shops[0],'supabase_admin');
+  sql("alter role supabase_auth_admin password '"+password+"';alter role authenticator password '"+password+"'",shops[0],'supabase_admin');
+  for(const [name,image,port,vars] of [
+   [authName,'public.ecr.aws/supabase/gotrue:v2.197.0','9999',{GOTRUE_API_HOST:'0.0.0.0',GOTRUE_API_PORT:'9999',GOTRUE_DB_DRIVER:'postgres',GOTRUE_DB_DATABASE_URL:'postgres://supabase_auth_admin:'+password+'@'+container+':5432/'+shops[0],GOTRUE_SITE_URL:'http://localhost:4180',API_EXTERNAL_URL:url+'/auth/v1',GOTRUE_JWT_ISSUER:url+'/auth/v1',GOTRUE_JWT_SECRET:jwtSecret,GOTRUE_JWT_AUD:'authenticated',GOTRUE_JWT_DEFAULT_GROUP_NAME:'authenticated',GOTRUE_JWT_EXP:'7200',GOTRUE_JWT_ADMIN_ROLES:'service_role',GOTRUE_MAILER_AUTOCONFIRM:'true',GOTRUE_LOG_LEVEL:'error'}],
+   [restName,'postgrest/postgrest:v13.0.8','3000',{PGRST_DB_URI:'postgres://authenticator:'+password+'@'+container+':5432/'+shops[0],PGRST_DB_SCHEMAS:'public',PGRST_DB_ANON_ROLE:'anon',PGRST_JWT_SECRET:jwtSecret,PGRST_JWT_AUD:'authenticated',PGRST_LOG_LEVEL:'crit'}]
+  ]){
+   command(['image','inspect',image]);command(['run','-d','--name',name,'--label',label+'='+nonce,'--network',container+'-network','-p','127.0.0.1::'+port,...Object.entries(vars).flatMap(([k,v])=>['-e',k+'='+v]),image]);owned.push(name);
+  }
+  for(const name of owned){if(command(['inspect','-f','{{.State.Running}}',name])!=='true'){
+   const logs=spawnSync('docker',['logs',name],{encoding:'utf8',windowsHide:true,timeout:10000});const diagnostic=(logs.stdout+logs.stderr).replaceAll(password,'[fixture]').replaceAll(jwtSecret,'[fixture]').replaceAll(loginPassword,'[fixture]');throw Error('Owned provider startup: '+diagnostic);
+  }}
+  const origin=(name,port)=>{const match=command(['port',name,port+'/tcp']).match(/^127\.0\.0\.1:(\d+)$/);assert.ok(match,'Local-only provider port');return 'http://127.0.0.1:'+match[1];};
+  const auth=origin(authName,'9999'),rest=origin(restName,'3000');
+  for(const target of [auth+'/health',rest+'/']){let ready=false;for(let n=0;n<50;n++){try{if((await fetch(target,{signal:AbortSignal.timeout(1000)})).ok){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,100));}assert.ok(ready,'Owned provider startup');}
+  // Create the provider login through real Auth, rather than pretending the
+  // minimal SQL authorization fixture is a complete GoTrue account.
+  const email='native-owner@example.test';
+  const signup=await fetch(auth+'/signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:loginPassword})});assert.equal(signup.status,200,'Create synthetic provider user through Auth');
+  const registered=await signup.json(),nativeOwner=registered.user?.id||registered.id;assert.match(nativeOwner,/^[a-f0-9-]{36}$/);
+  sql("update public.app_users set auth_user_id='"+nativeOwner+"',email='"+email+"' where auth_user_id='"+owner+"'",shops[0]);
+  const login=await fetch(auth+'/token?grant_type=password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:loginPassword})});assert.equal(login.status,200);
+  const session=await login.json(),token=session.access_token,claims=JSON.parse(Buffer.from(token.split('.')[1],'base64url'));
+  assert.equal(session.expires_in,7200);assert.equal(claims.role,'authenticated');assert.ok(claims.exp-Date.now()/1000>7000);assert.equal(claims.iss,url+'/auth/v1');
+  let nativeVerified=false;
+  const fetcher=async(target,options)=>{assert.ok(target.startsWith(url+'/auth/v1/')||target.startsWith(url+'/rest/v1/'));const response=await fetch(target.replace(url+'/auth/v1',auth).replace(url+'/rest/v1',rest),options);
+   if(!nativeVerified&&target.includes('/rest/v1/')&&!response.ok){const diagnostic=await response.clone().json();console.error('Local actor RPC: '+JSON.stringify({code:diagnostic.code,message:diagnostic.message}).replace(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g,'[fixture JWT]'));}return response;};
+  assert.equal((await verifyActor(fetcher,url,'local-public',token)).auth_user_id,nativeOwner);nativeVerified=true;
+  for(const invalid of [token.slice(0,-8)+'forged00',sign({...claims,exp:1}),sign({...claims,iss:'https://foreign.invalid/auth/v1'}),sign({...claims,aud:'service_role'}),sign({...claims,session_id:employee}),sign({...claims,sub:employee})])await assert.rejects(()=>verifyActor(fetcher,url,'local-public',invalid));
+  sql("delete from auth.sessions where id='"+claims.session_id+"'",shops[0]);await assert.rejects(()=>verifyActor(fetcher,url,'local-public',token));
+ }finally{for(const name of owned.reverse()){assert.equal(command(['inspect','-f','{{index .Config.Labels "'+label+'"}}',name]),nonce);command(['rm','-f',name]);}}
 });

@@ -62,14 +62,14 @@ async function verifySupportHandoff(db){
  assert.equal((await consume('c'.repeat(64))).ok,false,'canonical actor rechecked at consumption');
  await db.exec("update auth.users set email='canonical-master@example.test' where id='99000000-0000-4000-8000-000000000001'");
  await db.exec(`set request.jwt.claim.sub='${actor}';set request.jwt.claims='{"sub":"${actor}","session_id":"${actor}"}'`);
- await assert.rejects(()=>db.query('select public.platform_support_issue(9901,$1,$2,$3,$4)',[actor,'f'.repeat(64),'ukbhyerxshteyetwomqy',actor]),/Eligible paired/);
+ await assert.rejects(()=>db.query('select public.platform_support_issue(9901,$1,$2,$3,$4)',[actor,'f'.repeat(64),'ukbhyerxshteyetwomqy',actor]),/Explicit current Master-approved support destination required/);
  for(const state of ['Archived','destroyed','decommissioned']){
   await db.exec('begin');
   await issue('d'.repeat(64));
   const column=state==='Archived'?'lifecycle_state':'infrastructure_state';
   await db.query(`update public.clients set ${column}=$1 where id=9900`,[state]);
   await db.exec('savepoint denied');
-  await assert.rejects(()=>issue('e'.repeat(64)),/Eligible paired/);
+  await assert.rejects(()=>issue('e'.repeat(64)),/Explicit current Master-approved support destination required/);
   await db.exec('rollback to savepoint denied');
   assert.equal((await consume('d'.repeat(64))).ok,false,'retired or unsupported client denied at exchange');
   await db.exec('rollback');

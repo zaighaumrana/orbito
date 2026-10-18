@@ -86,6 +86,9 @@ test('real PostgreSQL: two overlapping server transactions atomically consume ex
   const replacement='99000000-0000-4000-8000-000000000004';
   await sql(`insert into auth.users(id,email,email_confirmed_at) values('${replacement}','replacement@example.test',now());select platform_private.bind_master('${replacement}','${actor}','Reviewed synthetic support rebinding');`);
   assert.equal((await exchange('9')).ok,false,'outstanding grants of the former bound Master are revoked');
-  assert.equal(await sql("select count(*) from public.operator_audit where action='support_grant_failed' and detail->>'reason'='actor_revoked'"),'2');
+  // The F2 outer destination fence denies the rebound Master's stale approval
+  // before entering the older actor-audit routine. The earlier ban still audits.
+  assert.equal(await sql("select count(*) from public.operator_audit where action='support_grant_failed' and detail->>'reason'='actor_revoked'"),'1');
+  assert.equal(await sql("select count(*) from platform_private.support_grants where token_hash=repeat('9',64) and consumed_at is null"),'1','stale approval cannot consume the grant');
  }finally{await sql('drop database '+database,'postgres');}
 });

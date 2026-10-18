@@ -1659,3 +1659,51 @@ ledger update. Draft Platform PR #5 / Shop PR #1 target development and remain
 unmerged. Both first feature pushes were independently confirmed skipped by
 Cloudflare's commit_message rule; no deployment/configuration or hosted Supabase
 mutation occurred. Final follow-up SHAs belong in the PR/delivery report.
+
+
+## 2026-10-19 — Verified customer Support stabilization and independent regression review
+
+Branch: feature/verified-customer-support-platform
+
+### Purpose and changes
+
+Correct confirmed Support compatibility/state defects and independently close the
+previous local validation gaps, updating the existing Draft PRs only. Both shared
+protocols remove the unsupported 3660-second remaining JWT ceiling, add exact
+issuer/authenticated-audience/UUID checks, and retain real Auth plus live canonical
+actor verification. Shop's final identity/generation check now follows asynchronous
+error parsing, preventing a late old HTTP 400 from erasing another account's retry.
+The new unshipped Platform read RPC uses client-first shared locks; all writer
+ordering, post-wait authorization and actor freshness checks remain.
+
+Corrected stale recovery/handoff fixtures through verified read-back and canonical
+Master protected-destination approval, preserving historical migration-cutoff
+contracts. Production recovery/handoff/POS/billing/provisioning sources and all old
+migrations remain unchanged. Bounded native subgroup runners stream progress,
+retain both output streams and avoid hidden test grandchildren. The accepted
+release remains frozen; only the separate Support candidate was regenerated.
+
+### Validation and decisions
+
+Platform broad suite 312/312; Shop 101/102, retaining the preexisting accepted
+artifact raw-byte equality gate. Exact drift is newline-only across three unchanged
+Git blobs; promotion/fingerprint changes need a separate owner decision. New
+handlers 10/10; Shop Support groups 9/9; native Support 10/10, including independent
+read/create/revoke/re-pair/rotation/config/pricing/provisioning/resolution backends,
+closure retention and real two-hour GoTrue/Auth/PostgREST verification. Existing
+native groups total 32 passes across bounded historical/current runs; focused
+privileged handoff passes. Both builds and actual Support browser integrations
+pass at 320/768/1440px with synthetic loopback SDK transport. A local restart
+interrupted some runs; only completed checks and targeted recoveries count.
+
+### Deployment and remaining gates
+
+No hosted Supabase/Cloudflare mutation or deployment. Same feature branches and
+Draft PRs target development, unmerged, with CF-Pages-Skip delivery. Both contracts,
+owner CLI-2.120.0 runbooks and validation ledgers describe runtime privilege trust,
+precise snapshot/network freshness, protected hash material, optional capability,
+manual baseline/pairing gates and staged anonymous closure. Local report:
+Support ticket/implementation-evidence/STABILIZATION_REPORT.md. Conditional GO for
+owner-controlled additive development deployment after exact dry-run/prerequisites;
+customer use and production remain blocked on real hosted managed/BYO/Auth/gateway,
+deployed-sender inventory and explicit release/closure/acceptance decisions.

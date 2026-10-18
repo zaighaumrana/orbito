@@ -16,3 +16,10 @@ select public.platform_onboarding_step('99000000-0000-4000-8000-000000000010','p
 select public.platform_onboarding_step('99000000-0000-4000-8000-000000000010','registered','{"source_id":"99000000-0000-4000-8000-000000000003","client_binding":"orbito-client-9900"}');
 select public.platform_provision_step('99000000-0000-4000-8000-000000000010','complete','{}');
 update public.clients set lifecycle_state='Suspended',status='Suspended' where id=9900;
+
+-- Canonical live Master approves this exact protected destination and pairing.
+do $$ begin
+ if to_regprocedure('public.platform_approve_support_destination(integer,text,text,text,uuid,uuid,text)') is not null then
+  perform public.platform_approve_support_destination(9900,'https://shop.example.test','dexzxxqkbwnpetbsuxxv','orbito-client-9900','99000000-0000-4000-8000-000000000003',null,'Explicit synthetic handoff destination review');
+ end if;
+end $$;

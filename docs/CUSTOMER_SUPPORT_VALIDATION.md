@@ -1,79 +1,52 @@
-# Customer Support implementation validation — 18 October 2026
+# Customer Support stabilization validation — 19 October 2026
 
-## Scope and source identity
+This ledger supersedes the initial 18 October implementation totals. Both PRs remain Draft/unmerged against development. Platform base: 23a157a5c2aa581eec6e0f02b97318c784296e79; Shop base: f91f02819a9f2909062e36140f1775a870009115. Exact final feature heads are recorded in the PR descriptions and local STABILIZATION_REPORT.md; compare git rev-parse HEAD before manual deployment.
 
-Platform base: 23a157a5c2aa581eec6e0f02b97318c784296e79, feature/verified-customer-support-platform. Shop base: f91f02819a9f2909062e36140f1775a870009115, feature/verified-customer-support-shop. Both remote development heads were rechecked and unchanged before delivery. The PR descriptions record final implementation SHAs. No main/deployment checkout, commit, push, merge, tag, release or settings change was performed. Initial trees were clean; existing other worktrees were left alone. The four original investigation documents were read and preserved.
+## Confirmed corrections
 
-## Executed results
+- Both shared protocols accept legitimate longer configured JWT lifetimes only after exact issuer/authenticated audience/expiry/UUID checks, independent registered-project Auth verification and live actor RPC. No decoded claim is authority. Protocol bytes are identical.
+- New unshipped Platform migration uses client-first FOR SHARE for read/credential locks; create/enrollment/rotation/resolution retain FOR UPDATE. Post-lock authorization and 15-second actor freshness remain.
+- Shop parses asynchronous error bodies before the final session/generation check. A late old HTTP 400 cannot erase the replacement account retry; current authorization denial clears cached tickets/detail/receipt.
+- Recovery/handoff fixtures now honor PR4 verified read-back and explicit protected destination approval; historical cutoff tests explicitly retain their old contract. No production recovery or handoff source was modified.
+- Native runners expose fixed local subgroup selectors, stream progress, bound the direct child at the existing eight minutes and retain stdout and stderr. No hosted target arguments are accepted.
 
-| Check | Baseline | Final implementation |
+## Executed matrix
+
+| Check | Result | Evidence/scope |
 |---|---|---|
-| Platform existing unit/handler/simulation set, plus new Support groups | 301/302 pass, 1 failure | 309/310 pass, same baseline failure |
-| Shop all existing .test.mjs files, plus new Support groups | 92/93 pass, 1 failure | 100/101 pass, same baseline failure |
-| Actual new Platform + Shop HTTP handlers | N/A | 8/8 groups pass; injected HTTP transports, no provider network |
-| Shop Support client/renderer/role/package/installer | N/A | 8/8 groups pass |
-| New native PostgreSQL 17 + real GoTrue schema + Vault, three independent databases | N/A | 7/7 groups pass; actual SQL/ACLs/transactions/concurrent connections |
-| Existing PR #4 native security campaign | N/A | 8/8 groups pass |
-| Existing Platform login/Add Client browser campaign | N/A | 6 viewport/theme groups pass; actual modules, synthetic SDK/CAPTCHA |
-| New Platform Support browser integration | N/A | PASS: Master/Manager/Billing navigation, provenance, resolution/revision, pagination, escaping, responsive layouts |
-| New Shop Support browser integration | N/A | PASS: actual admin form, lost-commit retry, one receipt, escaped details/resolution, Owner/Manager navigation, responsive layouts |
-| Both Vite production builds | PASS | PASS |
-| Browser privileged key scan | N/A | No service_role JWT, Support secret variable or Management token variable found in built JS |
-| Whitespace/syntax/import checks | N/A | PASS; Node 24 parses/imports actual TypeScript handler modules |
+| Platform broad unit/handler/simulation suite | 312/312 PASS | stabilization-platform-unit-final.log; original baseline 301/302, stale recovery/handoff fixtures corrected |
+| Shop broad unit/renderer/package/installer suite | 101/102; one retained baseline gate | stabilization-shop-unit-final.log; accepted-release raw byte equality, original baseline 92/93 |
+| Actual cross-repository HTTP/enrollment handlers | 10/10 PASS | Included in Platform suite; explicit HTTP doubles, not hosted Auth/Management |
+| Shop Support client/renderer/retry/installer/package | 9/9 PASS | Included in Shop suite; includes late-error account-switch regression |
+| Native Support SQL/concurrency + real local Auth | 10/10 PASS | stabilization-support-native-final-accepted.log; native PG17/real GoTrue schemas/Vault; independent psql backends; real local GoTrue/PostgREST JWT verification |
+| Existing bootstrap native groups | 6/6 across bounded runs | stabilization-native-bootstrap.log first five plus corrected stabilization-native-bootstrap-behavior.log; historical cutoff source |
+| Existing team-handler/canonical role native groups | 2/2 PASS | stabilization-native-team-database.log; before/after UUID contract |
+| Existing lifecycle native groups | 12/12 across bounded runs | stabilization-native-lifecycle.log eleven completed before interruption; stabilization-native-lifecycle-boundaries.log final group |
+| Existing role reads/RLS/PostgREST native groups | 4/4 PASS | stabilization-native-role-reads-final.log |
+| Existing PR4 native security groups | 8/8 PASS | stabilization-native-pr4-security-final.log |
+| Privileged handoff focused native campaign | 1/1 PASS | stabilization-handoff-native-final.log; overlapping actual consume transactions, current session/approval/source/expiry/replay/actor checks |
+| Both production builds | PASS | stabilization-platform-build.log, stabilization-shop-build.log |
+| Both actual Support browser integrations | PASS | stabilization-*-browser-final.log, 320/768/1440px; actual UI modules with synthetic loopback SDK, zero external requests/page errors |
+| Built privileged credential scan | PASS | No Support/Management/service key variable or service_role JWT in built JavaScript |
+| Shared protocol parity/candidate reproducibility | PASS | Identical protocols; deterministic separate 33-migration/seven-function candidate |
+| Supabase CLI runbook syntax | PASS | Installed CLI 2.120.0 version/help, explicit project-ref/dry-run/skip-vault/use-api/env-file flags; no hosted commands executed |
 
-The full unit set excludes opt-in Platform files whose documented entry point requires a provisioned native container/CLI path (postgres, database, production-bootstrap). These are separate native campaigns, not silently counted as unit passes. A first indiscriminate invocation from the parent workspace demonstrated those prerequisites and wrong-working-directory child imports; the baseline counts above use each repository's proper cwd. No test expectation was weakened and no existing test was removed or skipped to obtain a result.
+The existing native groups total 32 completed checks across bounded historical/current campaigns; they are not one uninterrupted full-runner pass. The first old full-runner timeout remains diagnostic evidence. A local machine/Docker restart interrupted later checks; empty/interrupted logs are not acceptance. Fixed selectors resume only affected groups. Observed CheckpointDone cleanup waits indicate local disk/checkpoint overhead; no persistent deadlock was demonstrated. Child limits were not increased.
 
-### Native Support groups (actual implementation)
+## Accepted release discrepancy
 
-1. Full migration chains in one central and two Shop databases; confirmed/current-session/current-user/role/employee/email/lifecycle authorization. Same Auth user UUID in two projects produces separate source namespaces.
-2. Atomic create/context/event/budgets; same request retry; actor/payload conflict; Manager own-ticket privacy; Owner Shop scope; cross-customer opaque-ID denial; financial bridge credential rejection; no payment/invoice/bridge/provision side effects; creation-audit failure rollback.
-3. Canonical staff ceilings; Billing denial; optimistic audited resolution; equivalent retry; customer response projection; resolution/operator-audit failure rolls back status/revision/event; legacy compatibility wrapper; raw browser UPDATE denied; legacy provenance stays unverified.
-4. Two independent concurrent duplicate submissions converge on one receipt; source and actor quotas; accepted retries remain free.
-5. Master-only disabled preparation, same-enrollment replay/conflict, separate read/create scopes, rotation/revocation, active-key re-pair invalidation and central suspended/archived/destroyed/decommissioned denials.
-6. Managed generation and one protected Vault value, exact digest consistency, same-ID recovery, idempotent install dispatch/ack audit and disabled/unverified status, revocation hides material. BYO stores only its externally prepared hash.
-7. Focused staged anonymous closure proves effective table/column/sequence denial and removes the legacy policy in the disposable database; all new private tables have RLS and no raw anon/authenticated/service_role access.
+The accepted Platform _shared/shop-release.json remains byte-for-byte unchanged, internal SHA256 7f8e4cd5614a4b19e155f5114d49517dddb6c9c2ef7d62a2bc71e3927d97c940. Thirteen package entries differ only in line endings across three unchanged Shop Git blobs: runtime-preflight.ts (52 approved CRLF vs 59 checkout), support-handoff.ts (0 vs 19), login/index.ts (396 vs 418). LF-normalized content matches. See stabilization-release-drift.json. The strict accepted-byte gate remains failing, with no expectation weakening, artifact replacement or checksum rewrite. Regenerating that accepted release changes approved identities and requires a separate owner release-promotion decision after frozen jobs are reconciled.
 
-Native infrastructure: Docker Desktop Linux engine 29.8.0; cached Supabase postgres:17.6.1.155 and GoTrue:v2.197.0; actual Auth migration schemas and Vault extension. Storage/Realtime fixture tables model required prerequisites; this campaign does not test those providers. Owned labeled container/network and all three synthetic databases are removed by the runner. No hosted URL or saved .env selects a test database.
+The separate Support candidate has internal SHA256 0c3298e97a1b9f479170644281499f9e6a0155209eedb9f242b1bcf85c7bcc01. It normalizes source to LF, includes the new protocol/migration/function and is reproducible. It is not the accepted provisioner import and was not promoted. Existing completed Shops use the additive manual upgrade; optional Support does not gate POS readiness.
 
-### Existing PR #4 native groups
+## Boundaries and remaining gates
 
-PASS F1 retirement/new identity/activation collision behavior; F2 protected support destination approval/public URL isolation/direct-role denial/one-use/expiry/pair/reapproval; F3 delayed/duplicate/uncertain configuration and stale payloads; forward-17 retained rows and late-failure rollback; N2 outstanding legacy reservation abort; N2 queued legacy writer fencing; two concurrent editor client-lock serialization; exact frozen-journal SQL same-ID recovery after later writes. These preserve current canonical identity/lifecycle/configuration/handoff protections; no claim is made about every hosted employee journey.
+Local SQL/races and local Auth/PostgREST do not prove hosted gateway, Management, Vault/secret propagation or different-account BYO acceptance. Real disposable Owner/Manager/Master/Portfolio Manager/Billing, CAPTCHA/login/device smoke, actual installation and cross-project acceptance remain owner-controlled before-use checks. The hosted Shop JWT lifetime was not read or changed. Deno static/provider-bundle checking remains unexecuted; Node imports actual TypeScript handlers, but does not replace that gate.
 
-### Browser scope
+A central Edge runtime compromise has privileged project credentials and exceeds dedicated-bearer scope protection. Hash-based capability proof assumes HTTPS to the exact registered Shop and trusted installed code; protect hash enrollment files. Cross-project authorization uses a fresh 15-second snapshot, not atomic immediate revocation. Read locks still briefly fence writers; no production-scale performance claim is made.
 
-Pinned ignored local Playwright 1.56.1 with installed Chrome 155; headless temporary contexts, all non-loopback requests blocked. New Support campaigns use actual production admin/render/client/event modules with explicitly synthetic SDK transport, not a hosted backend. 320/768/1440px pass; existing login/Add Client also passes both light/dark themes. The new pages introduce no global styles. Provider CAPTCHA and real sign-in are not exercised by these browser fixtures.
+Current integrated and inspected historical Shop source/accepted artifacts contain no anonymous central ticket sender; read-only Cloudflare source metadata identifies the disposable frontend baseline. External/manual/customer deployed inventory is incomplete. Anonymous closure remains staged outside active migration discovery, PREPARED and NOT CLOSED. Native closure tests retain server intake and staff resolution while denying effective anonymous table/column/sequence grants and policy access.
 
-## Baseline failures and incomplete established campaigns
+Owner instructions: docs/CUSTOMER_SUPPORT_DEPLOYMENT.md. GO WITH CONDITIONS for the next controlled additive development deployment after exact history/dry-run and baseline/owner/pairing checks; NO-GO for customer use/production until actual hosted acceptance and remaining explicit gates. No hosted database/Auth/credentials/functions or Cloudflare deployments/settings were changed.
 
-1. tests/overhaul-sql.test.mjs, 'Platform full forward chain: lifecycle, unknown operations, stage retry, RBAC and retained history': both baseline and final fail in platform_config_recovery with 'Unknown remote configuration requires verified read-back; cannot close blindly'. The full new migration parses/replays before that unchanged fixture path. Do not weaken the verified read-back guard. This old fixture needs a separate compatibility correction/review.
-2. Shop tests/platform-overhaul.test.mjs, 'approved server release exactly matches current migrations and all six function gateway settings': baseline and final find drift in the already accepted _shared/runtime-preflight.ts bytes embedded in the existing approved artifact. The accepted Platform _shared/shop-release.json, Shop shared runtime source and privileged handoff source were not changed. The new optional Support artifact is separate and is checked against the reviewed current source; its source files normalize LF. Do not silently replace the accepted artifact to hide the old gate.
-3. Existing tests/run-support-local.mjs fails 'Explicit current Master-approved support destination required'. Reproduced independently from an archive of the exact original development commit with the same result. Its fixture predates the protected approval prerequisite; the handoff implementation itself is unchanged. PR #4's focused protected-destination group passes. Correct the old fixture separately before claiming the entire legacy handoff native runner passes.
-4. The broad tests/run-platform-team-local.mjs campaign timed out in an eight-minute child-suite limit on this Windows/Docker environment. Completed subgroups were not independently captured by that parent and are not counted. The focused --pr4-security-only campaign passed all eight groups afterward. Other opt-in production bootstrap, complete team/lifecycle/read projection/PostgREST and actual CLI atomicity campaigns remain incomplete this session.
-
-These are explicit review gates, not a claim that every established test is green. The PRs remain Draft and are not labeled production-ready.
-
-## Not executed / before-use gates
-
-Hosted migrations/functions/secrets/Auth/pairing/provisioning were forbidden and were not executed. Actual new function deployment, Supabase gateway/public-key propagation, real user-token HTTP verification and logout revocation across two deployed projects, real managed Management API secret installation, different-account BYO installation, hosted browser journeys, provider/Vault recovery across outages and actual deployed sender inventory remain pending. Node import/syntax checks are not Deno static type checking or Edge runtime deployment. No Android device smoke was performed. Existing POS/repair/inventory/returns/thermal/Paper/bridge/entitlement checks passed within their available unit/simulation scope; no unexecuted provider/device journey is presented as passed.
-
-The anonymous closure is prepared outside active discovery; it is not applied to staging and the historical vulnerability is not claimed closed. Full deployed historical sender compatibility is unresolved. Future candidate release promotion and production/backend/application rollout require the owner's separate acceptance.
-
-## Reproduction and local evidence
-
-Evidence is retained outside the repositories at C:\Users\ranaz\Desktop\Development\Support ticket\implementation-evidence. Key logs: platform-unit-baseline.log, shop-unit-baseline.log, platform-unit-final.log, shop-unit-final.log, support-native-final.log, platform-pr4-security.log, support-handoff-native.log, support-handoff-native-baseline.log, platform-browser-existing.log, platform-support-browser.log, shop-support-browser.log, platform-build-final.log, shop-build-final.log. The baseline archive contains only tracked tests/supabase source from origin/development, never .env or customer state. Early failed attempts are diagnostic history; the final filenames above are the acceptance runs.
-
-From Platform: npm run test:support and npm run test:support:native. Existing security: node tests/run-platform-team-local.mjs --pr4-security-only. From Shop: npm run test:support. Full unit commands used Get-ChildItem tests -Filter '*.test.mjs' and node --test with the documented Platform native-file exclusions above. Both repositories: npm run build and git diff --check.
-
-Browser runtime setup (ignored, no application dependency change): from Platform run npm install --prefix node_modules/.support-test-runtime --no-save --package-lock=false --ignore-scripts playwright@1.56.1. Set PLAYWRIGHT_MODULE_PATH to that absolute playwright/index.mjs and CHROMIUM_EXECUTABLE_PATH to an installed Chrome executable. Run node tests/customer-support-browser.mjs from each repository; node tests/ui-polish-browser.mjs from Platform. The tests accept only loopback Vite origins and abort external browser requests.
-
-Candidate: supabase/releases/shop-release-support-v1.json, 33 migrations and 7 functions. Internal canonical JSON SHA256: e4cab486e51833d92d91ec68720fa1693c199f5a21dfe52405c79b0aeacf7d7f. File transport SHA256 (LF): 2df724d489c68425d4e67ce30f4c621711df755d5d50080c443a69c5b913a710. The accepted six-function artifact remains unchanged. Candidate test asserts exact current normalized source and reproducible build output.
-
-The split-operator BYO regression additionally executes a copied installer in a standalone Shop checkout with no sibling Platform repository; private generation succeeds without customer privileged authority leaving the machine.
-
-## Deployment delivery
-
-New active migrations, in their separate project chains: Platform 20261018000612_verified_customer_support.sql; Shop 20261018000617_customer_support_actor.sql. Staged only: close_anonymous_support.sql, to be promoted with a fresh CLI migration after compatibility approval.
-
-New Edge Functions: Platform platform-support-tickets and platform-support-enrollment; Shop support-tickets. No existing Edge Function was modified. Existing frontend Support administration is extended; Shop adds Help & Support for Owner/Manager only. All configuration/setup changes are source controlled. Follow CUSTOMER_SUPPORT_DEPLOYMENT.md for exact project references, CLI-2.120.0 flags, managed/BYO enrollment, platform-first ordering, current-client versus future package handling, closure timing, verification and rollback. No hosted Supabase or Cloudflare resources were changed.
-
-References checked: Supabase's current Edge auth-header/session documentation and changelog index. The October TLS deprecation is limited to old CBC client stacks; this implementation uses the runtime's normal modern HTTPS fetch and does not change TLS configuration. See https://supabase.com/docs/guides/functions/auth-headers and https://supabase.com/docs/guides/auth/sessions.
+Detailed independent analysis and raw logs: C:/Users/ranaz/Desktop/Development/Support ticket/implementation-evidence/STABILIZATION_REPORT.md. Both engineering histories record the source changes; PR descriptions identify final heads.

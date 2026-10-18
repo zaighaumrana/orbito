@@ -34,8 +34,20 @@ do $$ declare lease jsonb;begin
 end $$;
 select public.platform_begin_config(9100,'99000000-0000-4000-8000-000000000014','{"suspended":false}');
 update public.config_jobs set updated_at=now()-interval '2 minutes' where request_id='99000000-0000-4000-8000-000000000014';
-select public.platform_config_recovery(9100,'99000000-0000-4000-8000-000000000014','close','Explicit unknown-outcome closure');
-select pg_temp.assert((select result->>'remote_outcome'='unknown' from public.config_jobs where request_id='99000000-0000-4000-8000-000000000014'),'manual closure preserves unknown outcome');
+-- PR4 forbids blind closure: prove denial, then reconcile the verified result.
+do $$ declare lease jsonb;begin
+ if to_regprocedure('public.platform_config_intent(integer)') is null then
+  -- Historical bootstrap campaign intentionally stops before PR4's guard.
+  perform public.platform_config_recovery(9100,'99000000-0000-4000-8000-000000000014','close','Historical unknown-outcome closure');
+  perform pg_temp.assert((select result->>'remote_outcome'='unknown' from public.config_jobs where request_id='99000000-0000-4000-8000-000000000014'),'historical closure records uncertainty');
+ else
+ begin perform public.platform_config_recovery(9100,'99000000-0000-4000-8000-000000000014','close','Explicit unknown-outcome closure');raise exception 'blind closure accepted';
+ exception when others then if sqlerrm not like 'Unknown remote configuration requires verified read-back%' then raise;end if;end;
+ lease:=public.platform_config_recovery(9100,'99000000-0000-4000-8000-000000000014','reconcile','Synthetic verified read-back');
+ perform public.platform_config_recovery_finish('99000000-0000-4000-8000-000000000014',(lease->>'recovery_id')::uuid,'applied','{"suspended":false}');
+ perform pg_temp.assert((select state='applied' from public.config_jobs where request_id='99000000-0000-4000-8000-000000000014'),'verified reconciliation completes the original request');
+ end if;
+end $$;
 select public.platform_begin_config(9100,'99000000-0000-4000-8000-000000000015','{"suspended":false}');
 update public.clients set currency='PKR' where id=9100;
 insert into public.usage_logs(client_id,module_type,token_count,rate_at_log) values(9100,'BILL',1,5);

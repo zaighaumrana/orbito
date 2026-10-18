@@ -8,7 +8,7 @@ Accept both coordinated implementation PRs against development after reviewing t
 
 The disposable Shop tufvoxxlgfydoknxczoy may be empty or unpaired. These changes do not initialize Auth, reserve/create an owner, pair a Shop, activate a client or authorize replay of onboarding. If it lacks the approved baseline, use the separately reviewed normal new-Shop provisioning process first. If an existing initialized Shop lacks migration history, stop and reconcile/adopt it explicitly; do not replay baseline SQL or reset it. Only enable Support after the exact active central client/source/binding and confirmed Shop Owner exist.
 
-Keep both PRs unmerged until your review decision. Hosted real Auth/gateway/Management/Vault/installation, different-account BYO and browser smoke acceptance remain before-use gates even when native local tests pass. Separate review of existing baseline failures is required; see CUSTOMER_SUPPORT_VALIDATION.md. No production-ready claim is made.
+Keep both PRs unmerged until your review decision. Hosted real Auth/gateway/Management/Vault/installation, different-account BYO and browser smoke acceptance remain before-use gates even when native local tests pass. The config-recovery and handoff fixture defects are corrected locally. The accepted release's existing byte fingerprint discrepancy remains a separate promotion gate; see CUSTOMER_SUPPORT_VALIDATION.md. No production-ready claim is made.
 
 Drain/reconcile outstanding configuration/provisioning jobs. Preserve their request IDs, frozen stage fingerprints and the accepted _shared/shop-release.json. Existing completed Shops receive only the additive migration/new function and optional credentials; never rerun their completed setup.
 
@@ -29,6 +29,8 @@ $SupportCli = 'C:\ABSOLUTE\PATH\TO\supabase.exe' # replace with your installed e
 ~~~
 
 Verify project access and exact project IDs privately. Do not paste project key responses, database passwords or Management tokens into this runbook or Git. CLI project list and migration history are read-only. Do not rely on a saved link or an existing .env to choose the target: every hosted command below has an explicit project reference.
+
+All db push (including --dry-run), functions deploy, secrets set and setup --apply examples are HOSTED OPERATIONS for the owner to execute later; do not run them during this source review. Dry-run does not apply migrations, but connects to the explicit hosted target. migration list/projects list are read-only identity/history preflights. migration new and release building change local source only.
 
 ## 1. Platform development first
 
@@ -174,7 +176,7 @@ The artifact's internal sha256 hashes canonical JSON content excluding its own s
 
 ## 5. Anonymous compatibility gate and closure
 
-Current integrated source has no legacy anonymous Support sender; all deployed historical senders are not independently inventoried. Therefore closure is staged outside active discovery at supabase/staged-migrations/close_anonymous_support.sql. It is PREPARED, not deployed or closed. Inventory every deployed build/manual/external sender and record the explicit compatibility decision. Upgrade any legitimate sender first.
+Current integrated source has no legacy anonymous Support sender; all deployed historical senders are not independently inventoried. Therefore closure is staged outside active discovery at supabase/staged-migrations/close_anonymous_support.sql. Available Cloudflare source metadata identifies the disposable Shop frontend baseline, and inspected current/main/deployment source and accepted artifacts have no anonymous sender; this does not inventory external/manual customer installations or prove deployed backend behavior. It is PREPARED, not deployed or closed. Inventory every deployed build/manual/external sender and record the explicit compatibility decision. Upgrade any legitimate sender first.
 
 After that approval, create a new forward migration using the installed CLI; copy the staged closure into the returned filename, review it, and commit it. Never execute the original guarded review proposal or add the closure to automatic discovery before this gate.
 
@@ -209,7 +211,7 @@ At orbito.ahwad.com sign in as the canonical Master; check existing client/billi
 3. Manager creates a request; its own list/get succeeds, another Manager's request is inaccessible. Owner sees both for the current Shop. Test another separately authorized Shop/project to prove cross-tenant denial and repeated user UUID namespace isolation.
 4. Portfolio Manager resolves with a customer-visible response. Retry the same revision/response and verify one resolution event/audit only. Owner/author sees the response and timestamp without private staff data. Legacy rows remain labeled unverified.
 5. Revoke a synthetic user session and retry its old unexpired JWT: denied. Test inactive employee, mismatched email/role, wrong project/source/binding, forged client/role fields, expired/forged token, suspended/unpaired Shop and stolen credential without a user token. Verify no ticket or billing/provisioning side effects.
-6. Rotate/revoke only the dedicated disposable Support credential. Old credential must fail; existing bridge/handoff must keep their own credentials and behavior. Repeat actual BYO enrollment in a genuinely different Supabase account before claiming cross-account acceptance.
+6. Rotate/revoke only the dedicated disposable Support credential. Old credential must fail; existing bridge/handoff must keep their own credentials and behavior. Repeat actual BYO enrollment in a genuinely different Supabase account before claiming cross-account acceptance. Verify both a normal and a legitimately longer configured access-token lifetime without changing a live customer's Auth settings just for this check; exact issuer/audience and live-session denial remain required.
 7. Verify browser built assets contain neither dedicated secret nor privileged keys. Check generic error/timeout states and preserve the original pending request. Never capture access tokens/headers/message content in telemetry.
 
 These steps may create synthetic records only under your later explicit hosted acceptance authorization. No scenario is a pass merely because its steps are written here.
@@ -220,4 +222,4 @@ If deployment/function/proof fails, leave the credential disabled (or revoke it)
 
 ## Local validation is separate
 
-From Platform: node tests/run-customer-support-local.mjs creates its own labeled Docker network/container and three databases using native PG17/GoTrue migrations/Vault, strips inherited hosted settings, and removes only its owned fixtures. node --test tests/customer-support.test.mjs uses HTTP doubles and the actual handlers. From Shop: node --test tests/customer-support.test.mjs checks UI/client/retry/package behavior. Existing native regression runners are documented in the validation report. None accepts a hosted project URL as its target.
+From Platform: node tests/run-customer-support-local.mjs creates its own labeled Docker network/container and three databases using native PG17/GoTrue migrations/Vault, strips inherited hosted settings, and removes only its owned fixtures. node --test tests/customer-support.test.mjs uses HTTP doubles and the actual handlers. From Shop: node --test tests/customer-support.test.mjs checks UI/client/retry/package behavior. Existing native regression runners are documented in the validation report. The optional --auth-only selector runs the real local two-hour GoTrue/PostgREST test; other native subgroup selectors and results are in the validation ledger. None accepts a hosted project URL as its target.

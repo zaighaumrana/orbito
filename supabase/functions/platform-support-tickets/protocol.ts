@@ -44,7 +44,12 @@ export async function rpc(fetcher: typeof fetch,url: string,key: string,token: s
 }
 export async function actor(fetcher: typeof fetch,url: string,key: string,token: string) {
  let claims: any;try{claims=JSON.parse(atob(token.split('.')[1].replaceAll('-','+').replaceAll('_','/')));}catch{throw new SupportError(401);}
- const now=Date.now()/1000;if(!Number.isFinite(claims.exp)||claims.exp<=now||claims.exp>now+3660)throw new SupportError(401);
+ // Decoding only rejects malformed/foreign claims. Auth verifies the signature;
+ // the live actor RPC verifies current user, session, role and pairing.
+ const now=Date.now()/1000;
+ if(!claims || typeof claims!=='object' || Array.isArray(claims) || !Number.isFinite(claims.exp) || claims.exp<=now
+  || claims.iss!==url+'/auth/v1' || !(claims.aud==='authenticated' || Array.isArray(claims.aud)&&claims.aud.includes('authenticated'))
+  || !UUID.test(claims.sub||'') || !UUID.test(claims.session_id||''))throw new SupportError(401);
  const user=await http(fetcher,url+'/auth/v1/user',{apikey:key,Authorization:'Bearer '+token});
  if(!user.ok)throw new SupportError(user.status>=500?503:401);
  const context=await rpc(fetcher,url,key,token,'support_ticket_actor_context',{});

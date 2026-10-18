@@ -183,8 +183,11 @@ DECLARE s jsonb;rows jsonb;cid integer;
 BEGIN
   s:=platform_private.support_ticket_source(p_hash,'ticket:read');
   cid:=(s->>'client_id')::integer;
-  PERFORM 1 FROM public.clients WHERE id=cid FOR UPDATE;
-  PERFORM 1 FROM platform_private.support_ticket_credentials WHERE key_id=(s->>'key_id')::uuid FOR UPDATE;
+  -- Shared reads coexist. Client-first SHARE still fences every client writer
+  -- and credential revocation until this short SQL-only projection completes.
+  -- Never upgrade these locks or perform network I/O within this transaction.
+  PERFORM 1 FROM public.clients WHERE id=cid FOR SHARE;
+  PERFORM 1 FROM platform_private.support_ticket_credentials WHERE key_id=(s->>'key_id')::uuid FOR SHARE;
   s:=platform_private.support_ticket_source(p_hash,'ticket:read');
   PERFORM platform_private.support_ticket_check_actor(s,p_actor,p_verified_at);
   IF p_offset IS NULL OR p_offset<0 OR p_offset>5000 THEN RAISE EXCEPTION 'Invalid page' USING errcode='22023';END IF;
