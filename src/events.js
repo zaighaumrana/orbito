@@ -1,3 +1,4 @@
+import { loadSupportPage } from './supabase.js';
 import { captureView, viewCurrent, selectClient, clientDataMatches } from './async-context.js';
 import { notify, confirmDialog, showMessage, deleteUserDialog, cancelDialogs } from './dialogs.js';
 import { resetTurnstile, mountTurnstile, cleanupTurnstile, captchaBusy } from './turnstile.js';
@@ -42,6 +43,7 @@ export function initEvents() {
       pState.page = el.dataset.pPage;
       pState.filter = "";
       selectClient(el.dataset.pPage==='client-detail'?pState.selectedClient:null);
+      if(pState.page==='support'){pState.supportView={rows:[],offset:0,has_more:false};render();await loadSupportPage(0);if(pState.page==='support')render();return;}
       render(); return;
     }
 
@@ -505,12 +507,23 @@ export function initEvents() {
       return;
     }
 
+    if(action==='support-page'){
+      el.disabled=true;
+      try {await loadSupportPage(Number(el.dataset.offset));if(current())render();}finally{if(el.isConnected)el.disabled=false;}
+      return;
+    }
     /* ── Resolve support ticket ── */
     if (action === "resolve-ticket") {
-      const { error } = await pb.rpc('platform_resolve_ticket',{p_ticket:Number(el.dataset.pId)});
+      const ticket=(pState.supportView?.rows||[]).find(t=>t.id===Number(el.dataset.pId));
+      if(!ticket)return;
+      el.disabled=true;
+      const resolution=document.getElementById('support-resolution-'+ticket.id)?.value.trim()||'';
+      const { error } = await pb.rpc('platform_support_ticket_resolve',{p_ticket:ticket.id,p_revision:ticket.revision,p_resolution:resolution});
+      if(el.isConnected)el.disabled=false;
       if(!current())return;
       if (error) { notify.error(error); return; }
-      await loadPlatform(); if(current())render(); return;
+      await loadPlatform(); if(!current())return;
+      await loadSupportPage(pState.supportView?.offset||0); if(current())render(); return;
     }
     })().catch(error => {
       if(eventGeneration!==pState.authorityGeneration || (eventContext && !current()))return;

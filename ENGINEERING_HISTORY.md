@@ -1582,3 +1582,67 @@ checks,without bypass or skip marker on merge;verify actual Pages revision/domai
 assets/staging backend before deleting merged feature branch. Preserve main,
 deployment and fallback tag. Exact commit/merge/deployment/cleanup outcomes are
 recorded in final verified report,not invented inside this precommit entry.
+
+
+## 2026-10-18 — Verified customer Support v1 source implementation
+
+Branch: feature/verified-customer-support-platform; base development
+23a157a5c2aa581eec6e0f02b97318c784296e79. Coordinated Shop branch:
+feature/verified-customer-support-shop, base f91f02819a9f2909062e36140f1775a870009115.
+
+### Purpose and changed
+
+Extend the existing Support Tickets administration and add independent verified
+customer intake/read operations. New forward migration adds private credentials,
+immutable requester provenance/events, atomic budgets, opaque ticket IDs, audited
+revision-based resolution and the legacy integer resolver wrapper. Dedicated
+platform-support-tickets revalidates a real Shop Auth token and actor-context RPC
+against the registered project on every call. platform-support-enrollment requires
+canonical live Master authority; managed preparation uses protected Vault recovery,
+BYO accepts a locally generated credential hash, installation dispatch/acknowledgment
+is audited and only an exact capability proof enables a key. Rotation/revocation
+and permanent re-pair invalidation are separate from bridge/handoff credentials.
+The existing page gains verified/legacy labels, category/history, customer-visible
+resolution and pagination, with session/view stale-response fencing. Resolution
+still refreshes existing dashboard data. No global redesign or existing Edge
+Function modification was needed.
+
+### Decisions and compatibility
+
+Anonymous closure is prepared under supabase/staged-migrations, outside automatic
+discovery, because all deployed historical senders are not inventoried. It is not
+claimed deployed or closed. The accepted _shared/shop-release.json remains
+unchanged; a separately generated, reproducible seven-function Support candidate
+is staged under supabase/releases and requires explicit future promotion. Completed
+Shop upgrades must not replay onboarding. Support capability is optional for
+existing POS/bridge readiness. The privileged Master handoff, financial bridge,
+canonical staff identity, existing migrations and unrelated worktrees are preserved.
+
+### Validation
+
+Final unit/handler/simulation set: 309/310 Platform and 99/100 Shop, retaining the
+two independently recorded baseline failures (config-recovery fixture and accepted
+release/runtime-preflight byte drift). New actual handler groups 8/8; Shop Support
+client/renderer/package/installer groups 7/7; actual native PG17/GoTrue-schema/Vault
+Support matrix across three databases 7/7, including concurrent duplicates, ACLs,
+quotas, atomic audit rollback, scope/tenant/role/session boundaries, rotation,
+managed recovery and staged closure. Existing PR4 security native groups 8/8.
+Actual Support browser integrations for both products pass at 320/768/1440px;
+existing login/Add Client six light/dark browser groups pass. Both builds pass;
+built JS scan finds no privileged JWT/Support secret variable. All browser network
+transports are synthetic/loopback, not hosted provider proof.
+
+The broad native team runner timed out; an old handoff native fixture fails its
+Master-approved-destination prerequisite identically on an archive of the unchanged
+development base. Neither is relabeled passed. Full evidence, baseline distinctions
+and pending provider/Deno/device gates are in docs/CUSTOMER_SUPPORT_VALIDATION.md.
+
+### Deployment / Git
+
+No hosted Supabase schema, secrets, functions, Auth, Shop pairing/provisioning,
+customer data or Cloudflare resources changed. Owner CLI-2.120.0 runbook is in
+docs/CUSTOMER_SUPPORT_DEPLOYMENT.md. Git delivery is authorized as a feature-only
+CF-Pages-Skip commit/push and coordinated Draft PRs targeting development, unmerged.
+Final SHAs and PR links are recorded by the delivery response/PR descriptions.
+Real hosted cross-project/different-account BYO acceptance, release promotion and
+legacy-sender compatibility remain before-use gates; no production-ready claim.

@@ -1,0 +1,5 @@
+supabase/functions/platform-support-tickets/*.ts text eol=lf
+supabase/functions/platform-support-enrollment/*.ts text eol=lf
+supabase/releases/*.json text eol=lf
+supabase/migrations/*verified_customer_support.sql text eol=lf
+supabase/staged-migrations/*.sql text eol=lf

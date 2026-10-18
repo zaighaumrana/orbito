@@ -263,3 +263,14 @@ export async function updateClientConfig(client, updates) {
   },()=>viewCurrent(context) && clientDataMatches(client));
   return result?.state==='applied' && viewCurrent(context);
 }
+
+// Support is paged independently; late responses cannot cross session/role/view boundaries.
+export async function loadSupportPage(offset=0) {
+ const context=captureView(),generation=pState.authorityGeneration,request=(pState.supportRequest||0)+1;
+ pState.supportRequest=request;
+ if(!['master_admin','portfolio_manager'].includes(pState.currentUser.role))throw new PlatformAuthError('authority');
+ const {data,error}=await pb.rpc('platform_support_ticket_page',{p_offset:offset});
+ if(!viewCurrent(context)||generation!==pState.authorityGeneration||request!==pState.supportRequest)return;
+ if(error||!Array.isArray(data?.rows))throw error||Error('Support tickets unavailable.');
+ pState.supportView=data;
+}

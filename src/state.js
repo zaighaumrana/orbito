@@ -7,6 +7,8 @@ export const pState = {
     clients: [], support: [], usage: [], invoices: [],
     rateLog: [], payments: [], credits: [], platformUsers: [],
   },
+  supportView:    null,
+  supportRequest: 0,
   modal:          null,
   filter:         "",
   clientView:     'current',
@@ -49,7 +51,7 @@ export function clearSensitiveState() {
   pState.diagnosticAttempt=null;pState.resetAttempt=null;pState.resetLoading=false;
   pState.loginAttempt=null;pState.loginLoading=false;pState.authRouting=false;
   pState.dataReady=false;pState.dataError=null;pState.clientView='current';
-  pState.teamTab='Active';
+  pState.teamTab='Active';pState.supportView=null;pState.supportRequest=(pState.supportRequest||0)+1;
   PCFG={admin_username:""};
 }
 
