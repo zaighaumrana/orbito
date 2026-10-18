@@ -1646,3 +1646,16 @@ CF-Pages-Skip commit/push and coordinated Draft PRs targeting development, unmer
 Final SHAs and PR links are recorded by the delivery response/PR descriptions.
 Real hosted cross-project/different-account BYO acceptance, release promotion and
 legacy-sender compatibility remain before-use gates; no production-ready claim.
+
+
+## 2026-10-18 — Coordinated BYO portability follow-up evidence
+
+The paired Shop installer now supports a customer checkout without a sibling
+Platform repository while retaining private-path/symlink exclusions. Its actual
+copied-script regression passes; updated the shared validation ledger to 100/101
+Shop cases, eight new Support groups, with the same baseline artifact-byte gate.
+Platform source, SQL, functions and staged release bytes are unchanged by this
+ledger update. Draft Platform PR #5 / Shop PR #1 target development and remain
+unmerged. Both first feature pushes were independently confirmed skipped by
+Cloudflare's commit_message rule; no deployment/configuration or hosted Supabase
+mutation occurred. Final follow-up SHAs belong in the PR/delivery report.

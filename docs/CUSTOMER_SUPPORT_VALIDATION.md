@@ -9,9 +9,9 @@ Platform base: 23a157a5c2aa581eec6e0f02b97318c784296e79, feature/verified-custom
 | Check | Baseline | Final implementation |
 |---|---|---|
 | Platform existing unit/handler/simulation set, plus new Support groups | 301/302 pass, 1 failure | 309/310 pass, same baseline failure |
-| Shop all existing .test.mjs files, plus new Support groups | 92/93 pass, 1 failure | 99/100 pass, same baseline failure |
+| Shop all existing .test.mjs files, plus new Support groups | 92/93 pass, 1 failure | 100/101 pass, same baseline failure |
 | Actual new Platform + Shop HTTP handlers | N/A | 8/8 groups pass; injected HTTP transports, no provider network |
-| Shop Support client/renderer/role/package/installer | N/A | 7/7 groups pass |
+| Shop Support client/renderer/role/package/installer | N/A | 8/8 groups pass |
 | New native PostgreSQL 17 + real GoTrue schema + Vault, three independent databases | N/A | 7/7 groups pass; actual SQL/ACLs/transactions/concurrent connections |
 | Existing PR #4 native security campaign | N/A | 8/8 groups pass |
 | Existing Platform login/Add Client browser campaign | N/A | 6 viewport/theme groups pass; actual modules, synthetic SDK/CAPTCHA |
@@ -67,6 +67,8 @@ From Platform: npm run test:support and npm run test:support:native. Existing se
 Browser runtime setup (ignored, no application dependency change): from Platform run npm install --prefix node_modules/.support-test-runtime --no-save --package-lock=false --ignore-scripts playwright@1.56.1. Set PLAYWRIGHT_MODULE_PATH to that absolute playwright/index.mjs and CHROMIUM_EXECUTABLE_PATH to an installed Chrome executable. Run node tests/customer-support-browser.mjs from each repository; node tests/ui-polish-browser.mjs from Platform. The tests accept only loopback Vite origins and abort external browser requests.
 
 Candidate: supabase/releases/shop-release-support-v1.json, 33 migrations and 7 functions. Internal canonical JSON SHA256: e4cab486e51833d92d91ec68720fa1693c199f5a21dfe52405c79b0aeacf7d7f. File transport SHA256 (LF): 2df724d489c68425d4e67ce30f4c621711df755d5d50080c443a69c5b913a710. The accepted six-function artifact remains unchanged. Candidate test asserts exact current normalized source and reproducible build output.
+
+The split-operator BYO regression additionally executes a copied installer in a standalone Shop checkout with no sibling Platform repository; private generation succeeds without customer privileged authority leaving the machine.
 
 ## Deployment delivery
 
