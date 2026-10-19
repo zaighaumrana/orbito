@@ -4,6 +4,7 @@ import { bridgeCallCredential } from '../_shared/shop-credentials.ts'
 import { runOnboarding, OnboardingError } from '../_shared/onboarding.ts'
 import { runManagedSetup, managedPublicEnvironment, ManagedSetupError } from '../_shared/managed-setup.ts'
 import { repairSupportAccess, SupportAccessError } from '../_shared/support-auth.ts'
+import { reconcileManagedSupport } from '../_shared/support-automation.ts'
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Cache-Control': 'no-store' }
 const reply = (status: number, body: unknown) => Response.json(body, { status, headers: cors })
 const fields = ['repair_module_enabled','inventory_module_enabled','technician_module_enabled','live_tracking_enabled','ems_enabled','suspended']
@@ -98,12 +99,23 @@ Deno.serve(async req => {
     const bytes = new Uint8Array(size); let offset = 0; for (const chunk of chunks) { bytes.set(chunk,offset); offset += chunk.length }
     body = JSON.parse(new TextDecoder().decode(bytes))
     if (!Number.isSafeInteger(body.client_id) || body.client_id < 1 || !/^[0-9a-f-]{36}$/i.test(body.request_id)) throw new Error()
-    if (!['provision','verify','activate','rotate','replace','provision-call','rotate-call','pair-shop','bootstrap-shop','onboarding-status','invite-owner','managed-setup','rotate-turnstile','frontend-env','repair-support-access'].includes(body.action)) throw new Error()
+    if (!['provision','verify','activate','rotate','replace','provision-call','rotate-call','pair-shop','bootstrap-shop','onboarding-status','invite-owner','managed-setup','rotate-turnstile','frontend-env','repair-support-access','support-reconcile'].includes(body.action)) throw new Error()
     if (!body || Array.isArray(body) || Object.keys(body).some(key => !['client_id','request_id','action','params','credential','turnstile_secret'].includes(key))) throw new Error()
     if (body.turnstile_secret !== undefined && (!['managed-setup','rotate-turnstile'].includes(body.action) || typeof body.turnstile_secret !== 'string' || body.turnstile_secret.length>512)) throw new Error()
     if (body.credential !== undefined) return reply(400, { error:'Shop privileged credentials are not accepted. Use bridge pairing.' })
   } catch { return reply(400, { error: 'Invalid provisioning request' }) }
   const params: any = body.params ?? {}
+  const optionalSupport=async()=>{
+    try{
+      return await reconcileManagedSupport(createClient(url,serviceKey,{auth:{persistSession:false}}),caller,auth.user.id,body.client_id,url,req.headers.get('authorization')||'',key=>Deno.env.get(key))
+    }catch{return {state:'attention',reason:'prerequisites_or_authority'}}
+  }
+  if(body.action==='support-reconcile'){
+    if(!params||Array.isArray(params)||typeof params!=='object'||Object.keys(params).length)return reply(400,{error:'Support uses recorded server state.'})
+    const identity=await caller.rpc('platform_operator_identity')
+    if(identity.error||identity.data?.role!=='master_admin'||identity.data.auth_user_id!==auth.user.id)return reply(403,{error:'Live Master required.'})
+    return reply(200,{support:await optionalSupport()})
+  }
   if(body.action==='repair-support-access'){
     if(!params || Array.isArray(params) || typeof params!=='object' || Object.keys(params).length)return reply(400,{error:'Support configuration must come from Platform server state.'})
     const identity=await caller.rpc('platform_operator_identity')
@@ -124,7 +136,7 @@ Deno.serve(async req => {
     p_client: body.client_id, p_request: body.request_id, p_action: body.action, p_params: params,
   })
   if (reserveError) return reply(409,{ error: reserveError.code === '42501' ? 'Master administrator access required' : reserveError.message })
-  if (reservation.complete) return reply(200,{ state:'complete' })
+  if (reservation.complete) return reply(200,{ state:'complete',support:await optionalSupport() })
   const admin = createClient(url,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{ auth:{ persistSession:false } })
   let stage = 'initializing'
   async function step(name: string, data: unknown = {}) {
@@ -150,7 +162,7 @@ Deno.serve(async req => {
       const result=await runManagedSetup(admin,body,url,body.turnstile_secret,caller,auth.user.id)
       delete body.turnstile_secret
       await step('complete')
-      return reply(200,result)
+      return reply(200,{...result,support:await optionalSupport()})
     }
     if (['pair-shop','bootstrap-shop','onboarding-status','invite-owner'].includes(body.action)) {
       stage = 'onboarding'
@@ -158,7 +170,7 @@ Deno.serve(async req => {
       try { result = await runOnboarding(admin,body,url) }
       catch (error) { throw new OperatorError(error instanceof OnboardingError ? error.message : 'Onboarding unavailable; retry the same request.') }
       await step('complete')
-      return reply(200,{ ...result,request_id:body.request_id })
+      return reply(200,{ ...result,request_id:body.request_id,support:await optionalSupport() })
     }
     let context = await step('context')
     if (['provision-call','rotate-call'].includes(body.action)) {

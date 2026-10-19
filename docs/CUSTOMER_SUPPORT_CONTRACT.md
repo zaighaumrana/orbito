@@ -1,5 +1,10 @@
 # Verified customer Support v1
 
+2026-10-19 extension: see [Support automation](SUPPORT_AUTOMATION.md) for immutable
+release pins, managed post-prerequisite enrollment, shared dispatch fencing,
+version-2 readiness proof and the BYO hash-file UI. The ticket wire contract stays
+v1. Old installed migrations and the accepted packages remain immutable.
+
 Implementation scope: additive Git source only, paired with Orbitoshopv2-v1's customer Support PR. No hosted changes or provider acceptance are implied. Existing Master Open Shop as Support, financial bridge, POS and onboarding contracts remain separate.
 
 ## Wire contract

@@ -220,20 +220,30 @@ export async function loadClientData(client) {
   const current=()=>viewCurrent(context,false) && request===pState.clientRequestGeneration;
   pState.clientData={clientId:client.id,requestGeneration:request,loading:true};
   try {
-    const [operations,provision,overhaul]=await Promise.all([
+    const [operations,provision,overhaul,support]=await Promise.all([
       pb.rpc('platform_client_operations',{p_client:client.id}),
       pState.currentUser.role==='master_admin'?pb.rpc('platform_provision_status',{p_client:client.id}):{data:null},
       pb.rpc('platform_overhaul_status',{p_client:client.id}),
+      pb.rpc('platform_support_automation_status',{p_client:client.id}),
     ]);
     if(!current())return false;
     if(operations.error)throw new Error('Client operations unavailable. Refresh status before making changes.');
+    let supportStatus=support.error?{state:'attention',reason:'status_unavailable'}:support.data;
+    if(pState.currentUser.role==='master_admin'&&client.pairing_mode==='managed'&&client.onboarding_version===2&&provision.data?.job?.state==='complete'&&supportStatus?.state!=='enabled'&&supportStatus?.state!=='revoked'){
+      try{
+        const automatic=await pb.functions.invoke('platform-provision',{body:{client_id:client.id,request_id:crypto.randomUUID(),action:'support-reconcile',params:{}}});
+        if(!current())return false;
+        if(!automatic.error&&automatic.data?.support)supportStatus=automatic.data.support;
+      }catch{/* Optional Support cannot suppress the business client view. */}
+    }
+    if(!current())return false;
     if(!overhaul.error)localStorage.removeItem(`orbito-operation:config:${client.id}`);
     const connection=provision.data?.connection;
     const latestRead=connection?.verified_at && (!client.config_synced_at || new Date(connection.verified_at)>new Date(client.config_synced_at));
     pState.clientData={clientId:client.id,requestGeneration:request,loading:false,
       config:latestRead?{...client,...connection.health?.shop_config,id:client.id}:client,operations:operations.data,
       provisioning:provision.data,provisioningError:provision.error?.message,overhaul:overhaul.data,overhaulError:overhaul.error?.message,
-      verifiedAt:latestRead?connection.verified_at:client.config_synced_at};
+      verifiedAt:latestRead?connection.verified_at:client.config_synced_at,supportAutomation:supportStatus};
     return true;
   } catch {
     if(!current())return false;

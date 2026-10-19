@@ -10,6 +10,7 @@ import { notify, showMessage, confirmDialog, cancelDialogs } from './dialogs.js'
 import { teamErrorMessage } from './team-errors.js';
 import { render } from "./render.js";
 import { validateSession } from './helpers.js';
+import {submitByoSupport} from './byo-support.js';
 
 function validatePassword(pw) {
   if (pw.length < 8)              return "Password must be at least 8 characters.";
@@ -72,6 +73,22 @@ export async function handleFormSubmit(event) {
     return;
   }
   if (type === 'client-provisioning') { await submitProvisioning(form, event.submitter?.value); return; }
+  if(type==='support-byo-enrollment'){
+    if(pState.currentUser.role!=='master_admin'||!clientDataMatches(selected))return;
+    try{await submitByoSupport(form,selected,pb,current);if(current())await refresh(true);}
+    catch(error){if(current())notify.error(error);}
+    finally{if(form.elements.enrollment)form.elements.enrollment.value='';}
+    return;
+  }
+  if(type==='support-provider-completion'){
+    if(pState.currentUser.role!=='master_admin'||!clientDataMatches(selected)||!form.elements.confirmed.checked)return;
+    try{
+      const result=await pb.functions.invoke('platform-support-enrollment',{body:{action:'acknowledge-provider-completion',client_id:selected.id,request_id:form.elements.request_id.value,data:{confirmed:true,reason:form.elements.reason.value.trim(),provider_reference:form.elements.provider_reference.value.trim()}}});
+      if(result.error||result.data?.error)throw Error('Provider completion was not recorded. Preserve the original enrollment and review the evidence.');
+      if(current())await refresh(true);
+    }catch(error){if(current())notify.error(error);}
+    return;
+  }
   const data = Object.fromEntries(new FormData(form).entries());
   if(type==='master-continuity'){
     if(pState.currentUser.role!=='master_admin' || pState.reauthLoading)return;

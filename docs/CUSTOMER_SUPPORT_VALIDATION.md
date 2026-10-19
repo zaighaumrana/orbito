@@ -1,5 +1,16 @@
 # Customer Support stabilization validation — 19 October 2026
 
+## Later automation checkpoint — 19 October 2026
+
+The staged integration adds 320/320 Platform regressions, 105/106 Shop regressions
+(only the retained accepted-package byte gate fails), 13 native Support groups,
+the canonical native bootstrap subgroup, actual Shop entry/router/login and
+Platform UI checks, and Deno/provider ESZIP validation. Evidence and exact commands
+are in `Support ticket/implementation-evidence/SUPPORT_AUTOMATION_FINAL_HANDOFF.md`.
+The owner-reported manual Client 2 lifecycle is historical hosted evidence; new
+automatic managed and different-account BYO acceptance remain owner-operated.
+See [Support automation](SUPPORT_AUTOMATION.md) for release/recovery boundaries.
+
 This ledger supersedes the initial 18 October implementation totals. Both PRs remain Draft/unmerged against development. Platform base: 23a157a5c2aa581eec6e0f02b97318c784296e79; Shop base: f91f02819a9f2909062e36140f1775a870009115. Exact final feature heads are recorded in the PR descriptions and local STABILIZATION_REPORT.md; compare git rev-parse HEAD before manual deployment.
 
 ## Confirmed corrections

@@ -216,15 +216,62 @@ test('managed credentials retain one protected Vault value through uncertain-ins
  const data={project_ref:refs[1],source_id:sources[1],client_binding:'support-client-101',shop_public_api_key:'synthetic-approved-public-key',scopes:['ticket:create','ticket:read']};
  const cmd=(action,d={})=>"select public.platform_support_credential_command('"+master+"','"+master+"',101,'"+request(300)+"','"+action+"',"+literal(d)+")";
  const prepared=value(service(cmd('prepare',data)));assert.equal(prepared.enabled,false);assert.equal(Object.hasOwn(prepared,'secret'),false);
- value(service(cmd('installation_started')));value(service(cmd('installation_started')));
+ const dispatch={attempt_id:request(301)};
+ value(service(cmd('installation_started',dispatch)));
+ assert.throws(()=>value(service(cmd('installation_started',{attempt_id:request(302)}))),/External install unresolved/);
  assert.equal(value(service(cmd('status'))).installation_state,'uncertain_or_pending');
  assert.equal(sql("select count(*) from public.operator_audit where action='support_install_dispatched' and detail->>'request_id'='"+request(300)+"'",platform),'1');
- value(service(cmd('installation_acknowledged')));value(service(cmd('installation_acknowledged')));
+ assert.throws(()=>value(service(cmd('installation_acknowledged',{attempt_id:request(302)}))),/Exact dispatch/);
+ value(service(cmd('installation_acknowledged',dispatch)));value(service(cmd('installation_acknowledged',dispatch)));
+ assert.equal(value(service(cmd('installation_started',{attempt_id:request(302)}))).dispatch,false);
  assert.equal(value(service(cmd('status'))).installation_state,'installed_unverified');
+ sql('update platform_private.support_install_fences set acknowledged_at=null where client_id=101',platform);
+ assert.throws(()=>value(service(cmd('installation_reconciled',{confirmed:true,reason:'too short',provider_reference:'case-123'}))),/confirmed provider/);
+ value(service(cmd('installation_reconciled',{confirmed:true,reason:'Provider confirmed original request completion',provider_reference:'case-123'})));
  const first=value(service(cmd('material'))),retry=value(service(cmd('material')));assert.ok(first.secret===retry.secret,'same enrollment recovers identical protected material');
  assert.equal(first.secret.length,64);assert.ok(createHash('sha256').update(first.secret).digest('hex')===first.secret_sha256,'lookup digest matches recovered material');
  assert.equal(value(service(cmd('prepare',data))).key_id,prepared.key_id);
  value(service(cmd('revoke')));assert.equal(Object.hasOwn(value(service(cmd('material'))),'secret'),false);
+ // A pre-migration worker can still write after its key was revoked. Execute
+ // the exact forward backfill statement against that historical state.
+ sql("update platform_private.support_ticket_credentials set install_acknowledged_at=null where enrollment_id='"+request(300)+"';delete from platform_private.support_install_fences where client_id=101",platform);
+ const backfill=read('supabase/migrations/20261019000019_support_automation_release_fences.sql').match(/INSERT INTO platform_private\.support_install_fences\(client_id,enrollment_id,attempt_id,started_at\)[\s\S]*?ORDER BY b\.client_id,k\.install_started_at;/)[0];sql(backfill,platform);
+ const replacement=cmd('prepare',data).replace(request(300),request(303));assert.throws(()=>value(service(replacement)),/External install unresolved/);
+ const reconciled=value(service(cmd('installation_reconciled',{confirmed:true,reason:'Provider confirmed all prior writes finished',provider_reference:'case-historical'})));assert.equal(reconciled.revoked,true);
+ value(service(replacement));value(service(cmd('revoke').replace(request(300),request(303))));
+});
+test('native release pins retain in-flight legacy work and never change an existing job fingerprint',()=>{
+ const job=request(400),candidate=request(401),checksum='c'.repeat(64);
+ sql(`insert into platform_private.provision_jobs(request_id,client_id,actor_id,action,params,state) values('${job}',101,'${master}','managed-setup','{}','running');insert into platform_private.provision_stages(request_id,name,state,checksum) values('${job}','project-access','passed','${refs[1]}');`,platform);
+ const pin=(id,release,hash)=>service(`select public.platform_managed_release_pin('${id}','${release}','${hash}')`);
+ const legacy=value(pin(job,'support-v2',checksum));assert.equal(legacy.release_id,'accepted-v1');assert.equal(value(pin(job,'support-v2','d'.repeat(64))).sha256,legacy.sha256);
+ sql(`update platform_private.provision_jobs set state='complete' where request_id='${job}';insert into platform_private.provision_jobs(request_id,client_id,actor_id,action,params,state) values('${candidate}',101,'${master}','managed-setup','{}','running');`,platform);
+ assert.equal(value(pin(candidate,'support-v2',checksum)).sha256,checksum);assert.equal(value(pin(candidate,'accepted-v1','e'.repeat(64))).release_id,'support-v2');
+ sql(`update platform_private.provision_jobs set state='complete' where request_id='${candidate}'`,platform);
+});
+test('native optional automation uses live Master, completed base jobs, owner health, stable UUID and safe status projection',()=>{
+ const baseJob=request(410),pending=request(411);
+ sql(`insert into platform_private.provision_jobs(request_id,client_id,actor_id,action,params,state) values('${baseJob}',101,'${master}','onboarding-status','{}','complete');update platform_private.support_ticket_credentials set enabled=false,revoked_at=now() where source_id='${sources[1]}';update public.bridge_sources set enabled=true where client_id=101;update platform_private.shop_credentials set health='{}' where client_id=101;`,platform);
+ const cmd=(who,action='context',data={})=>service(`select public.platform_support_automation_command('${who}','${who}',101,'${action}',${literal(data)})`);
+ assert.throws(()=>value(cmd(manager)),/Master administrator/);
+ const waiting=value(cmd(master));assert.equal(waiting.state,'waiting');assert.equal(waiting.ready,false);
+ sql(`update platform_private.shop_credentials set health='{"owner_setup":"owner_active","owner_account":"active","onboarding":"onboarding_complete","infrastructure":"ready"}' where client_id=101`,platform);
+ const ready=value(cmd(master));assert.equal(ready.ready,true);assert.equal(ready.request_id,waiting.request_id);
+ assert.equal(value(cmd(master,'record',{state:'preparing',reason:'enrollment',release_sha256:'a'.repeat(64)})).state,'preparing');
+ sql(`insert into platform_private.provision_jobs(request_id,client_id,actor_id,action,params,state) values('${pending}',101,'${master}','onboarding-status','{}','running')`,platform);
+ assert.equal(value(cmd(master)).ready,false);sql(`update platform_private.provision_jobs set state='complete' where request_id='${pending}'`,platform);
+ const safe=value(user(manager,'select public.platform_support_automation_status(101)'));assert.equal(safe.request_id,waiting.request_id);assert.ok(!Object.keys(safe).some(k=>/secret|token|session|actor/.test(k)));
+ for(const role of ['anon','authenticated'])assert.throws(()=>sql(`begin;set local role ${role};select * from platform_private.support_automation;commit`,platform),/permission denied/);
+ // Restore only this fixture's pre-existing enabled credential for later intake checks.
+ sql(`update platform_private.support_ticket_credentials set revoked_at=null,enabled=true where enrollment_id='${request(101)}'`,platform);
+});
+test('Shop installation proof requires the current confirmed active owner and completed onboarding; browser roles cannot call it',()=>{
+ const db=shops[1],probe=()=>value(service('select public.support_ticket_installation_context()'),db);
+ assert.throws(probe,/Confirmed active owner/);
+ sql(`insert into app_private.owner_bootstrap(request_id,payload,owner_auth_id) values('${request(420)}','{"owner_email":"owner@example.test","platform_client_id":101,"client_binding":"support-client-101"}','${owner}');update public.shop_config set onboarding_completed_at=now(),owner_email='owner@example.test' where id=1;`,db);
+ assert.equal(probe().ready,true);
+ for(const mutation of ["update auth.users set email_confirmed_at=null where id='"+owner+"'","update auth.users set banned_until=now()+interval '1 day' where id='"+owner+"'","update public.app_users set status='Inactive' where auth_user_id='"+owner+"'","update public.shop_config set onboarding_completed_at=null where id=1"]){assert.throws(()=>sql('begin;'+mutation+';set local role service_role;select public.support_ticket_installation_context();rollback;',db),/Confirmed active owner/);}
+ for(const role of ['anon','authenticated'])assert.throws(()=>sql(`begin;set local role ${role};select public.support_ticket_installation_context();commit;`,db),/permission denied/);
 });
 test('staged anonymous closure removes effective table/column/sequence access; private objects have no browser grants',()=>{
  sql(read('supabase/staged-migrations/close_anonymous_support.sql'),platform);

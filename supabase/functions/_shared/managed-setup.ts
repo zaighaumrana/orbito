@@ -1,4 +1,4 @@
-import release from './shop-release.json' with { type: 'json' }
+import {pinManagedRelease} from './shop-release-registry.ts'
 import { runOnboarding } from './onboarding.ts'
 import { configureSupportAuth } from './support-auth.ts'
 import { legacyPublicAnonKey } from './public-api-key.ts'
@@ -25,6 +25,7 @@ export function publicShopKey(keys: any[],projectRef: string) {
   return anon
 }
 export async function runManagedSetup(admin: any,request: any,platformUrl: string,secret?: string,caller?: any,userId?: string) {
+ const release=request.action==='managed-setup'?await pinManagedRelease(admin,request.request_id):null
  const token=Deno.env.get('PLATFORM_MANAGEMENT_TOKEN')
  if(!token)throw new ManagedSetupError('Configure PLATFORM_MANAGEMENT_TOKEN on Platform server before managed setup.')
  const client=await admin.from('clients').select('supabase_url,pairing_mode,onboarding_version,lifecycle_state,infrastructure_state').eq('id',request.client_id).single()
@@ -48,7 +49,7 @@ export async function runManagedSetup(admin: any,request: any,platformUrl: strin
  if(request.action==='managed-setup') {
   await stage('migrations',async()=>{
    const history=await api('/database/migrations')
-   if(!Array.isArray(history) || history.some(h=>!release.migrations.some(m=>m.version===h.version)))throw new ManagedSetupError('Unapproved target migration history. Review/adopt it manually; no reset or replay is allowed.')
+   if(!Array.isArray(history) || history.some(h=>!release.migrations.some((m:any)=>m.version===h.version)))throw new ManagedSetupError('Unapproved target migration history. Review/adopt it manually; no reset or replay is allowed.')
    const installed=new Set(history.map(h=>h.version))
    // Never infer a blank project from a missing migration record on an existing business.
    if(!installed.size){const rows=await api('/database/query','POST',{query:"select count(*)::integer as count from pg_tables where schemaname='public'"});if(rows?.[0]?.count!==0)throw new ManagedSetupError('Existing schema without approved history requires manual adoption.')}
@@ -86,7 +87,9 @@ export async function runManagedSetup(admin: any,request: any,platformUrl: strin
  },secret?await secretFingerprint(secret):null)
  if(request.action==='managed-setup') {
   await stage('support-auth-config',async()=>{await configureSupportAuth(api,caller,userId!)})
-  await stage('functions',async()=>{for(const fn of release.functions)await stage('function:'+fn.name,async()=>{
+  // Optional customer Support is installed by the post-prerequisite lifecycle.
+  // Its provider/credential failures must never hold the base POS job open.
+  await stage('functions',async()=>{for(const fn of release.functions.filter((fn:any)=>fn.name!=='support-tickets'))await stage('function:'+fn.name,async()=>{
    const form=new FormData()
    for(const file of fn.files)form.append('file',new Blob([file.content],{type:'application/typescript'}),file.path)
    form.append('metadata',JSON.stringify({name:fn.name,entrypoint_path:fn.entrypoint,verify_jwt:fn.verify_jwt}))

@@ -35,7 +35,7 @@ function fixture(opt={}){
    return !opt.authDenied && (t===token||t===opt.validToken||t===jwt({role:'forged'}))?reply({id:uid}):reply({error:'denied'},401);
   }
   if(u.pathname.endsWith('/support_ticket_actor_context'))return opt.actorDenied?reply({code:'42501'},403):reply({...context,...opt.actor});
-  if(u.pathname.endsWith('/support_ticket_capability_context'))return reply({source_id:source,client_binding:'client-42',platform_client_id:42});
+  if(u.pathname.endsWith('/support_ticket_installation_context'))return reply({source_id:source,client_binding:'client-42',platform_client_id:42,installation_version:2,ready:true});
   if(u.pathname.endsWith('/platform_operator_identity'))return reply({auth_user_id:uid,session_id:sid,role:opt.staffRole||'master_admin'});
   if(u.pathname.endsWith('/platform_support_ticket_source'))return opt.revoked||b.p_hash!==opt.hash&&b.p_hash!==await sha(secret)?reply({code:'42501'},403):reply(sourceRecord);
   if(u.pathname.endsWith('/platform_support_ticket_create')){creates.push(b);return reply({accepted:true,ticket_id:ticket,status:'Open'});}

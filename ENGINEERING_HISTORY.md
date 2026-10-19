@@ -1707,3 +1707,35 @@ Support ticket/implementation-evidence/STABILIZATION_REPORT.md. Conditional GO f
 owner-controlled additive development deployment after exact dry-run/prerequisites;
 customer use and production remain blocked on real hosted managed/BYO/Auth/gateway,
 deployed-sender inventory and explicit release/closure/acceptance decisions.
+
+## 2026-10-19 — Final Support integration and staged automatic enrollment
+
+Preserved the accepted 32-migration/6-function package and prior Support-v1
+candidate. Added an inactive Support-v2 package (34/7; internal SHA-256
+144d918859db1007cccfbed724d1988a043ca1e5fef42ce694dee6df1a603414), explicit local
+promotion, per-job immutable release pins, and a post-base-job managed Support
+journal. Current live Master authority, completed base work, active pairing,
+confirmed active owner and completed onboarding precede enrollment. Automatic work
+uses a stable UUID/Vault secret and exact readiness/nonce proof. Existing enabled
+credentials are adopted without rotation. Optional failures cannot keep the base
+POS job open. Shared manual/automatic dispatch fences include historical unknown
+writes (even revoked keys); provider completion requires explicit audited Master
+review. No lease expiry assumes a remote write was cancelled.
+
+BYO now has full/additive customer-CLI migration/function installation and a
+customer-local secret/hash handoff. Master uses the signed-in Platform file flow;
+customer privileged authority and plaintext stay local. Support controls use
+existing branding, status badges, button/focus tokens and responsive layouts.
+Explicit-public-input builds and compiled target/asset verification address stale
+local Vite bundles. Owner reported successful manual Client 2 tickets/resolution;
+this is historical evidence, not proof of the new automatic or BYO path.
+
+Local validation: Platform 320/320, Shop 105/106 (frozen byte gate retained), 13
+native PG17/Auth/Vault Support groups, canonical bootstrap subgroup, actual
+entry/router/browser/visual checks, Deno checks and provider ESZIP bundles.
+Focused docs: docs/SUPPORT_AUTOMATION.md. Exact commands, final SHAs and evidence:
+Support ticket/implementation-evidence/SUPPORT_AUTOMATION_FINAL_HANDOFF.md.
+No hosted mutation/deploy/reset, release promotion, anonymous closure or merge.
+Existing coordinated feature branches/Draft PRs target development with CF skip.
+Owner must approve promotion/deployments, test a fresh managed Shop, then a
+separate-account BYO Shop, and decide legacy closure independently.

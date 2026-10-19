@@ -1,5 +1,11 @@
 # Owner deployment runbook — verified customer Support v1
 
+**Latest staged workflow:** [SUPPORT_AUTOMATION.md](SUPPORT_AUTOMATION.md) adds the
+2026-10-19 forward migration, inactive Support-v2 candidate, explicit local
+promotion utility, automatic managed lifecycle and signed-in BYO hash-file flow.
+The v1 manual commands below remain historical/recovery reference. Normal managed
+enrollment uses the existing Master UI and requires no copied Master token.
+
 This is a manual handoff, not evidence of deployment. During implementation, neither hosted Supabase project nor Cloudflare was changed. Never run these hosted commands as part of local tests.
 
 ## Review and compatibility gates

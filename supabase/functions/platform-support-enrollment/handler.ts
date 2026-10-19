@@ -9,8 +9,8 @@ export function enrollmentHandler(env: (key:string)=>string|undefined,fetcher: t
   try {
    const b=await jsonBody(req);
    if(!b || Array.isArray(b) || Object.keys(b).some(k=>!['action','client_id','request_id','data'].includes(k))
-    || !['prepare','status','install','verify','revoke'].includes(b.action)||!UUID.test(b.request_id||'')
-    || !Number.isSafeInteger(b.client_id)||b.client_id<1 || (b.action!=='prepare' && b.data!==undefined))throw new SupportError(400);
+    || !['prepare','status','install','verify','revoke','acknowledge-provider-completion'].includes(b.action)||!UUID.test(b.request_id||'')
+    || !Number.isSafeInteger(b.client_id)||b.client_id<1 || (!['prepare','acknowledge-provider-completion'].includes(b.action) && b.data!==undefined))throw new SupportError(400);
    const url=env('SUPABASE_URL')||'',ref=project(url),anon=env('SUPABASE_ANON_KEY')||'',service=env('SUPABASE_SERVICE_ROLE_KEY')||'',token=bearer(req);
    const user=await http(fetcher,url+'/auth/v1/user',{apikey:anon,Authorization:'Bearer '+token});
    if(!user.ok)throw new SupportError(401);
@@ -18,6 +18,7 @@ export function enrollmentHandler(env: (key:string)=>string|undefined,fetcher: t
    if(identity?.role!=='master_admin'||identity.auth_user_id!==user.data?.id||!UUID.test(identity.session_id||''))throw new SupportError(403);
    const command=(action:string,data:any={})=>rpc(fetcher,url,service,service,'platform_support_credential_command',{
     p_actor:identity.auth_user_id,p_session:identity.session_id,p_client:b.client_id,p_request:b.request_id,p_action:action,p_data:data});
+   if(b.action==='acknowledge-provider-completion')return Response.json(await command('installation_reconciled',b.data),{headers});
    if(b.action==='prepare'){
     const d=b.data;if(!d||typeof d!=='object'||Array.isArray(d)||d.project_ref===ref||!/^[a-z]{20}$/.test(d.project_ref||''))throw new SupportError(400);
     const key=d.shop_public_api_key;
@@ -36,11 +37,13 @@ export function enrollmentHandler(env: (key:string)=>string|undefined,fetcher: t
    if(b.action==='install'){
     if(material.pairing_mode!=='managed'||!/^[a-f0-9]{64}$/.test(material.secret||''))throw new SupportError(403);
     const management=env('PLATFORM_MANAGEMENT_TOKEN');if(!management)throw new SupportError(503);
-    await command('installation_started');
+    const attempt_id=crypto.randomUUID();
+    const dispatch=await command('installation_started',{attempt_id});
+    if(dispatch.dispatch===false)return Response.json({installed:true,enabled:false,request_id:b.request_id},{headers});
     const installed=await http(fetcher,'https://api.supabase.com/v1/projects/'+material.project_ref+'/secrets',
      {Authorization:'Bearer '+management},[{name:'PLATFORM_SUPPORT_TICKETS_SECRET',value:material.secret},{name:'PLATFORM_SUPPORT_TICKETS_ENDPOINT',value:target}]);
     if(!installed.ok)throw new SupportError(503);
-    await command('installation_acknowledged');
+    await command('installation_acknowledged',{attempt_id});
     // An install response is not an enable command. Explicit verify follows.
     return Response.json({installed:true,enabled:false,request_id:b.request_id},{headers});
    }
@@ -50,10 +53,10 @@ export function enrollmentHandler(env: (key:string)=>string|undefined,fetcher: t
     apikey:material.shop_public_api_key,Authorization:'Bearer '+material.shop_public_api_key,
     'x-support-probe':material.secret_sha256}, {action:'capability',challenge});
    const c=capability.data;
-   const signed=[CONTRACT,challenge,material.project_ref,material.source_id,material.client_binding,b.client_id,target];
+   const signed=[CONTRACT,challenge,material.project_ref,material.source_id,material.client_binding,b.client_id,target,2,true];
    if(!capability.ok||c.contract!==CONTRACT||c.challenge!==challenge||c.project_ref!==material.project_ref
     ||c.source_id!==material.source_id||c.client_binding!==material.client_binding||c.platform_client_id!==b.client_id
-    ||c.endpoint!==target||c.proof!==await proof(material.secret_sha256,signed))throw new SupportError(503);
+    ||c.endpoint!==target||c.installation_version!==2||c.ready!==true||c.proof!==await proof(material.secret_sha256,signed))throw new SupportError(503);
    return Response.json(await command('enable',{capability:CONTRACT}),{headers});
   }catch(error){return fail(error,headers);}
  };

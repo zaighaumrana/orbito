@@ -536,3 +536,13 @@ tbody tr:hover{background:var(--surface-2)}
  .auth-verification #verification-widget{display:flex;justify-content:center}
  .auth-verification #verification-status,.auth-verification .secondary-button{margin-right:16px;margin-left:16px}
 }
+/* Support uses the same cards, badges, buttons and focus tokens as setup. */
+.support-tickets { display:grid; gap:16px; }
+.support-ticket { display:grid; gap:12px; min-width:0; overflow-wrap:anywhere; }
+.support-ticket textarea { width:100%; resize:vertical; }
+.support-message { background:var(--surface-2); padding:16px; border-radius:var(--rs-radius-control,8px); font-size:14px; line-height:1.6; white-space:pre-wrap; }
+.support-pagination { margin-top:16px; flex-wrap:wrap; align-items:center; }
+.support-setup { padding-block:20px; border-block:1px solid var(--rs-border); overflow-wrap:anywhere; }
+.support-setup h3 { margin:0; }
+.support-setup form { margin-top:16px; }
+.support-setup input[type=file] { width:100%; min-width:0; }

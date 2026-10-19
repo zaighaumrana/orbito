@@ -82,7 +82,7 @@ function managedFixture({ref='abcdefghijklmnopqrst',mode='managed',failure=null,
  const platformUrl='https://ukbhyerxshteyetwomqy.supabase.co',platformAnon='h.'+Buffer.from(JSON.stringify({role:'anon',ref:'ukbhyerxshteyetwomqy'})).toString('base64url')+'.s';
  const env={PLATFORM_MANAGEMENT_TOKEN:'server-management-token',SUPABASE_URL:platformUrl,SUPABASE_ANON_KEY:'sb_publishable_runtime-platform'};
  const caller={rpc:async name=>{assert.equal(name,'platform_operator_identity');return {data:{auth_user_id:'master-id',role:'master_admin',email:'canonical-master@example.test'}};}};
- const ctx=load('supabase/functions/_shared/managed-setup.ts',{release,Deno:{env:{get:key=>env[key]}},runOnboarding:async(_admin,request)=>{http.push('bridge-owner');order.push(request.action);},fetch:async(url,init={})=>{
+ const ctx=load('supabase/functions/_shared/managed-setup.ts',{pinManagedRelease:async()=>release,Deno:{env:{get:key=>env[key]}},runOnboarding:async(_admin,request)=>{http.push('bridge-owner');order.push(request.action);},fetch:async(url,init={})=>{
    http.push(url);assert.equal(init.headers.Authorization,'Bearer server-management-token');
    if(url.startsWith('https://api.supabase.com/v1/projects/ukbhyerxshteyetwomqy/api-keys')){
     assert.equal(init.method,'GET');assert.equal(init.body,undefined);
@@ -112,6 +112,10 @@ function managedFixture({ref='abcdefghijklmnopqrst',mode='managed',failure=null,
  return {run:(...args)=>ctx.runManagedSetup(admin,request,platformUrl,args.length?args[0]:'private-turnstile',caller,'master-id'),states,checksums,calls,http,secrets,request,order,uploads};
 }
 
+test('optional Support deployment cannot hold the base managed POS job open',async()=>{
+ const artifact=JSON.parse(read('supabase/releases/shop-release-support-v2.json')),f=managedFixture({artifact});await f.run();
+ assert.equal(f.uploads.length,6);assert.ok(f.uploads.every(u=>u.metadata.name!=='support-tickets'));assert.ok(!f.states.has('function:support-tickets'));
+});
 test('approved Shop functions deploy repeated source file parts with included entrypoints and unchanged JWT metadata',async()=>{
  const artifact=JSON.parse(read('supabase/functions/_shared/shop-release.json')),f=managedFixture({artifact});await f.run();
  assert.equal(f.uploads.length,6);
