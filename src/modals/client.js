@@ -57,7 +57,7 @@ export function clientModals(type, md) {
                 </label></div><p class="muted client-form-note">Rates agreed with client. Decimals supported (e.g. 4.50, 0.75, 12).</p></fieldset>
 
               <fieldset class="client-form-section client-form-wide"><legend>Shop configuration</legend><div class="client-section-fields">
-                  <label class="field"><span>Shop ownership</span><select name="pairing_mode"><option value="managed">Managed Shop</option><option value="byo">Client-owned Supabase — one-time manual pairing</option></select></label>
+                  <label class="field"><span>Shop ownership</span><select name="pairing_mode"><option value="managed">Managed Shop</option><option value="byo">Client-owned Supabase (BYO) — guided customer setup</option></select><small>BYO: after saving, open Complete BYO Setup. Customer CLI authority and private runtime settings stay customer-side; the guide covers installation, independent frontend, owner activation and optional Support enrollment.</small></label>
                   <label class="field"><span>Shop URL</span>
                 <input name="shop_url" type="url" required placeholder="https://…"></label>
                   <label class="field"><span>Shop Supabase Project Ref</span>

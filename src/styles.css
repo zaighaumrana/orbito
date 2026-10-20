@@ -365,7 +365,7 @@ body.printing-invoice #print-zone {
 .setup-next {margin:20px 0 12px;padding:18px;background:var(--surface-2);border-radius:10px;display:flex;justify-content:space-between;align-items:center;gap:18px}.setup-next h3 {margin:0}.setup-next p {max-width:660px;font-size:13px;margin-bottom:0}.setup-next form {flex-shrink:0}
 .setup-observed {font-size:12px}.setup-advanced {margin-top:18px;padding-top:14px;border-top:1px solid var(--border)}.setup-advanced summary {font-size:13px;font-weight:600;cursor:pointer}
 .setup-advanced dl>div {display:grid;grid-template-columns:130px minmax(0,1fr);gap:12px;margin:12px 0;font-size:12px}.setup-advanced dt {color:var(--muted)}.setup-advanced dd {margin:0;overflow-wrap:anywhere}
-.byo-guide {max-width:760px;max-height:90vh;overflow:auto}.byo-steps {padding-left:24px}.byo-steps>li {padding:8px 0 18px;border-bottom:1px solid var(--border)}.byo-steps p {font-size:13px;line-height:1.6}.setup-command {display:flex;align-items:start;gap:10px;background:var(--surface-2);border-radius:8px;padding:12px}.setup-command code {white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;flex:1}
+.byo-guide {max-width:760px;max-height:90vh;overflow:auto;overflow-wrap:anywhere}.byo-guide pre {white-space:pre-wrap;overflow-wrap:anywhere}.byo-steps {padding-left:24px}.byo-steps>li {padding:8px 0 18px;border-bottom:1px solid var(--border)}.byo-steps p {font-size:13px;line-height:1.6}.setup-command {display:flex;align-items:start;gap:10px;background:var(--surface-2);border-radius:8px;padding:12px;min-width:0}.setup-command code {white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;flex:1;min-width:0}
 @media(max-width:900px){.setup-progress {grid-template-columns:repeat(3,minmax(0,1fr))}.setup-next {align-items:flex-start;flex-direction:column}}
 @media(max-width:520px){.client-setup {padding:16px}.setup-progress {grid-template-columns:repeat(2,minmax(0,1fr))}.setup-health {grid-template-columns:1fr}.setup-advanced dl>div {grid-template-columns:1fr;gap:4px}.setup-command {flex-direction:column}}
 
@@ -554,4 +554,6 @@ tbody tr:hover{background:var(--surface-2)}
 .paper-message{white-space:pre-wrap;background:var(--surface-2);padding:12px;border-radius:var(--rs-radius-control,8px)}
 .paper-decision{width:min(620px,calc(100vw - 32px));overflow-wrap:anywhere}.paper-decision textarea{width:100%;min-height:120px;resize:vertical}
 .paper-decision form{display:grid;gap:16px}.paper-decision .setup-heading{display:flex;flex-direction:row;align-items:flex-start;justify-content:space-between;gap:12px}.paper-decision .icon-button{flex-shrink:0}
+.byo-guide{grid-template-columns:minmax(0,1fr)}.byo-guide>*{min-width:0}.byo-guide button{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+.byo-guide .badge{max-width:100%;white-space:normal}
 @media(max-width:640px){.paper-request{flex-direction:column}.paper-actions{width:100%}.paper-actions button{flex:1 1 120px}}

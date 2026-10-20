@@ -30,8 +30,19 @@ test('primary action follows pairing, runtime gaps, manual account detection and
  assert.equal(ui.setupState(client,detail({...health,owner_account:'ready'})).action,'open-login');
  assert.equal(ui.setupState(client,detail({...health,onboarding:'onboarding_complete'})).action,'open-shop');
 });
-test('BYO guide uses five stages, safe copy values and removable-file warning without secret inputs',()=>{
- const html=ui.byoSetupModal(client,detail(health));assert.equal((html.match(/<li><h3>/g)||[]).length,5);assert.match(html,/Sensitive file/);assert.match(html,/Delete|delete/);assert.match(html,/scripts\/setup-byo\.mjs/);assert.match(html,/Choose existing/);assert.match(html,/--status/);assert.doesNotMatch(html,/<input|CALL_SECRET=|SOURCE_SECRET=/);
+
+test('BYO Support readiness derives observations without inventing credential enablement',()=>{
+ const c=client,d=detail(health);
+ assert.equal(ui.supportReadiness(c,d).label,'Waiting for owner');
+ d.provisioning.connection.health={...health,owner_account:'active'};assert.equal(ui.supportReadiness(c,d).label,'Waiting for Shop onboarding');
+ d.provisioning.connection.health.onboarding='onboarding_complete';assert.equal(ui.supportReadiness(c,d).label,'Ready for BYO Support enrollment');
+ for(const [state,label] of [['installing','Customer installation pending'],['verifying','Platform verification pending'],['enabled','Support enabled'],['attention','Support needs attention'],['revoked','Support revoked']]){d.supportAutomation={state};assert.equal(ui.supportReadiness(c,d).label,label);}
+ d.supportAutomation={state:'waiting',reason:'status_unavailable'};assert.equal(ui.supportReadiness(c,d).label,'Waiting for prerequisites');assert.match(ui.supportReadiness(c,d).message,/unavailable/);
+});
+test('BYO guide covers all twelve operator stages, safe copy values and retained-file recovery without secret inputs',()=>{
+ const html=ui.byoSetupModal(client,detail(health));assert.equal((html.match(/<li><h3>/g)||[]).length,12);assert.match(html,/Sensitive file/);assert.match(html,/remove|delete/);assert.match(html,/scripts\/setup-byo\.mjs/);assert.match(html,/Choose existing/);assert.match(html,/--status/);assert.doesNotMatch(html,/<input|CALL_SECRET=|SOURCE_SECRET=/);
+ for(const step of ['--login','--public-config','--verify-dist','--enroll','--record-acceptance','URL Configuration','Turnstile challenge','hash-only','Refresh paper status','Business\/Branding'])assert.ok(html.includes(step),step);
+ assert.match(html,/--project-ref abcdefghijklmnopqrst/);assert.match(html,/CLIENT-50/);assert.match(html,/owner@example.test/);
  const malicious=ui.renderClientSetup({...client,owner_name:'<img src=x onerror=alert(1)>',shop_url:'javascript:alert(1)'},detail(health),true);
  assert.doesNotMatch(malicious,/<img|href="javascript:/);assert.match(malicious,/&lt;img/);
 });

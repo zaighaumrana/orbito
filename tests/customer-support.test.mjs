@@ -50,8 +50,27 @@ function fixture(opt={}){
  };
  c=central(k=>env[k],fetcher);s=shop(k=>shopEnv[k],fetcher);e=enrollmentHandler(k=>env[k],fetcher);
  const invoke=async(which,b,headers={})=>{const r=await ({central:c,shop:s,enrollment:e}[which])(new Request(local,{method:'POST',headers:{Authorization:'Bearer '+(which==='central'?secret:token),'Content-Type':'application/json',...(which==='central'?{'X-Shop-User-Authorization':'Bearer '+token}:{}),...headers},body:typeof b==='string'?b:JSON.stringify(b)}));return {status:r.status,body:await r.json()};};
- return {invoke,calls,creates,commands};
+ return {invoke,calls,creates,commands,enrollment:e};
 }
+
+test('enrollment preserves exact browser CORS hotfix, rejects inappropriate preflights/origins before auth, retains Master authorization and error headers',async()=>{
+ for(const origin of ['https://orbito.ahwad.com','https://orbito-v2.pages.dev']){
+  const f=fixture(),url=platform+'/functions/v1/platform-support-enrollment';
+  const headers={Origin:origin,'Access-Control-Request-Method':'POST','Access-Control-Request-Headers':'authorization, apikey, X-Client-Info, content-type'};
+  const preflight=await f.enrollment(new Request(url,{method:'OPTIONS',headers}));
+  assert.equal(preflight.status,204);assert.equal(preflight.headers.get('access-control-allow-origin'),origin);assert.equal(f.calls.length,0);assert.match(preflight.headers.get('vary'),/Origin/);
+  for(const [method,extra] of [['DELETE',{}],['POST',{'Access-Control-Request-Headers':'x-unapproved'}]])assert.equal((await f.enrollment(new Request(url,{method:'OPTIONS',headers:{...headers,'Access-Control-Request-Method':method,...extra}}))).status,403);
+  for(const [opt,expected] of [[{},200],[{staffRole:'portfolio_manager'},403],[{authDenied:true},401],[{network:true},503]]){
+   const g=fixture(opt),r=await g.enrollment(new Request(url,{method:'POST',headers:{Origin:origin,Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({action:'status',client_id:42,request_id:request})}));
+   assert.equal(r.status,expected);assert.equal(r.headers.get('access-control-allow-origin'),origin);assert.equal(r.headers.get('cache-control'),'no-store');assert.doesNotMatch(await r.text(),/PRIVATE|management-private|private-platform-service/);
+  }
+ }
+ for(const origin of ['https://evil.invalid','null','https://orbito.ahwad.com.evil.invalid','']){
+  const f=fixture();for(const method of ['POST','OPTIONS']){
+   const r=await f.enrollment(new Request(platform,{method,headers:{Origin:origin},...(method==='POST'?{body:'{}'}:{})}));assert.equal(r.status,403);assert.equal(r.headers.get('access-control-allow-origin'),null);
+  }assert.equal(f.calls.length,0);
+ }
+});
 test('Shop → Platform independently verifies actual requester twice and forwards only server-derived identity',async()=>{
  const f=fixture();const result=await f.invoke('shop',body);assert.equal(result.status,202);assert.equal(result.body.ticket_id,ticket);
  assert.equal(f.calls.filter(u=>u.endsWith('/auth/v1/user')).length,2);assert.equal(f.calls.filter(u=>u.endsWith('/support_ticket_actor_context')).length,2);

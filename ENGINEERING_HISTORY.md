@@ -1787,3 +1787,33 @@ messages retain the Cloudflare Pages skip marker. PRs remain Draft/open; no merg
 hosted Supabase change, Cloudflare deployment, production change or Support-v3
 promotion is authorized. The preceding entry describes the local stabilization
 state before this later source-control authorization.
+
+## 2026-10-21 — BYO guide, enrollment CORS and fresh-acceptance hardening
+
+Branch: feature/verified-customer-support-platform.
+
+The owner reported successful separate-account Client #4 hosted installation,
+Support and Paper acceptance. That supersedes the earlier pending checkpoint;
+this pass makes no independent new hosted claim. Preserved the owner's uncommitted
+enrollment CORS hotfix and exact production/preview origins. Added early origin,
+preflight method/header denial while retaining JWT, Auth and canonical Master/
+session authorization, originless internal calls and allowed-origin error headers.
+
+Expanded the on-screen BYO workflow to twelve complete stages, with context-bound
+copyable commands, native customer CLI login, separate public/private inputs,
+verified frontend build, Cloudflare routing/hostname/Auth redirects, confirmed
+owner/six steps, Support hash handoff and ticket/paper acceptance. The guide remains
+available after onboarding. Readiness labels use existing backend observations;
+backend preflight and private-setting presence explicitly do not prove CAPTCHA.
+
+Validation: Platform regression 324/324; native PG17/Auth six groups including real
+paper RPC identity/active/terminal/revision/client guards; actual guide and Shop
+paper browser recovery/role isolation; exact copied-command walkthrough; affected
+Deno check and both explicit public builds/compiled target digest checks passed.
+Shop's inherited frozen-source gate was corrected to preserve frozen integrity
+and verify the unchanged separate candidate; its five-group subset passed.
+
+Evidence/reports are in the preserved Oct 20 folder's new hardening-2026-10-21
+subfolder. No new migrations, Shop release rewrite, managed promotion, customer
+credential/journal modification, hosted mutation, deployment, commit or push.
+Fresh hosted acceptance and any deployment remain separate owner gates.

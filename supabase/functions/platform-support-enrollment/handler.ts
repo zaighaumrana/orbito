@@ -4,7 +4,26 @@ import {CONTRACT,UUID,jsonBody,bearer,project,http,rpc,proof,SupportError,fail} 
 // runs in the customer's own CLI; only its hash is enrolled here.
 export function enrollmentHandler(env: (key:string)=>string|undefined,fetcher: typeof fetch=fetch) {
  return async(req: Request)=>{
-  const headers={'Cache-Control':'no-store'};
+  // Preserve the deployed production/preview hotfix. Originless internal calls
+  // still require the same authenticated Master/session checks below.
+  const origin=req.headers.get('origin');
+  const allowedOrigins=new Set(['https://orbito.ahwad.com','https://orbito-v2.pages.dev']);
+  const allowedHeaders=['authorization','apikey','x-client-info','content-type'];
+  const headers={
+   ...(origin&&allowedOrigins.has(origin)?{'Access-Control-Allow-Origin':origin}:{}),
+   'Access-Control-Allow-Headers':allowedHeaders.join(', '),
+   'Access-Control-Allow-Methods':'POST, OPTIONS',
+   'Vary':'Origin, Access-Control-Request-Method, Access-Control-Request-Headers',
+   'Cache-Control':'no-store',
+  };
+  if(origin!==null&&!allowedOrigins.has(origin))return Response.json({error:'Request denied'},{status:403,headers});
+  if(req.method==='OPTIONS'){
+   const requested=req.headers.get('access-control-request-headers')||'';
+   if(!origin||req.headers.get('access-control-request-method')!=='POST'||requested.split(',').filter(h=>h.trim()).some(h=>!allowedHeaders.includes(h.trim().toLowerCase())))
+    return Response.json({error:'Request denied'},{status:403,headers});
+   return new Response(null,{status:204,headers});
+  }
+
   if(req.method!=='POST')return Response.json({error:'POST required'},{status:405,headers});
   try {
    const b=await jsonBody(req);
