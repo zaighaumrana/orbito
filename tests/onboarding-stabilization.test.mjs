@@ -31,7 +31,7 @@ test('primary action follows pairing, runtime gaps, manual account detection and
  assert.equal(ui.setupState(client,detail({...health,onboarding:'onboarding_complete'})).action,'open-shop');
 });
 test('BYO guide uses five stages, safe copy values and removable-file warning without secret inputs',()=>{
- const html=ui.byoSetupModal(client,detail(health));assert.equal((html.match(/<li><h3>/g)||[]).length,5);assert.match(html,/Sensitive file/);assert.match(html,/Delete|delete/);assert.match(html,/byo-support-release\.mjs/);assert.match(html,/--mode existing/);assert.doesNotMatch(html,/<input|CALL_SECRET=|SOURCE_SECRET=/);
+ const html=ui.byoSetupModal(client,detail(health));assert.equal((html.match(/<li><h3>/g)||[]).length,5);assert.match(html,/Sensitive file/);assert.match(html,/Delete|delete/);assert.match(html,/scripts\/setup-byo\.mjs/);assert.match(html,/Choose existing/);assert.match(html,/--status/);assert.doesNotMatch(html,/<input|CALL_SECRET=|SOURCE_SECRET=/);
  const malicious=ui.renderClientSetup({...client,owner_name:'<img src=x onerror=alert(1)>',shop_url:'javascript:alert(1)'},detail(health),true);
  assert.doesNotMatch(malicious,/<img|href="javascript:/);assert.match(malicious,/&lt;img/);
 });
@@ -56,6 +56,7 @@ Object.assign(ui,{pState:{authenticated:true,clientRequestGeneration:0,currentUs
 vm.runInContext(read('src/async-context.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ui);
 vm.runInContext(read('src/lifecycle.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ui);
 vm.runInContext(read('src/provisioning.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ui);
+vm.runInContext('Object.assign(globalThis,(()=>{'+read('src/paper-supply.js').replace(/^import .*$/gm,'').replace(/^export /gm,'')+';return {paperRequests,paperDecisionModal};})())',ui);
 vm.runInContext(read('src/pages/clients.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ui);
 test('full detail header renders copyable client ID and safe Shop link; legacy Client 1 stays outside V2',()=>{
  ui.pState.selectedClient=client;ui.pState.clientData=detail(health);const html=ui.pageClientDetail();assert.match(html,/Client #50/);assert.match(html,/href="https:\/\/shop.example.test\/"/);assert.doesNotMatch(html,/\/\^https:/);

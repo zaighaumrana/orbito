@@ -98,6 +98,8 @@ test('actual managed migration envelopes atomically apply the approved Shop chai
   await db.exec(read('../../Orbitoshopv2-v1','tests/phase4-local-bootstrap.sql').replace('create extension pgcrypto with schema extensions;','')+cryptoStub.replace('create schema extensions;','')+`alter table auth.users add column invited_at timestamptz,add column email_confirmed_at timestamptz,add column raw_user_meta_data jsonb,add column encrypted_password text;`);
   const ctx=vm.createContext({});vm.runInContext(stripTypeScriptTypes(read('..','supabase/functions/_shared/managed-setup.ts').replace(/^import .*$/gm,'').replace(/^export /gm,'')),ctx);
   const release=JSON.parse(read('..','supabase/functions/_shared/shop-release.json'));
+  // Source verification now needs real SHA-256, available as a core PostgreSQL function.
+  await db.exec("create or replace function extensions.digest(s text,algorithm text) returns bytea language sql as $$select sha256(convert_to(s,'UTF8'))$$;");
   for(const m of release.migrations){try{await db.exec(ctx.managedMigrationQuery(m));}catch(e){throw Error(m.version+': '+e.message);}}
   for(const m of release.migrations)await db.exec(ctx.managedMigrationQuery(m));
   const history=await db.query('select count(*)::integer as count from supabase_migrations.schema_migrations');assert.equal(history.rows[0].count,release.migrations.length);

@@ -1739,3 +1739,51 @@ No hosted mutation/deploy/reset, release promotion, anonymous closure or merge.
 Existing coordinated feature branches/Draft PRs target development with CF skip.
 Owner must approve promotion/deployments, test a fresh managed Shop, then a
 separate-account BYO Shop, and decide legacy closure independently.
+
+## 2026-10-20 — Local BYO reliability and Paper Supply communication
+
+Continued on `feature/verified-customer-support-platform` at ba13837, with Draft
+PR5/head verified against GitHub. The owner's later Support-v2 promotion supersedes
+the preceding entry's inactive status; this pass leaves that pointer and all three
+earlier artifact byte checksums unchanged. No local commit, push, merge, hosted
+query/write, deployment or production cutover was authorized or performed.
+
+Managed setup now revalidates exact source/prefix even for passed aggregate stages,
+checks duplicate source under the migration lock, and rejects a fresh completion
+timestamp before pairing/secrets. Native full frozen 34-entry runs succeed; a
+pre-existing Auth identity reproduces the timestamp/reservation error locally.
+Client3's actual pre-correction trigger remains unproven. No automatic reset or
+applied SQL rewrite is justified. The Shop forward diagnostic does not mutate owners.
+
+Complete BYO Setup now points to the customer-local guided installer. CLI authority
+and private settings stay customer-side; Platform receives the existing public
+target/hash handoff. Provider unknown writes are fenced and require explicit review.
+Added independently reviewable Paper forward SQL, branded decision dialogs and
+customer-visible message/expectation/history sync, retaining live role/session,
+client/source/revision/terminal guards and existing billing/thermal/supply semantics.
+Support-v3 is a new inactive, unregistered 36/7 candidate. Managed promotion requires
+a separate registry/pin/automation review; no in-flight job is repinned.
+
+Validation: six new native PG17/Auth groups, 13 existing native Support groups,
+52 focused Platform groups, six guided groups, actual Paper/Support/Shop entry
+browsers, affected Deno checks and both explicit clean builds passed. Broad Platform
+was 320/321 followed by corrected real-SHA256 SQL subgroup 3/3; broad Shop 110/111
+retains the historical frozen-source equality failure. Evidence and seven reports:
+`Support ticket/implementation-evidence/stabilization-2026-10-20-byo-paper`.
+Client3 hosted checkpoints remain owner-reported; Client4 hosted BYO acceptance,
+candidate/target approval, Paper rollout and production cutover remain separate gates.
+
+## 2026-10-20 — Approved GitHub review checkpoint
+
+The owner explicitly authorized one stabilization commit and push to this existing
+feature branch and its existing Draft PR. This is source-control backup/review only.
+The staged scope is the completed implementation, forward migrations, scripts,
+tests and repository documentation; private settings, pairing files, local journals,
+temporary artifacts and the external evidence directory remain excluded.
+
+No tests, builds, simulations or migrations were rerun for this checkpoint. Earlier
+validation and its recorded limitations remain the evidence of execution. Commit
+messages retain the Cloudflare Pages skip marker. PRs remain Draft/open; no merge,
+hosted Supabase change, Cloudflare deployment, production change or Support-v3
+promotion is authorized. The preceding entry describes the local stabilization
+state before this later source-control authorization.

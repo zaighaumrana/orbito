@@ -90,6 +90,21 @@ export async function handleFormSubmit(event) {
     return;
   }
   const data = Object.fromEntries(new FormData(form).entries());
+  if(type==='paper-decision'){
+    if(!clientDataMatches(selected)||!['master_admin','portfolio_manager'].includes(pState.currentUser?.role))return;
+    const modal=pState.modal,decision=modal?.type==='paper-decision'?modal.data:null;
+    if(!decision||decision.client!==selected.id)return;
+    const message=String(data.message||'').trim(),expectation=String(data.expectation||'').trim();
+    if(!message||message.length>2000||expectation.length>200){notify.error('Enter a customer message within the displayed limits.');return;}
+    form.querySelectorAll('button,input,textarea').forEach(e=>e.disabled=true);
+    form.querySelector('[data-paper-progress]').textContent='Saving customer update…';
+    try{
+      await rpc('platform_paper_decision',{p_client:decision.client,p_request:decision.request,p_version:decision.version,p_status:decision.status,p_message:message,p_expectation:expectation,p_delivery:null});
+      if(current()&&pState.modal===modal){pState.modal=null;if(await loadClientData(selected)){render();notify.success('Paper supply decision saved.');}}
+    }catch(error){if(current()&&pState.modal===modal){form.querySelector('[data-paper-progress]').textContent=error.definiteFailure?'Decision was not saved. Refresh the request before trying a different decision.':'Outcome unconfirmed. Retry these same values or refresh to reconcile the saved revision.';if(!error.definiteFailure)form.querySelectorAll('input,textarea').forEach(e=>e.readOnly=true);}}
+    finally{form.querySelectorAll('button,input,textarea').forEach(e=>e.disabled=false);}
+    return;
+  }
   if(type==='master-continuity'){
     if(pState.currentUser.role!=='master_admin' || pState.reauthLoading)return;
     const attempt={};pState.diagnosticAttempt=attempt;
@@ -106,9 +121,11 @@ export async function handleFormSubmit(event) {
     if(!clientDataMatches(selected))return;
     const clientId = selected.id;
     const request = (pState.clientData.operations?.requests || []).find(r => r.request_id === data.request_id);
+    if(!request&&String(data.message||'').trim()){notify.error('Select a related request to send a customer delivery note.');return;}
     const delivery = { reference: data.reference, roll_count: Number(data.roll_count), usable_length_mm: Number(data.usable_length_mm), paper_width_mm: Number(data.paper_width_mm), delivered_at: new Date(data.delivered_at).toISOString() };
     const payload = { p_client: clientId, p_request: request?.request_id || null, p_version: request?.sync_version || null, p_status: 'fulfilled', delivery };
-    await retryOperation(`supply:${clientId}`, payload, id => rpc('platform_paper_action', { p_client: payload.p_client, p_request: payload.p_request, p_version: payload.p_version, p_status: payload.p_status, p_delivery: { ...delivery, delivery_id: id } }));
+    payload.p_message=String(data.message||'').trim();
+    await retryOperation(`supply:${clientId}`, payload, id => rpc('platform_paper_decision', { p_client: payload.p_client, p_request: payload.p_request, p_version: payload.p_version, p_status: payload.p_status,p_message:payload.p_message,p_expectation:'', p_delivery: { ...delivery, delivery_id: id } }));
     if(current() && await loadClientData(selected))render(); return;
   }
 

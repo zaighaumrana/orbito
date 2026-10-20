@@ -335,8 +335,11 @@ export function initEvents() {
     if (action === 'paper-status') {
       if(!clientDataMatches())return;
       const client=pState.selectedClient;
-      await rpc('platform_paper_action', { p_client: pState.selectedClient.id, p_request: el.dataset.id, p_version: Number(el.dataset.version), p_status: el.dataset.status, p_delivery: null });
-      if(current() && await loadClientData(client))render(); return;
+      if(!['master_admin','portfolio_manager'].includes(pState.currentUser?.role))return;
+      const request=pState.clientData.operations?.requests?.find(r=>r.request_id===el.dataset.id&&r.sync_version===Number(el.dataset.version));
+      if(!request)return;
+      pState.modal={type:'paper-decision',data:{client:client.id,request:request.request_id,version:request.sync_version,status:el.dataset.status}};
+      render();return;
     }
 
     /* ── Module toggles ── */

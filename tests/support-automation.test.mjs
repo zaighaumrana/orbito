@@ -53,7 +53,8 @@ test('registry validates accepted and staged fingerprints; pins select saved pac
  await assert.rejects(()=>pinManagedRelease({rpc:async()=>({data:{release_id:'support-v2',sha256:'a'.repeat(64)}})},request),/Pinned release unavailable/);
 });
 test('automatic enrollment stays local before explicit promotion and waits for prerequisites or existing enabled credentials',async()=>{
- for(const opt of [{},{ready:false},{enabled:true},{context:{state:'revoked'}}]){const f=await fixture(opt);const result=await f.run();assert.ok(['waiting','enabled','revoked'].includes(result.state));assert.ok(!f.events.some(e=>e.url));}
+ const before={...activeRelease};Object.assign(activeRelease,{release_id:'accepted-v1',sha256:releases['accepted-v1'].sha256});
+ try{for(const opt of [{},{ready:false},{enabled:true},{context:{state:'revoked'}}]){const f=await fixture(opt);const result=await f.run();assert.ok(['waiting','enabled','revoked'].includes(result.state));assert.ok(!f.events.some(e=>e.url));}}finally{Object.assign(activeRelease,before);}
 });
 test('Master authority, exact contiguous source history and live owner are checked before secret writes',async()=>promoted(async()=>{
  const manager=await fixture({role:'portfolio_manager'});await assert.rejects(manager.run,/Master/);assert.ok(!manager.events.length);

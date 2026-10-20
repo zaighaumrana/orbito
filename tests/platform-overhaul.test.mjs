@@ -75,7 +75,7 @@ test('server config source of truth clears stale browser ghosts and coalesces su
 });
 function managedFixture({ref='abcdefghijklmnopqrst',mode='managed',failure=null,failureStatus=0,history=[],foreignShop=false,target={},schemaCount=0,savedStages=[],savedChecksums={},artifact=null,requestId='same-request',platformKeys=null,platformLegacyEnabled=true}={}){
  const states=new Map(savedStages.map(name=>[name,'passed'])),calls=[],http=[],secrets=[],order=[],uploads=[];let reject=failure;
- const current={onboarding_version:0,platform_client_id:null,client_binding:null,owner_request:null,has_owner:false,...(foreignShop?{onboarding_version:2,platform_client_id:42,client_binding:'orbito-client-42',owner_request:'different-bootstrap-uuid',has_owner:true}:{}),...target};
+ const current={onboarding_version:0,onboarding_completed_at:null,platform_client_id:null,client_binding:null,owner_request:null,has_owner:false,...(foreignShop?{onboarding_version:2,platform_client_id:42,client_binding:'orbito-client-42',owner_request:'different-bootstrap-uuid',has_owner:true}:{}),...target};
  const release=artifact || {sha256:'release-hash',stage_checksums:{migrations:'legacy-release-hash',functions:'legacy-release-hash'},migrations:[{version:'20261003121000',name:'test',sql:'begin;\nselect 1;\ncommit;',sha256:'migration-hash'}],functions:[{name:'platform-bridge',entrypoint:'platform-bridge/index.ts',verify_jwt:false,sha256:'function-hash',stage_sha256:'legacy-function-hash',files:[{path:'_shared/runtime-preflight.ts',content:'export const checkRuntime = () => ({});'},{path:'platform-bridge/index.ts',content:"import { checkRuntime } from '../_shared/runtime-preflight.ts';"}]}]};
  const stageChecksum=name=>name==='project-access'?ref:name==='migrations'?release.stage_checksums.migrations:name==='functions'?release.stage_checksums.functions:name==='turnstile'?createHash('sha256').update('private-turnstile').digest('hex'):name.startsWith('migration:')?release.migrations.find(m=>'migration:'+m.version===name).sha256:name.startsWith('function:')?release.functions.find(f=>'function:'+f.name===name).stage_sha256:null;
  const checksums=new Map(savedStages.map(name=>[name,Object.hasOwn(savedChecksums,name)?savedChecksums[name]:stageChecksum(name)]));
@@ -201,7 +201,7 @@ test('managed public environment still returns only the exact Shop public JWT vi
 
 test('same recorded request resumes a fresh Shop after the migrations stage passed',async()=>{
  const f=managedFixture({savedStages:['project-access','migrations','migration:20261003121000']});assert.equal((await f.run()).state,'complete');
- assert.ok(!f.http.some(url=>url.endsWith('/database/migrations') || url==='migration-write'));
+ assert.ok(f.http.some(url=>url.endsWith('/database/migrations')));assert.ok(!f.http.includes('migration-write'));
  assert.deepEqual(f.order,['validate','prepare','secrets','secrets','secrets','functions','bootstrap-shop','onboarding-status']);
  assert.ok(f.calls.every(c=>c.args.p_request===f.request.request_id || c.name==='platform_provision_status_service'));
 });
@@ -251,6 +251,10 @@ test('failed function retry keeps exact request and does not repeat passed migra
 });
 test('unapproved history fails closed, never resets/migrates target',async()=>{
  const f=managedFixture({history:[{version:'unapproved'}]});await assert.rejects(f.run(),/Unapproved target/);assert.ok(!f.http.some(x=>x.endsWith('/database/query')));
+});
+test('ambiguous completed timestamp stops before pairing secrets and cached migrations still revalidate source',async()=>{
+ const ambiguous=managedFixture({target:{onboarding_completed_at:'2026-10-01T00:00:00Z'}});await assert.rejects(ambiguous.run(),/initialized or differently bound/);assert.equal(ambiguous.secrets.length,0);
+ const invalid=managedFixture({history:[{version:'20261003121000'}],savedStages:['migrations']});await assert.rejects(invalid.run(),/Migration history|Unapproved target migration source/);assert.equal(invalid.secrets.length,0);assert.ok(!invalid.http.includes('migration-write'));
 });
 test('an unrelated V2 Shop with the same numeric ID/binding cannot have its secrets/functions replaced',async()=>{
  const f=managedFixture({foreignShop:true});await assert.rejects(f.run(),/initialized or differently bound Shop/);assert.equal(f.secrets.length,0);assert.ok(!f.http.some(x=>x.includes('/functions/deploy')));

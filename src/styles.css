@@ -546,3 +546,12 @@ tbody tr:hover{background:var(--surface-2)}
 .support-setup h3 { margin:0; }
 .support-setup form { margin-top:16px; }
 .support-setup input[type=file] { width:100%; min-width:0; }
+.paper-requests{display:grid;gap:16px;margin:16px 0}
+.paper-request{display:flex;justify-content:space-between;align-items:start;gap:20px;padding:16px;border:1px solid var(--border);border-radius:var(--rs-radius-card);overflow-wrap:anywhere;min-width:0}
+.paper-request>div{min-width:0}.paper-request h3{text-transform:capitalize;margin-top:0}
+.paper-actions{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+.paper-actions button{min-height:44px;white-space:normal}.paper-actions button:disabled{opacity:.55;cursor:wait}
+.paper-message{white-space:pre-wrap;background:var(--surface-2);padding:12px;border-radius:var(--rs-radius-control,8px)}
+.paper-decision{width:min(620px,calc(100vw - 32px));overflow-wrap:anywhere}.paper-decision textarea{width:100%;min-height:120px;resize:vertical}
+.paper-decision form{display:grid;gap:16px}.paper-decision .setup-heading{display:flex;flex-direction:row;align-items:flex-start;justify-content:space-between;gap:12px}.paper-decision .icon-button{flex-shrink:0}
+@media(max-width:640px){.paper-request{flex-direction:column}.paper-actions{width:100%}.paper-actions button{flex:1 1 120px}}

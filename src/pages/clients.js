@@ -1,4 +1,5 @@
 import { clientDataMatches } from '../async-context.js';
+import {paperRequests} from '../paper-supply.js';
 import { copyValue } from '../client-setup.js';
 import { lifecycleState, canContactShop, visibleClients, lifecyclePanel } from '../lifecycle.js';
 import { provisioningPanel } from '../provisioning.js';
@@ -131,10 +132,10 @@ export function pageClientDetail() {
     </tbody></table></div><p class="muted">Latest 120 period/document/width groups. Lifetime totals above include all records.</p>
   </div>
   <div class="card"><h2>Paper Requests / Deliveries</h2>
-    ${(o.requests || []).map(r=>`<div class="list-row"><span>${esc(r.request_id)}<br>${esc(r.requested_at)}</span><strong>${esc(r.status)} · v${r.sync_version}</strong>
-    ${canConfig && r.status === 'requested' ? `<span><button data-p-action="paper-status" data-id="${r.request_id}" data-version="${r.sync_version}" data-status="rejected">Reject</button> <button data-p-action="paper-status" data-id="${r.request_id}" data-version="${r.sync_version}" data-status="cancelled">Cancel</button></span>` : ''}</div>`).join('') || '<p>No requests.</p>'}
+    ${paperRequests(c,o.requests||[],canConfig)}
     ${canConfig ? `<h3>Record confirmed delivery</h3><form data-p-form="paper-delivery" class="form-grid">
-      <label class="field"><span>Related request</span><select name="request_id"><option value="">Standalone supply</option>${(o.requests || []).filter(r=>r.status==='requested').map(r=>`<option value="${r.request_id}">${esc(r.request_id)}</option>`).join('')}</select></label>
+      <label class="field"><span>Related request</span><select name="request_id"><option value="">Standalone supply</option>${(o.requests || []).filter(r=>['requested','approved','dispatched'].includes(r.status)).map(r=>`<option value="${r.request_id}">${esc(r.request_id)}</option>`).join('')}</select></label>
+      <label class="field"><span>Customer delivery note · for a related request</span><input name="message" maxlength="2000"></label>
       <label class="field"><span>Delivery reference</span><input name="reference" required maxlength="150"></label>
       <label class="field"><span>Rolls</span><input name="roll_count" type="number" min="1" step="1" required></label>
       <label class="field"><span>Usable length per roll (mm)</span><input name="usable_length_mm" type="number" min="1" step="1" required></label>

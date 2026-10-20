@@ -7,7 +7,7 @@ const literal=(s: string)=>"'"+s.replaceAll("'","''")+"'"
 const secretFingerprint=async(value: string)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))).map(b=>b.toString(16).padStart(2,'0')).join('')
 export function managedMigrationQuery(migration: any){
  const sql=migration.sql.replace(/^\s*(begin|commit);\s*$/gmi,'')
- return `begin; set local statement_timeout='25s'; select pg_advisory_xact_lock(71390461); create schema if not exists supabase_migrations; create table if not exists supabase_migrations.schema_migrations(version text primary key,statements text[],name text); do $install$ begin if not exists(select 1 from supabase_migrations.schema_migrations where version=${literal(migration.version)}) then execute ${literal(sql)}; insert into supabase_migrations.schema_migrations(version,name,statements) values(${literal(migration.version)},${literal(migration.name)},array[${literal(migration.sql)}]); end if; end $install$; commit;`
+ return `begin; set local statement_timeout='25s'; select pg_advisory_xact_lock(71390461); create schema if not exists supabase_migrations; create table if not exists supabase_migrations.schema_migrations(version text primary key,statements text[],name text); do $install$ begin if exists(select 1 from supabase_migrations.schema_migrations where version=${literal(migration.version)}) then if not exists(select 1 from supabase_migrations.schema_migrations where version=${literal(migration.version)} and name=${literal(migration.name)} and encode(extensions.digest(replace(array_to_string(statements,E'\\n'),E'\\r\\n',E'\\n'),'sha256'),'hex')=${literal(migration.sha256)}) then raise exception 'Migration source conflict'; end if; else execute ${literal(sql)}; insert into supabase_migrations.schema_migrations(version,name,statements) values(${literal(migration.version)},${literal(migration.name)},array[${literal(migration.sql)}]); end if; end $install$; commit;`
 }
 export async function managedPublicEnvironment(admin: any,clientId: number,platformUrl: string){
  const c=await admin.from('clients').select('supabase_url,pairing_mode,turnstile_site_key,lifecycle_state,infrastructure_state').eq('id',clientId).single()
@@ -47,6 +47,17 @@ export async function runManagedSetup(admin: any,request: any,platformUrl: strin
  const project=await api('');if(project?.id!==ref)throw new ManagedSetupError('Management API project identity mismatch.')
  await stage('project-access',async()=>{},ref)
  if(request.action==='managed-setup') {
+  // Revalidate even when the aggregate stage was previously marked passed.
+  const versions=await api('/database/migrations')
+  if(!Array.isArray(versions)||versions.length>release.migrations.length||versions.some((h:any)=>!release.migrations.some((m:any)=>m.version===h.version)))throw new ManagedSetupError('Unapproved target migration history. Review adoption; no reset is allowed.')
+  if(versions.length){
+   const history=await api('/database/query','POST',{query:'select version,name,statements from supabase_migrations.schema_migrations order by version'})
+   if(!Array.isArray(history)||history.length!==versions.length)throw new ManagedSetupError('Migration history cannot be verified.')
+   for(let i=0;i<history.length;i++){
+    const h=history[i],m=release.migrations[i]
+    if(h.version!==m.version||h.name!==m.name||!Array.isArray(h.statements)||await secretFingerprint(h.statements.join('\n').replaceAll('\r\n','\n'))!==m.sha256)throw new ManagedSetupError('Unapproved target migration source or prefix. Review adoption; no writes allowed.')
+   }
+  }
   await stage('migrations',async()=>{
    const history=await api('/database/migrations')
    if(!Array.isArray(history) || history.some(h=>!release.migrations.some((m:any)=>m.version===h.version)))throw new ManagedSetupError('Unapproved target migration history. Review/adopt it manually; no reset or replay is allowed.')
@@ -65,9 +76,9 @@ export async function runManagedSetup(admin: any,request: any,platformUrl: strin
  if(request.action==='managed-setup'){
   // Approved migrations leave a fresh Shop at version 0. Only canonical owner
   // bootstrap advances it to V2; validate before preparing pairing or writing secrets.
-  const rows=await api('/database/query','POST',{query:"select sc.onboarding_version,sc.platform_client_id,bc.client_binding,b.payload->>'request_id' as owner_request,exists(select 1 from public.app_users where role='Business Owner') as has_owner from public.shop_config sc cross join app_private.bridge_config bc left join app_private.owner_bootstrap b on b.singleton where sc.id=1 and bc.singleton"})
+  const rows=await api('/database/query','POST',{query:"select sc.onboarding_version,sc.onboarding_completed_at,sc.platform_client_id,bc.client_binding,b.payload->>'request_id' as owner_request,exists(select 1 from public.app_users where role='Business Owner') as has_owner from public.shop_config sc cross join app_private.bridge_config bc left join app_private.owner_bootstrap b on b.singleton where sc.id=1 and bc.singleton"})
   current=rows?.[0]
-  const fresh=current?.onboarding_version===0 && current.platform_client_id===null && current.client_binding===null && current.owner_request===null && current.has_owner===false
+  const fresh=current?.onboarding_version===0 && current.onboarding_completed_at===null && current.platform_client_id===null && current.client_binding===null && current.owner_request===null && current.has_owner===false
   const reserved=current?.onboarding_version===2 && typeof current.client_binding==='string' && typeof current.owner_request==='string' && current.platform_client_id===request.client_id
   if(!fresh && !reserved)throw new ManagedSetupError('Target is an initialized or differently bound Shop. Manual adoption is required; its secrets were not replaced.')
  }
