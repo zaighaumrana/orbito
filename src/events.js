@@ -1,5 +1,6 @@
 import { loadSupportPage } from './supabase.js';
 import {refreshPaperStatus} from './paper-supply.js';
+import {submitPaperDelivery} from './paper-delivery.js';
 import {ensureClientDraft,rememberClientDraft,persistClientDraft,validateClientStage,openByoWizard,updateByoWizard} from './wizard-controller.js';
 import { captureView, viewCurrent, selectClient, clientDataMatches } from './async-context.js';
 import { notify, confirmDialog, showMessage, deleteUserDialog, cancelDialogs } from './dialogs.js';
@@ -347,6 +348,9 @@ export function initEvents() {
     }
     if (action === 'refresh-paper') {
       await refreshPaperStatus(loadClientData,render);return;
+    }
+    if (action === 'reconcile-paper-delivery') {
+      const form=el.closest('form[data-p-form="paper-delivery"]');if(form)await submitPaperDelivery(form,{reconcile:true});return;
     }
     if (action === 'refresh-operations') {
       const client=pState.selectedClient;if(!client)return;

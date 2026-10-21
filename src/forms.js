@@ -2,7 +2,7 @@ import { captureView, viewCurrent, authorityCurrent, selectClient, clientDataMat
 import { submitProvisioning } from './provisioning.js';
 import { publicEnvironment } from './lifecycle.js';
 import { validateOwner } from './onboarding.js';
-import { rpc, recordPayment, retryOperation } from "./operations.js";
+import { rpc, recordPayment } from "./operations.js";
 import { pState, PCFG, clearSensitiveState } from "./state.js";
 import { pb, reauthenticateMaster, diagnoseMasterSession, loadPlatform, loadClientData, updateClientConfig } from "./supabase.js";
 import { resetTurnstile, captchaBusy } from './turnstile.js';
@@ -11,6 +11,7 @@ import { teamErrorMessage } from './team-errors.js';
 import { render } from "./render.js";
 import { validateSession } from './helpers.js';
 import {submitByoSupport} from './byo-support.js';
+import {submitPaperDelivery} from './paper-delivery.js';
 import {ensureClientDraft,rememberClientDraft,persistClientDraft,clearClientDraft,validateClientStage} from './wizard-controller.js';
 
 function validatePassword(pw) {
@@ -119,15 +120,7 @@ export async function handleFormSubmit(event) {
   }
 
   if (type === 'paper-delivery') {
-    if(!clientDataMatches(selected))return;
-    const clientId = selected.id;
-    const request = (pState.clientData.operations?.requests || []).find(r => r.request_id === data.request_id);
-    if(!request&&String(data.message||'').trim()){notify.error('Select a related request to send a customer delivery note.');return;}
-    const delivery = { reference: data.reference, roll_count: Number(data.roll_count), usable_length_mm: Number(data.usable_length_mm), paper_width_mm: Number(data.paper_width_mm), delivered_at: new Date(data.delivered_at).toISOString() };
-    const payload = { p_client: clientId, p_request: request?.request_id || null, p_version: request?.sync_version || null, p_status: 'fulfilled', delivery };
-    payload.p_message=String(data.message||'').trim();
-    await retryOperation(`supply:${clientId}`, payload, id => rpc('platform_paper_decision', { p_client: payload.p_client, p_request: payload.p_request, p_version: payload.p_version, p_status: payload.p_status,p_message:payload.p_message,p_expectation:'', p_delivery: { ...delivery, delivery_id: id } }));
-    if(current() && await loadClientData(selected))render(); return;
+    await submitPaperDelivery(form);return;
   }
 
   /* ── Add Client ── */

@@ -611,4 +611,5 @@ tbody tr:hover{background:var(--surface-2)}
 .support-enrollment>.action-group{padding:0 0 var(--rs-space-2)}
 .paper-section-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--rs-space-4)}
 .paper-section-heading h2{margin:0}.paper-section-heading button{min-height:44px}.paper-section>[data-paper-refresh-status]{line-height:1.6}
+form[data-p-form="paper-delivery"]>[data-delivery-status]{grid-column:1 / -1;line-height:1.6}
 @media(max-width:600px){.support-setup .support-enrollment{grid-template-columns:minmax(0,1fr)}.support-enrollment>.field{grid-template-rows:auto 64px auto}.byo-tasks{padding-left:var(--rs-space-4)}.byo-tasks>li{padding:var(--rs-space-3)}.paper-section-heading{align-items:stretch;flex-direction:column}.paper-section-heading button{width:100%}}

@@ -11,6 +11,7 @@ import { teamRoles } from './team.js';
 import { esc } from './operations.js';
 import { captureView, viewCurrent } from './async-context.js';
 import { syncModalFocus, resetModalFocus } from './modal-focus.js';
+import {hydratePaperDelivery} from './paper-delivery.js';
 
 let editView;
 export function syncSidebar(open=false) {
@@ -182,6 +183,7 @@ export function render() {
   }
   editView=pState.modal?.type==='edit-client'?captureView():null;
   hydrateClientDraft();
+  hydratePaperDelivery();
   syncModalFocus(app,()=>{pState.modal=null;render();},previousFocus);
 
   if(pState.modal?.type==='master-continuity')void mountTurnstile({containerId:'diagnostic-verification',statusId:'diagnostic-status',buttonSelector:'[data-diagnostic-submit]'});

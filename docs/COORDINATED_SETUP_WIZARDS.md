@@ -42,6 +42,18 @@ hosted mutation is required. Existing hosted rollout gates remain separately own
 Current UI wording was checked against [Pages hosting](https://developers.cloudflare.com/pages/configuration/git-integration/)
 and [Supabase Auth redirects](https://supabase.com/docs/guides/auth/redirect-urls).
 
+PAPER-UX-009 delivery follow-up: the Platform validates actual local delivery time
+and required quantities before submitting; database validation stays authoritative.
+Delivery failures use actionable inline feedback rather than persistent generic
+error toasts. Success is confirmed by the RPC acknowledgment or an authorized read
+matching the original delivery ID, payload and linked request communication. A
+failed history refresh cannot turn an acknowledged write into a failure message.
+Uncertain/stale/conflicting receipts retain their original UUID and payload across
+reload; Check original delivery is read-only and Retry original delivery reuses
+those exact values. Absence from the bounded history is never proof of failure.
+Known transactional input rejections allow correction. Payments retain their
+existing retry cleanup behavior. No backend update is required for this follow-up.
+
 ## Client creation
 
 Add New Client preserves the original five sections: business, owner, plan and

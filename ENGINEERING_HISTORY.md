@@ -1892,3 +1892,32 @@ No migration, Edge, Shop, release, customer-private file or hosted configuration
 change. Commit/push to existing Draft PR5 is authorized with [CF-Pages-Skip]; exact
 SHA, push, PR and provider skip proof are recorded in the single external correction
 report. No deployment or merge; previous evidence remains preserved.
+
+## 2026-10-22 — PAPER-UX-009 confirmed delivery feedback
+
+Branch: feature/verified-customer-support-platform; starting HEAD 4decbd54dce8.
+
+Future delivery timestamps previously reached authoritative database validation,
+whose Error became a generic persistent toast. Success had no notification, so an
+earlier error could remain visible after a later successful write. This is a
+verified code path, not a conclusive attribution of the reported second notice.
+
+Added frontend local-time/calendar/future and quantity/reference validation,
+actionable inline feedback, submitting/overlap protection and explicit success.
+Acknowledged writes stay successful if their follow-up history read fails.
+Uncertain writes reconcile the exact original delivery ID/payload against authorized
+records; absent bounded history is not proof of failure. Check original delivery
+is read-only; unchanged retries retain UUID/payload across reload. Stale/fulfilled
+and conflicting records remain reviewable without creating another supply entry.
+Known transactional input rejections allow correction. Payment retry defaults are
+unchanged; only delivery opts into retaining rejected receipts for reconciliation.
+
+Validation: the existing browser fixture's delivery-only path covers invalid/future
+local time, success/read failure, overlap, lost response, reload/same-UUID retry,
+stale/already fulfilled and safe messages. Changed frontend syntax and diff/scope
+review complete this narrow check. No full suites or hosted mutation tests.
+
+No Shop, migration, Edge, metering or business-rule change; no backend deployment
+required. Authorized feature-only commit/push uses [CF-Pages-Skip]; final SHA and
+provider confirmation are recorded in the external PAPER_UX_009_2026-10-22 report.
+PR5 remains Draft for development; no merge or deployment is authorized.
