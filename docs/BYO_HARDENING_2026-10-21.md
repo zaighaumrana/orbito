@@ -1,5 +1,8 @@
 # BYO hardening checkpoint — 2026-10-21
 
+Later coordinated wizard checkpoint: see [current wizard architecture and rollout](COORDINATED_SETUP_WIZARDS.md).
+The dated results below remain historical evidence; the entry point is now Resume BYO Setup.
+
 The Platform Client Detail **Open complete BYO guide** is the primary operator
 workflow. It remains available after onboarding and covers customer CLI authority,
 pairing/private runtime/public input separation, exact project/package checks,

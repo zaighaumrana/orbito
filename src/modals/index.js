@@ -11,7 +11,7 @@ export function pModal() {
   if(type==='paper-decision')return ['master_admin','portfolio_manager'].includes(pState.currentUser?.role)?paperDecisionModal(pState.selectedClient,md):'';
   if(['add-platform-user','edit-platform-user','manage-platform-user','master-continuity'].includes(type) && pState.currentUser?.role!=='master_admin')return '';
 
-  if(type==='byo-setup')return byoSetupModal(pState.selectedClient,pState.clientData);
+  if(type==='byo-setup')return pState.currentUser?.role==='master_admin'?byoSetupModal(pState.selectedClient,pState.clientData,pState.byoWizard):'';
   if(['managed-setup','rotate-turnstile'].includes(type))return managedSetupModal(pState.selectedClient,pState.clientData,type);
   return (
     clientModals(type, md)  ||

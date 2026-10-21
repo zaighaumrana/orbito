@@ -11,6 +11,7 @@ import { teamErrorMessage } from './team-errors.js';
 import { render } from "./render.js";
 import { validateSession } from './helpers.js';
 import {submitByoSupport} from './byo-support.js';
+import {ensureClientDraft,rememberClientDraft,persistClientDraft,clearClientDraft,validateClientStage} from './wizard-controller.js';
 
 function validatePassword(pw) {
   if (pw.length < 8)              return "Password must be at least 8 characters.";
@@ -89,7 +90,7 @@ export async function handleFormSubmit(event) {
     }catch(error){if(current())notify.error(error);}
     return;
   }
-  const data = Object.fromEntries(new FormData(form).entries());
+  let data = Object.fromEntries(new FormData(form).entries());
   if(type==='paper-decision'){
     if(!clientDataMatches(selected)||!['master_admin','portfolio_manager'].includes(pState.currentUser?.role))return;
     const modal=pState.modal,decision=modal?.type==='paper-decision'?modal.data:null;
@@ -131,10 +132,19 @@ export async function handleFormSubmit(event) {
 
   /* ── Add Client ── */
   if (type === "add-client") {
+    if(!['master_admin','portfolio_manager'].includes(pState.currentUser.role))return;
+    const draft=ensureClientDraft();if(draft.submitting||!draft.reviewed||draft.step!==4)return;
+    if(!draft.pending){
+      for(let step=0;step<5;step++)if(!validateClientStage(form,step)){draft.step=step;persistClientDraft();render();return;}
+      rememberClientDraft(form);draft.reviewed=true;
+    }
+    data={...draft.fields};
     let owner;
     try { owner = validateOwner(data.owner_name, data.owner_email); } catch (error) { notify.error(error.message); return; }
     if (data.ems_track_breaks === 'true' && data.plan !== 'Pro Plus') { notify.error('Break Tracking requires Pro Plus / EMS.'); return; }
-    const { data: savedClient, error } = await pb.rpc('platform_save_client',{p_client:null,p_data:{
+    draft.submitting=true;draft.error=null;draft.pending=true;persistClientDraft();render();
+    let response;
+    try{response=await pb.rpc('platform_create_client_once',{p_request:draft.requestId,p_data:{
       ...owner,
       pairing_mode: data.pairing_mode,
       ems_track_breaks: data.ems_track_breaks === 'true',
@@ -149,9 +159,22 @@ export async function handleFormSubmit(event) {
       inventory_billable: data.inventory_addon === "true",
       supabase_url:       `https://${data.project_ref}.supabase.co`,
       shop_url:           data.shop_url || "",
-    }});
-    if(!current())return;
-    if (error) { notify.error(error); return; }
+    }})}catch{response={error:{code:'transport'}}}
+    if(!current()){
+      if(authorityCurrent(context)&&pState.clientWizard===draft){
+        draft.submitting=false;draft.error='Creation response arrived after leaving this form. Retry the original creation to reconcile the unconfirmed outcome.';persistClientDraft();
+        if(pState.modal?.type==='add-client')render();
+      }
+      return;
+    }
+    draft.submitting=false;
+    const {data:savedClient,error}=response;
+    if(error||!savedClient?.id){
+      if(['22023','23514','23502','P0001'].includes(error?.code))draft.pending=false;
+      draft.error=error?.code==='PGRST202'?'Creation service is unavailable. The reviewed migration must be approved and applied before client creation; no fallback write was attempted.':draft.pending?'Creation is unconfirmed. Retry the original creation with the same locked details.':'Client validation failed. Review the entered fields; no client was created by this rejected transaction.';
+      persistClientDraft();render();return;
+    }
+    clearClientDraft();
 
     selectClient(savedClient);
     pState.page = 'client-detail';

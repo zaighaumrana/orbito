@@ -10,7 +10,7 @@ function renderContext(state={}) {
  const app={innerHTML:''};
  const ctx={pState:{page:'login',authenticated:false,currentUser:{role:'master_admin',email:'master@example.test'},data:{clients:[],support:[],platformUsers:[]},...state},PCFG:{admin_username:'Alias'},esc:escape,
   document:{getElementById:()=>app,documentElement:{dataset:{}}},cleanupTurnstile(){},mountTurnstile(){},tit:()=>'',getNav:()=>[],pModal:()=>'',history:{pushState(){}},window:{location:{pathname:'/'}},
-  pageOverview:()=>'',pageClients:()=>'',pageClientDetail:()=>'',pageBilling:()=>'',pageSupport:()=>'',syncModalFocus(){},resetModalFocus(){},teamRoles:{master_admin:'Master Admin',portfolio_manager:'Portfolio Manager',billing_person:'Billing Person'}};
+  pageOverview:()=>'',pageClients:()=>'',pageClientDetail:()=>'',pageBilling:()=>'',pageSupport:()=>'',hydrateClientDraft(){},syncModalFocus(){},resetModalFocus(){},teamRoles:{master_admin:'Master Admin',portfolio_manager:'Portfolio Manager',billing_person:'Billing Person'}};
  vm.createContext(ctx);vm.runInContext(read('src/async-context.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ctx);vm.runInContext(strip(read('src/pages/settings.js')),ctx);vm.runInContext(strip(read('src/render.js')),ctx);
  return {ctx,app};
 }

@@ -22,8 +22,8 @@ try{
  await page.goto(origin+'/?fixtureRole=master_admin');await page.waitForFunction(async()=>{const {pState}=await import('/src/state.js');return pState.authenticated&&pState.dataReady;});
  await page.locator('[data-p-page="clients"]').click();await page.locator('[data-p-action="open-client"][data-p-id="1"]').click();
  await page.locator('[data-p-action="paper-status"][data-status="rejected"]').waitFor();
- // Before image uses the exact historical Paper section from HEAD, within the current local app shell.
- const baseline=spawnSync('git',['show','HEAD:src/pages/clients.js'],{encoding:'utf8',windowsHide:true}).stdout;
+ // Pin the actual pre-communication fragment; current HEAD delegates rendering.
+ const baseline=spawnSync('git',['show','2af20cfda151a71f395d2fff1299812ae1af9c45:src/pages/clients.js'],{encoding:'utf8',windowsHide:true}).stdout;
  const begin=baseline.indexOf('<div class="card"><h2>Paper Requests / Deliveries</h2>'),end=baseline.indexOf('<div class="card"><h2>Invoice History</h2>',begin);
  assert.ok(begin>0&&end>begin);
  await page.evaluate(({source})=>{const card=[...document.querySelectorAll('.card')].find(c=>c.querySelector('h2')?.textContent==='Paper Requests / Deliveries');window.savedPaperHTML=card.outerHTML;card.outerHTML=Function('o','canConfig','esc','metres','return `'+source+'`')({requests:window.paperRows,supplies:[]},true,s=>String(s??'').replaceAll('<','&lt;'),()=>0);},{source:baseline.slice(begin,end)});

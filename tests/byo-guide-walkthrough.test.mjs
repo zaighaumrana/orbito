@@ -11,7 +11,7 @@ const decode=v=>v.replaceAll('&quot;','"').replaceAll('&lt;','<').replaceAll('&a
 test('first-time walkthrough uses the actual on-screen commands and public template through local install/resume/enroll/acceptance states',async()=>{
  const ui={URL,esc:escape};vm.createContext(ui);
  for(const p of ['src/support-setup.js','src/client-setup.js'])vm.runInContext(read(p).replace(/^import .*$/gm,'').replace(/^export /gm,''),ui);
- const ref='abcdefghijklmnopqrst',html=ui.byoSetupModal({id:50,pairing_mode:'byo',onboarding_version:2,supabase_url:`https://${ref}.supabase.co`,shop_url:'https://fresh.example.test',owner_email:'owner@example.test'},{});
+ const ref='abcdefghijklmnopqrst',html=ui.byoGuideContent({id:50,pairing_mode:'byo',onboarding_version:2,supabase_url:`https://${ref}.supabase.co`,shop_url:'https://fresh.example.test',owner_email:'owner@example.test'},{});
  const commands=[...html.matchAll(/<code>([\s\S]*?)<\/code>/g)].map(m=>decode(m[1]));
  const dir=mkdtempSync(join(tmpdir(),'retrasell-screen-walkthrough-')),reports=[],calls=[];
  const argv=command=>[...command.matchAll(/"([^"]*)"|(\S+)/g)].map(m=>(m[1]??m[2]).replaceAll('$setupRoot',dir)).slice(2);
@@ -29,7 +29,7 @@ test('first-time walkthrough uses the actual on-screen commands and public templ
   const resume=[...argv(commands.find(c=>c.includes('--journal')&&!c.includes('--mode')&&!c.includes('--status')&&!c.includes('--enroll')&&!c.includes('--record'))),'--cli',cli];
   assert.equal((await setupByo(resume,deps)).state,'Waiting for owner');owner='active';assert.equal((await setupByo(resume,deps)).state,'Waiting for onboarding');onboarded=true;
   assert.equal((await setupByo([...argv(commands.find(c=>c.endsWith('--enroll'))),'--cli',cli],deps)).state,'Support enrollment pending');
-  assert.equal((await setupByo([...argv(commands.find(c=>c.endsWith('--record-acceptance'))),'--cli',cli],deps)).acceptance.kind,'owner-reported');
+  assert.equal((await setupByo([...argv(commands.find(c=>c.endsWith('--acceptance support'))),'--cli',cli],deps)).acceptance.kind,'owner-reported');
   assert.match(reports.join('\n'),/CAPTCHA is NOT browser verified/);assert.doesNotMatch(reports.join('\n'),/synthetic-private|a{64}|b{64}/);
   assert.doesNotMatch(readFileSync(join(dir,'journal.json'),'utf8'),/synthetic-private|a{64}|b{64}/);
  }finally{rmSync(dir,{recursive:true,force:true})}

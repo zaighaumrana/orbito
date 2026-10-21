@@ -1817,3 +1817,47 @@ Evidence/reports are in the preserved Oct 20 folder's new hardening-2026-10-21
 subfolder. No new migrations, Shop release rewrite, managed promotion, customer
 credential/journal modification, hosted mutation, deployment, commit or push.
 Fresh hosted acceptance and any deployment remain separate owner gates.
+
+## 2026-10-21 — Coordinated client and BYO wizards review checkpoint
+
+Branch: feature/verified-customer-support-platform; starting HEAD 974d011b0501.
+
+Replaced the long BYO modal with twelve navigable stages, explicit installation
+mode review, retained commands/templates, blocked recovery, recorded observations
+and Resume BYO Setup. A new forward migration adds private client/project/binding
+progress with live Master/session authorization, revisions, row locks and audit.
+Operator acknowledgments cannot manufacture verified customer infrastructure.
+The local installer journal remains separate; no private customer file is accepted.
+
+Converted the original five Add Client sections into a validated Back/Next/review
+wizard with session-scoped drafts. An idempotent canonical creation wrapper binds
+request UUID, operator and payload, so concurrent retries reconcile one client.
+Unknown outcomes lock original fields; editing reviewed fields requires review
+again. Existing plans, billing, Inventory, Paper and owner/provisioning rules remain.
+Platform-only file-picker, lifecycle and technical/public-environment spacing use
+existing design tokens. Shop visuals and frozen release artifacts remain unchanged.
+
+Validation: complete local Platform unit/in-process suite 326/326 and Shop 122/122;
+focused native PG17/Auth eight groups and actual browser wizard walkthrough passed.
+Final-commit native/browser/build results and sanitized commands are recorded in
+the external coordinated-wizards-2026-10-21 evidence directory. Compatible public
+transitive patches applied; Vite5/esbuild findings remain pending a separately
+reviewed major upgrade. No hosted acceptance is inferred from fixtures.
+
+Final review additionally releases a departed in-flight client draft for original
+request reconciliation, preserves full form values, tests another authorized
+session and pairing changes, and repairs historical browser fixture pin/stub/popup
+races. The older onboarding harness now isolates financial projection fixtures
+from persisted owner-onboarding state. These are test harness corrections, not
+changes to the financial core. Earlier failed attempts remain in external evidence.
+The current Manager fixture uses canonical client RPCs and retains raw read/write,
+pricing and owner denial assertions, matching the existing role-isolation migration.
+It is separate from the historical bootstrap fixture, whose earlier migration
+cutoff deliberately tests the older contract.
+
+Owner authorizes commit/push to existing Draft PR5 against development only. Every
+new commit uses the historical, documented [CF-Pages-Skip] prefix. Current provider
+skip confirmation is pending unavailable connector/browser access. No deployment,
+hosted DB/Auth/Vault/DNS change, customer install, managed promotion or merge.
+The new Platform migration remains unapplied hosted; rollout order is documented
+in docs/COORDINATED_SETUP_WIZARDS.md. Previous evidence remains preserved.

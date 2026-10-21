@@ -181,6 +181,7 @@ export function render() {
     if(selection)active.setSelectionRange(...selection);
   }
   editView=pState.modal?.type==='edit-client'?captureView():null;
+  hydrateClientDraft();
   syncModalFocus(app,()=>{pState.modal=null;render();},previousFocus);
 
   if(pState.modal?.type==='master-continuity')void mountTurnstile({containerId:'diagnostic-verification',statusId:'diagnostic-status',buttonSelector:'[data-diagnostic-submit]'});
@@ -189,3 +190,4 @@ export function render() {
   if (menuBtn && window.innerWidth <= 1180) menuBtn.style.display = "inline-flex";
   syncSidebar();
 }
+import {hydrateClientDraft} from './wizard-controller.js';

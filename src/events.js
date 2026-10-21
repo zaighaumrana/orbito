@@ -1,4 +1,5 @@
 import { loadSupportPage } from './supabase.js';
+import {ensureClientDraft,rememberClientDraft,persistClientDraft,validateClientStage,openByoWizard,updateByoWizard} from './wizard-controller.js';
 import { captureView, viewCurrent, selectClient, clientDataMatches } from './async-context.js';
 import { notify, confirmDialog, showMessage, deleteUserDialog, cancelDialogs } from './dialogs.js';
 import { resetTurnstile, mountTurnstile, cleanupTurnstile, captchaBusy } from './turnstile.js';
@@ -49,12 +50,28 @@ export function initEvents() {
 
     /* Open modal */
     if (el.dataset.pModal) {
+      if(el.dataset.pModal==='byo-setup'){await openByoWizard(pb,render);return;}
+      if(el.dataset.pModal==='add-client'){
+        if(!['master_admin','portfolio_manager'].includes(pState.currentUser.role))return;
+        ensureClientDraft();
+      }
       if(['add-platform-user','master-continuity'].includes(el.dataset.pModal) && pState.currentUser.role!=='master_admin')return;
       pState.modal = { type: el.dataset.pModal, data:{requestId:crypto.randomUUID()} }; render(); return;
     }
 
     const action = el.dataset.pAction;
     if (!action) return;
+    if(['byo-refresh','byo-back','byo-next','byo-ack','byo-skip','byo-block'].includes(action)){
+      const category=document.querySelector('[data-byo-category]')?.value;
+      await updateByoWizard(pb,render,action,category);return;
+    }
+    if(['client-back','client-next','client-review'].includes(action)){
+      const form=document.querySelector('form[data-p-form="add-client"]'),draft=ensureClientDraft();if(!form||draft.pending||draft.submitting)return;
+      rememberClientDraft(form);
+      if(action!=='client-back'&&!validateClientStage(form,draft.step))return;
+      if(action==='client-review')draft.reviewed=true;else draft.step=Math.max(0,Math.min(4,draft.step+(action==='client-next'?1:-1)));
+      persistClientDraft();render();return;
+    }
     if(action==='reload-platform'){await loadPlatform();if(current())render();return;}
     if(['generate-invoice','mark-paid','clear-credit','view-invoice','view-logs','print-invoice','edit-client-rates'].includes(action)
       && (!['master_admin','billing_person'].includes(pState.currentUser.role) || pState.dataReady===false))return;
@@ -554,11 +571,16 @@ export function initEvents() {
   });
 
   document.addEventListener("change", event => {
+    if(event.target.matches?.('[data-byo-mode]')&&pState.byoWizard){pState.byoWizard.mode=['fresh','existing'].includes(event.target.value)?event.target.value:null;render();return;}
+    if(event.target.matches?.('input[type="file"][name="enrollment"]')){
+      const label=event.target.closest('.file-picker')?.querySelector('[data-file-name]');if(label)label.textContent=event.target.files?.[0]?.name||'No file selected';
+    }
     if (event.target.id === "onboard-inv-select") {
       const rateField = document.getElementById("onboard-inv-rate-field");
       if (rateField) rateField.classList.toggle("hidden", event.target.value !== "true");
     }
   });
+  document.addEventListener('input',event=>{const form=event.target.closest?.('form[data-p-form="add-client"]');if(form){rememberClientDraft(form);if(event.target.name==='plan'){const breaks=form.elements.ems_track_breaks;breaks.disabled=event.target.value!=='Pro Plus';if(breaks.disabled)breaks.value='false';rememberClientDraft(form)}}});
 
   /* Native Enter/assistive-technology submission follows the same Auth action. */
   document.addEventListener("submit", event => {

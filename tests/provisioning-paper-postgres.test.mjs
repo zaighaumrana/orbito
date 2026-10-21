@@ -21,6 +21,7 @@ const json=(q,db=shop)=>JSON.parse(sql(q,db).split('\n').findLast(l=>l.startsWit
 const lit=x=>"'"+JSON.stringify(x).replaceAll("'","''")+"'::jsonb";
 const service=q=>'begin;set local role service_role;'+q+';commit;';
 const user=(id,q)=>`begin;select set_config('request.jwt.claim.sub','${id}',true);select set_config('request.jwt.claims','{"sub":"${id}","session_id":"${id}","role":"authenticated"}',true);set local role authenticated;${q};commit;`;
+const concurrentSql=q=>new Promise((resolve,reject)=>{const child=spawn('docker',['exec','-i',container,'psql','-X','-qAt','-v','ON_ERROR_STOP=1','-U','postgres','-d',platform,'-f','-'],{windowsHide:true});let out='',err='';child.stdout.on('data',b=>out+=b);child.stderr.on('data',b=>err+=b);child.on('error',reject);child.on('exit',code=>code===0?resolve(JSON.parse(out.split('\n').findLast(l=>l.startsWith('{')))):reject(Error(err.slice(-500))));child.stdin.end(q)});
 const migrations=repo=>readdirSync(new URL('../'+repo+'supabase/migrations/',import.meta.url)).filter(f=>f.endsWith('.sql')).sort();
 test.before(()=>{
  const dump=run(['exec',container,'pg_dump','-U','supabase_admin','-d','postgres','--schema-only','--schema=auth','--schema=extensions','--schema=vault']);
@@ -162,4 +163,37 @@ test('paper decisions: live RBAC, exact retries, stale/terminal/cross-client den
  const legacy={delivery_id:request(6),reference:'LEGACY',roll_count:1,usable_length_mm:1000,paper_width_mm:80,delivered_at:'2026-10-01T00:00:00Z'};
  sql(user(master,`select public.platform_paper_action(42,'${request(5)}',1,'fulfilled',${lit(legacy)})`),platform);
  assert.throws(()=>sql(user(master,`select public.platform_paper_decision(42,null,null,'fulfilled','Would be lost','',${lit({...legacy,delivery_id:request(7)})})`),platform),/notes require a linked request/);
+});
+
+test('BYO wizard native progress is Master/session/project/binding scoped, rejects false proof, enforces revisions and preserves separate clients',async()=>{
+ sql("update public.clients set onboarding_version=2,owner_name='Synthetic Owner',owner_email='owner@example.test',shop_url=case when id=42 then 'https://shop.example.test' else 'https://other.example.test' end where id in(42,43)",platform);
+ const get=(id=42,ref='abcdefghijklmnopqrst')=>user(master,`select public.platform_byo_progress(${id},'${ref}')`);
+ let current=json(get(),platform);assert.equal(current.revision,0);assert.equal(current.client_binding,'orbito-client-42');assert.equal(current.observations.support_enabled,false);
+ sql("insert into platform_private.shop_credentials(client_id,project_ref,client_binding,health) values(42,'cdefghijklmnopqrstuv','orbito-client-42','{\"owner_account\":\"active\",\"onboarding\":\"onboarding_complete\"}')",platform);assert.throws(()=>json(get(),platform),/credential target mismatch/);
+ sql("update platform_private.shop_credentials set project_ref='abcdefghijklmnopqrst' where client_id=42",platform);assert.equal(json(get(),platform).observations.owner_active,false);sql("update platform_private.shop_credentials set verified_at=now(),health=health||'{\"checks\":{\"migrations\":false}}' where client_id=42",platform);assert.equal(json(get(),platform).observations.owner_active,true);assert.equal(json(get(),platform).observations.backend_runtime_failed,true);sql('delete from platform_private.shop_credentials where client_id=42',platform);
+ assert.throws(()=>json(get(43),platform),/target mismatch/);
+ assert.throws(()=>sql(`begin;set local role anon;select public.platform_byo_progress(42,'abcdefghijklmnopqrst');commit`,platform),/permission denied/);
+ const write=(version,mark='acknowledged',category='null')=>user(master,`select public.platform_byo_progress(42,'abcdefghijklmnopqrst','orbito-client-42',${version},5,'${mark}',${category})`);
+ current=json(write(0),platform);assert.equal(current.revision,1);assert.equal(current.marks['5'].mark,'acknowledged');assert.equal(current.observations.backend_runtime_verified,false);
+ assert.throws(()=>json(write(0),platform),/Progress changed/);
+ assert.throws(()=>json(write(1,'verified'),platform),/Invalid operator mark/);
+ assert.throws(()=>json(write(1,'not_applicable'),platform),/Step is required/);
+ assert.throws(()=>json(write(1,'blocked',"'private secret text'"),platform),/Invalid diagnostic category/);
+ current=json(write(1,'blocked',"'unknown_write'"),platform);assert.equal(current.marks['5'].category,'unknown_write');assert.equal(current.history.length,2);
+ const other=json(get(43,'bcdefghijklmnopqrstu'),platform);assert.deepEqual(other.marks,{});
+ const raced=await Promise.allSettled([concurrentSql(write(2)),concurrentSql(write(2))]);assert.equal(raced.filter(r=>r.status==='fulfilled').length,1);assert.match(raced.find(r=>r.status==='rejected').reason.message,/Progress changed/);assert.equal(json(get(),platform).revision,3);
+ const secondSession=request(77);sql(`insert into auth.sessions(id,user_id,created_at) values('${secondSession}','${master}',now())`,platform);assert.equal(json(get().replace(`\"session_id\":\"${master}\"`,`\"session_id\":\"${secondSession}\"`),platform).revision,3);
+ sql("insert into platform_private.shop_credentials(client_id,project_ref,client_binding) values(42,'abcdefghijklmnopqrst','changed-pairing')",platform);assert.throws(()=>json(get(),platform),/Progress pairing changed/);sql('delete from platform_private.shop_credentials where client_id=42',platform);
+ const billing='96000000-0000-4000-8000-000000000003';assert.throws(()=>sql(user(billing,"select public.platform_byo_progress(42,'abcdefghijklmnopqrst')"),platform),/not authorized/);
+ sql(`delete from auth.sessions where id='${master}'`,platform);assert.throws(()=>sql(get(),platform),/not authorized/);sql(`insert into auth.sessions(id,user_id,created_at) values('${master}','${master}',now())`,platform);
+ assert.throws(()=>sql(user(master,'select * from platform_private.byo_setup_progress'),platform),/permission denied/);
+});
+
+test('native client creation wrapper preserves canonical validation and reconciles duplicate identical requests while rejecting changed payloads and foreign operators',async()=>{
+ const input={name:'Fresh Client One',industry:'Retail',owner_name:'Fresh Owner',owner_email:'fresh@example.test',pairing_mode:'byo',plan:'Basic',currency:'PKR',currency_symbol:'PKR',event_rate:5,inventory_rate:0,inventory_billable:false,supabase_url:'https://cdefghijklmnopqrstuv.supabase.co',shop_url:'https://fresh.example.test'};
+ const call=(data=input)=>user(master,`select public.platform_create_client_once('${request(88)}',${lit(data)})`);
+ const [a,b]=await Promise.all([concurrentSql(call()),concurrentSql(call())]);assert.equal(a.id,b.id);assert.equal(a.id,1);assert.equal(a.owner_email,'fresh@example.test');assert.equal(json(call(),platform).id,a.id);
+ assert.throws(()=>json(call({...input,name:'Substituted'}),platform),/identity conflict/);
+ const billing='96000000-0000-4000-8000-000000000003';assert.throws(()=>sql(user(billing,`select public.platform_create_client_once('${request(88)}',${lit(input)})`),platform),/not authorized/);
+ assert.equal(sql("select count(*) from public.clients where name='Fresh Client One'",platform),'1');
 });

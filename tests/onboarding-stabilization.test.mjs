@@ -40,7 +40,7 @@ test('BYO Support readiness derives observations without inventing credential en
  d.supportAutomation={state:'waiting',reason:'status_unavailable'};assert.equal(ui.supportReadiness(c,d).label,'Waiting for prerequisites');assert.match(ui.supportReadiness(c,d).message,/unavailable/);
 });
 test('BYO guide covers all twelve operator stages, safe copy values and retained-file recovery without secret inputs',()=>{
- const html=ui.byoSetupModal(client,detail(health));assert.equal((html.match(/<li><h3>/g)||[]).length,12);assert.match(html,/Sensitive file/);assert.match(html,/remove|delete/);assert.match(html,/scripts\/setup-byo\.mjs/);assert.match(html,/Choose existing/);assert.match(html,/--status/);assert.doesNotMatch(html,/<input|CALL_SECRET=|SOURCE_SECRET=/);
+ const html=ui.byoGuideContent(client,detail(health));assert.equal((html.match(/<li><h3>/g)||[]).length,12);assert.match(html,/Sensitive file/);assert.match(html,/remove|delete/);assert.match(html,/scripts\/setup-byo\.mjs/);assert.match(html,/Choose existing/);assert.match(html,/--status/);assert.doesNotMatch(html,/<input|CALL_SECRET=|SOURCE_SECRET=/);
  for(const step of ['--login','--public-config','--verify-dist','--enroll','--record-acceptance','URL Configuration','Turnstile challenge','hash-only','Refresh paper status','Business\/Branding'])assert.ok(html.includes(step),step);
  assert.match(html,/--project-ref abcdefghijklmnopqrst/);assert.match(html,/CLIENT-50/);assert.match(html,/owner@example.test/);
  const malicious=ui.renderClientSetup({...client,owner_name:'<img src=x onerror=alert(1)>',shop_url:'javascript:alert(1)'},detail(health),true);

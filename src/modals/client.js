@@ -1,11 +1,12 @@
 import { esc } from "../operations.js";
 import { pState } from "../state.js";
+import {renderClientWizard} from '../wizard-views.js';
 
 export function clientModals(type, md) {
   const c = pState.selectedClient || {};
 
   if (type === "add-client") {
-    return `
+    const markup=`
       <div class="modal-backdrop">
         <div class="modal add-client-modal">
           <div class="client-form-header">
@@ -71,6 +72,7 @@ export function clientModals(type, md) {
           </form>
         </div>
       </div>`;
+    return renderClientWizard(markup,pState.clientWizard||{});
   }
 
   if (type === "edit-client") {
