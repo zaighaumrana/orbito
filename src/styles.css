@@ -593,3 +593,22 @@ tbody tr:hover{background:var(--surface-2)}
 @media(max-width:600px){.wizard-dialog>header,.wizard-dialog>div,.wizard-dialog>details,.wizard-footer{padding:var(--rs-space-4)}.wizard-footer button{flex:1 1 auto}.wizard-header h2{font-size:20px;line-height:28px}.client-review dl{grid-template-columns:minmax(0,1fr)}.add-client-modal.wizard-dialog .client-section-fields{grid-template-columns:minmax(0,1fr)}.action-group{align-items:stretch;flex-direction:column}.action-group button{width:100%}}
 @media(max-width:600px){.wizard-dialog>p{padding:0 var(--rs-space-4)}}
 @media(max-width:640px){.paper-request{flex-direction:column}.paper-actions{width:100%}.paper-actions button{flex:1 1 120px}}
+
+/* Focused BYO instructions and Client Detail refinements. */
+.byo-context{display:grid;gap:var(--rs-space-3);margin:var(--rs-space-4) 0}
+.byo-context dt{font-weight:600;color:var(--rs-muted)}.byo-context dd{margin:var(--rs-space-1) 0;line-height:1.6}
+.byo-tasks{padding-left:var(--rs-space-6);display:grid;gap:var(--rs-space-4)}
+.byo-tasks>li{padding:var(--rs-space-4);border:1px solid var(--rs-divider);border-radius:var(--rs-radius-control);background:var(--rs-surface)}
+.byo-tasks>li::marker{font-weight:700;color:var(--rs-primary)}.byo-tasks h4{margin:0 0 var(--rs-space-2);font-size:15px;line-height:1.5}
+.byo-command{margin:var(--rs-space-4) 0;padding-top:var(--rs-space-2);border-top:1px solid var(--rs-divider)}
+.byo-expected{color:var(--rs-muted);font-size:13px}.byo-expected strong{color:var(--rs-text)}
+.wizard-problem{margin-top:var(--rs-space-4);padding:var(--rs-space-4);border:1px solid var(--rs-divider);border-radius:var(--rs-radius-control)}
+.wizard-problem summary{cursor:pointer;font-weight:600}.wizard-problem .field{margin:var(--rs-space-4) 0}.byo-recovery-advice{padding:var(--rs-space-3);background:var(--rs-warning-bg);border-radius:var(--rs-radius-control)}
+.support-setup .support-enrollment{align-items:start;grid-template-columns:repeat(2,minmax(0,1fr));row-gap:var(--rs-space-6)}
+.support-enrollment>.field{align-self:start;grid-template-rows:40px 64px auto;align-items:start;min-width:0}
+.support-enrollment .field>span{line-height:20px}.support-enrollment .field>input{height:64px;min-height:64px;box-sizing:border-box;min-width:0}
+.support-enrollment small{line-height:1.6;overflow-wrap:anywhere}.support-enrollment>.action-group,.support-enrollment-help{grid-column:1 / -1}
+.support-enrollment>.action-group{padding:0 0 var(--rs-space-2)}
+.paper-section-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--rs-space-4)}
+.paper-section-heading h2{margin:0}.paper-section-heading button{min-height:44px}.paper-section>[data-paper-refresh-status]{line-height:1.6}
+@media(max-width:600px){.support-setup .support-enrollment{grid-template-columns:minmax(0,1fr)}.support-enrollment>.field{grid-template-rows:auto 64px auto}.byo-tasks{padding-left:var(--rs-space-4)}.byo-tasks>li{padding:var(--rs-space-3)}.paper-section-heading{align-items:stretch;flex-direction:column}.paper-section-heading button{width:100%}}

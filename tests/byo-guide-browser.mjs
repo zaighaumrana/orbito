@@ -36,10 +36,103 @@ try{
  await context.addInitScript({content:'('+installPlatformFixture.toString()+')();('+fixture.toString()+')();'});
  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(15000);
  const ready=()=>page.waitForFunction(async()=>{const {pState}=await import('/src/state.js');return pState.authenticated&&pState.dataReady});
- const clients=()=>page.locator('[data-p-page="clients"]').first().click();
+ const clients=async()=>{if(await page.locator('#p-sidebar').getAttribute('aria-hidden')==='true')await page.locator('#p-menu-btn').click();await page.locator('[data-p-page="clients"]').first().click()};
  const openClient=async id=>{await clients();await page.locator(`[data-p-action="open-client"][data-p-id="${id}"]`).click();await page.getByRole('button',{name:'Resume BYO Setup',exact:true}).waitFor()};
  const wizardStep=n=>page.waitForFunction(n=>document.querySelector('[data-wizard="byo"]')?.dataset.step===String(n),n);
  const shots=async prefix=>{if(!process.env.SUPPORT_VISUAL_DIR)return;mkdirSync(process.env.SUPPORT_VISUAL_DIR,{recursive:true});for(const width of [320,768,1024,1440])for(const theme of ['light','dark']){await page.setViewportSize({width,height:1000});await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);assert.ok(await page.getByRole('dialog').evaluate(e=>e.scrollWidth<=e.clientWidth+1),'dialog horizontal overflow');await page.getByRole('dialog').evaluate(e=>e.scrollTop=0);await page.screenshot({path:join(process.env.SUPPORT_VISUAL_DIR,`${prefix}-${width}-${theme}.png`)})}};
+ if(process.argv.includes('--refinement-only')){
+  // Focused correction pass: no client creation, database or hosted operations.
+  await page.goto(origin+'/');await ready();await openClient(1);
+  const support=page.locator('.support-enrollment');
+  await page.setViewportSize({width:1440,height:1000});
+  const bounds=await support.locator('input').evaluateAll(es=>es.map(e=>{const r=e.getBoundingClientRect();return {top:r.top,height:r.height}}));
+  assert.equal(bounds[0].top,bounds[1].top);assert.equal(bounds[0].height,bounds[1].height);
+  const screenshot=async name=>{if(process.env.SUPPORT_VISUAL_DIR){mkdirSync(process.env.SUPPORT_VISUAL_DIR,{recursive:true});await page.screenshot({path:join(process.env.SUPPORT_VISUAL_DIR,name+'.png')})}};
+  await support.scrollIntoViewIfNeeded();await screenshot('refinement-support-desktop-light');
+  await page.setViewportSize({width:375,height:900});await page.evaluate(async()=>{const {pState}=await import('/src/state.js');pState.theme='dark';const {render}=await import('/src/render.js');render()});
+  const fields=await support.locator('input').evaluateAll(es=>es.map(e=>({left:e.getBoundingClientRect().left,top:e.getBoundingClientRect().top})));
+  assert.equal(fields[0].left,fields[1].left);assert.ok(fields[1].top>fields[0].top);
+  await support.scrollIntoViewIfNeeded();await screenshot('refinement-support-mobile-dark');
+  await page.getByRole('button',{name:'Resume BYO Setup',exact:true}).click();
+  const commands=[];
+  for(let n=1;n<=12;n++){
+   await wizardStep(n);await page.waitForFunction(()=>!document.querySelector('[data-p-action="byo-next"]')?.disabled||document.querySelector('[data-wizard="byo"]')?.dataset.step==='12');
+   assert.ok(await page.locator('.byo-tasks>li').count()>=3);assert.ok(await page.locator('.byo-context').isVisible());
+   assert.equal(await page.locator('.wizard-problem').getAttribute('open'),null);
+   if(n===5){
+    const install=()=>page.locator('.setup-command').filter({hasText:'--mode'});
+    assert.ok(await install().locator('button').isDisabled());
+    assert.ok(await page.locator('.setup-command').filter({hasText:'$setupRoot ='}).locator('button').isEnabled());
+    await page.locator('[data-byo-mode]').selectOption('existing');
+    assert.match(await install().locator('code').textContent(),/--mode existing/);
+    await page.locator('[data-byo-mode]').selectOption('fresh');
+    const text=await install().locator('code').textContent();await install().locator('button').click();assert.equal(await page.evaluate(()=>navigator.clipboard.readText()),text);
+    await page.locator('.wizard-problem summary').click();await page.locator('[data-byo-category]').selectOption('configuration');
+    assert.match(await page.locator('.byo-recovery-advice').textContent(),/Restore \$setupRoot/);
+    await page.locator('[data-byo-category]').selectOption('unknown_write');assert.match(await page.locator('.byo-recovery-advice').textContent(),/Keep the write fence/);
+    await page.getByRole('button',{name:'Record needs attention',exact:true}).click();await page.getByText('Needs attention / blocked',{exact:true}).waitFor();
+    await page.getByRole('button',{name:'Acknowledge this stage',exact:true}).click();await page.getByText('Operator acknowledged completion',{exact:true}).waitFor();
+    await page.getByText('Backend observation pending',{exact:true}).waitFor();
+    assert.ok(await page.getByText('Returning after closing or restarting PowerShell?',{exact:true}).isVisible());
+    await page.locator('.byo-tasks>li').first().scrollIntoViewIfNeeded();await screenshot('refinement-wizard-mobile-dark');
+   }
+   if(n===6)assert.match(await page.locator('.byo-tasks').textContent(),/Recovery \/ continuation only/);
+   if(n===8)assert.equal(await page.locator('.byo-tasks>li').count(),8);
+   if(n===9)assert.equal(await page.locator('.byo-tasks>li').count(),9);
+   if(n===11){assert.equal(await page.locator('.byo-tasks>li').count(),10);assert.match(await page.locator('.byo-tasks').textContent(),/not the Supabase project ID/)}
+   commands.push(...await page.locator('.setup-command code').allTextContents());
+   assert.ok(await page.getByRole('dialog').evaluate(e=>e.scrollWidth<=e.clientWidth+1),'wizard overflow at stage '+n);
+   if(n<12)await page.locator('[data-p-action="byo-next"]').click();
+  }
+  for(const flag of ['--login','--public-config','--status','--verify-dist','--enroll','--acceptance core','--acceptance support'])assert.ok(commands.some(c=>c.includes(flag)),flag);
+  await page.locator('[data-p-action="byo-back"]').click();await wizardStep(11);
+  await page.keyboard.press('Escape');await page.getByRole('button',{name:'Resume BYO Setup',exact:true}).click();await wizardStep(11);
+  await page.setViewportSize({width:1440,height:1000});await page.evaluate(async()=>{const {pState}=await import('/src/state.js');pState.theme='light';const {render}=await import('/src/render.js');render()});await page.locator('.byo-tasks').scrollIntoViewIfNeeded();await screenshot('refinement-wizard-desktop-light');await page.keyboard.press('Escape');
+  // Exercise the real refresh event and authorized loader. Managed/complete makes
+  // any accidental Support reconciliation observable; all provider writes fail.
+  await page.evaluate(async()=>{
+   const {pState}=await import('/src/state.js');pState.selectedClient.pairing_mode='managed';
+   window.paperReads=[];window.paperWrites=[];window.paperVersion=2;window.paperDelay=false;window.paperFail=false;
+   const original=window.fixtureSDK.rpc;
+   window.fixtureSDK.functions.invoke=async(...args)=>{window.paperWrites.push(args);throw Error('Unexpected write')};
+   window.fixtureSDK.rpc=async(name,a)=>{
+    if(name==='platform_client_operations'){
+     window.paperReads.push(a.p_client);const client=a.p_client,version=window.paperVersion;
+     if(window.paperDelay){window.paperDelay=false;await new Promise(resolve=>window.releasePaperRead=resolve)}
+     if(window.paperFail)return {error:{message:'Synthetic disconnected'}};
+     return {data:{client,requests:[{request_id:'99000000-0000-4000-8000-000000000099',status:window.paperClosed?'fulfilled':'approved',sync_version:version,requested_at:'2026-10-22',communication:[{message:'Delivery updated '+version,expectation:'Tomorrow',at:'2026-10-22'}]}],supplies:[{reference:'Confirmed supply '+version,roll_count:1,usable_length_mm:1000,paper_width_mm:80,delivered_at:'2026-10-22'}],thermal:{}}};
+    }
+    if(name==='platform_provision_status')return {data:{job:{state:'complete'},connection:{health:{checks:{}}}}};
+    return original(name,a);
+   };
+  });
+  const delivery=()=>page.locator('form[data-p-form="paper-delivery"]');await delivery().locator('[name="reference"]').fill('Unsaved original');
+  await page.evaluate(()=>window.paperDelay=true);await page.getByRole('button',{name:'Refresh paper status',exact:true}).click();
+  await page.waitForFunction(()=>Boolean(window.releasePaperRead));assert.ok(await page.getByRole('button',{name:'Refreshing…'}).isDisabled());
+  await page.evaluate(()=>document.querySelector('[data-p-action="refresh-paper"]').click());
+  await delivery().locator('[name="reference"]').fill('Typed during refresh');await page.evaluate(()=>window.releasePaperRead());
+  await page.getByText('Delivery updated 2',{exact:false}).waitFor();await page.getByText('Confirmed supply 2',{exact:false}).waitFor();assert.equal(await delivery().locator('[name="reference"]').inputValue(),'Typed during refresh');
+  await page.locator('.paper-section-heading').scrollIntoViewIfNeeded();await screenshot('refinement-paper-desktop-light');
+  assert.deepEqual(await page.evaluate(()=>window.paperReads),[1]);assert.deepEqual(await page.evaluate(()=>window.paperWrites),[]);
+  await page.evaluate(()=>window.paperFail=true);await page.getByRole('button',{name:'Refresh paper status',exact:true}).click();await page.getByText('Paper status could not be refreshed.',{exact:false}).waitFor();assert.equal(await delivery().locator('[name="reference"]').inputValue(),'Typed during refresh');
+  await delivery().locator('[name="request_id"]').selectOption('99000000-0000-4000-8000-000000000099');
+  await page.evaluate(()=>{window.paperFail=false;window.paperClosed=true;window.paperVersion=3});await page.getByRole('button',{name:'Refresh paper status',exact:true}).click();
+  await page.getByText('The draft request is no longer active.',{exact:false}).waitFor();assert.equal(await delivery().locator('[name="request_id"]').inputValue(),'99000000-0000-4000-8000-000000000099');
+  await page.setViewportSize({width:375,height:900});await page.evaluate(async()=>{const {pState}=await import('/src/state.js');pState.theme='dark';const {render}=await import('/src/render.js');render()});
+  await page.locator('.paper-section-heading').scrollIntoViewIfNeeded();assert.ok(await page.locator('.paper-section-heading').evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth}));await screenshot('refinement-paper-mobile-dark');
+  await page.evaluate(()=>{window.paperFail=false;window.paperDelay=true;window.releasePaperRead=null});
+  await page.getByRole('button',{name:'Refresh paper status',exact:true}).click();await page.waitForFunction(()=>Boolean(window.releasePaperRead));
+  await openClient(2);await page.evaluate(()=>window.releasePaperRead());
+  await page.waitForFunction(async()=>{const {pState}=await import('/src/state.js');return pState.clientData?.clientId===2&&!pState.clientData.loading});
+  assert.equal(await page.evaluate(async()=>{const {pState}=await import('/src/state.js');return pState.clientData.operations.client}),2);
+  assert.equal(await delivery().locator('[name="reference"]').inputValue(),'');
+  // One session-change boundary while a read is in flight.
+  await page.evaluate(()=>{window.paperDelay=true;window.releasePaperRead=null});await page.getByRole('button',{name:'Refresh paper status',exact:true}).click();await page.waitForFunction(()=>Boolean(window.releasePaperRead));
+  await page.evaluate(async()=>{const {pState}=await import('/src/state.js');pState.authorityGeneration++;pState.clientData={};window.releasePaperRead()});
+  await page.waitForTimeout(50);assert.equal(await page.evaluate(async()=>{const {pState}=await import('/src/state.js');return Object.keys(pState.clientData).length}),0);
+  assert.deepEqual(await page.evaluate(()=>window.paperWrites),[]);assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
+  console.log('PASS: focused twelve-stage navigation/copy/recovery; Support alignment desktop/mobile, wizard light/dark; paper read-only targeting, single flight, live draft retention, failure, departed client/session fencing. No external requests or provider writes.');
+ } else {
  await page.goto(origin+'/');await ready();await clients();await page.locator('[data-p-modal="add-client"]').click();
  const form=()=>page.locator('form[data-p-form="add-client"]'),next=()=>page.getByRole('button',{name:'Next',exact:true});
  await next().click();assert.ok(await form().locator('[data-client-step="0"]').isVisible());
@@ -52,11 +145,11 @@ try{
  await openClient(1);await page.getByRole('button',{name:'Resume BYO Setup',exact:true}).click();const steps=[],commands=[];
  for(let n=1;n<=12;n++){
   await wizardStep(n);await page.waitForFunction(()=>!document.querySelector('[data-p-action="byo-next"]')?.disabled||document.querySelector('[data-wizard="byo"]')?.dataset.step==='12');
-  if(n===5){assert.ok(await page.locator('.setup-command button.setup-copy').first().isDisabled());await page.locator('[data-byo-mode]').selectOption('fresh');const text=await page.locator('.setup-command code').first().textContent();assert.match(text,/--client-id 1 --project-ref abcdefghijklmnopqrst/);await page.locator('.setup-command button.setup-copy').first().click();assert.equal(await page.evaluate(()=>navigator.clipboard.readText()),text);
-   await page.getByRole('button',{name:'Acknowledge this stage'}).click();await page.getByText('Operator acknowledged completion',{exact:true}).waitFor();await page.getByText('Backend observation pending',{exact:true}).waitFor();await page.locator('[data-byo-category]').selectOption('unknown_write');await page.getByRole('button',{name:'Record needs attention'}).click();await page.getByText('Needs attention / blocked',{exact:true}).waitFor();
+  if(n===5){assert.ok(await page.locator('.setup-command').filter({hasText:'--mode'}).locator('button.setup-copy').isDisabled());await page.locator('[data-byo-mode]').selectOption('fresh');const text=await page.locator('.setup-command').filter({hasText:'--mode'}).locator('code').textContent();assert.match(text,/--client-id 1 --project-ref abcdefghijklmnopqrst/);await page.locator('.setup-command').filter({hasText:'--mode'}).locator('button.setup-copy').click();assert.equal(await page.evaluate(()=>navigator.clipboard.readText()),text);
+   await page.getByRole('button',{name:'Acknowledge this stage'}).click();await page.getByText('Operator acknowledged completion',{exact:true}).waitFor();await page.getByText('Backend observation pending',{exact:true}).waitFor();await page.locator('.wizard-problem summary').click();await page.locator('[data-byo-category]').selectOption('unknown_write');await page.getByRole('button',{name:'Record needs attention',exact:true}).click();await page.getByText('Needs attention / blocked',{exact:true}).waitFor();
    await page.getByRole('button',{name:'Close · resume later'}).click();await page.getByRole('button',{name:'Resume BYO Setup',exact:true}).click();await wizardStep(5);await page.getByText('Needs attention / blocked',{exact:true}).waitFor();
    await page.reload();await ready();await openClient(1);await page.getByRole('button',{name:'Resume BYO Setup',exact:true}).click();await wizardStep(5);await page.locator('[data-byo-mode]').selectOption('fresh');
-   records.get(1).revision++;await page.getByRole('button',{name:'Acknowledge this stage'}).click();await page.getByText('Progress was not confirmed.',{exact:false}).waitFor();await page.getByRole('button',{name:'Refresh recorded progress'}).click();await page.waitForFunction(()=>!document.querySelector('[data-p-action="byo-next"]').disabled);await shots('byo-wizard');
+   records.get(1).revision++;await page.getByRole('button',{name:'Acknowledge this stage'}).click();await page.getByText('Progress was not confirmed.',{exact:false}).waitFor();await page.locator('[role="alert"] [data-p-action="byo-refresh"]').click();await page.waitForFunction(()=>!document.querySelector('[data-p-action="byo-next"]').disabled);await shots('byo-wizard');
   }
   steps.push(await page.locator('[data-stage-title]').textContent());commands.push(...await page.locator('.setup-command code').allTextContents());if(n<12)await page.locator('[data-p-action="byo-next"]').click();
  }
@@ -66,4 +159,5 @@ try{
  await page.goto(origin+'/?fixtureRole=portfolio_manager');await ready();await clients();await page.locator('[data-p-action="open-client"][data-p-id="1"]').click();assert.equal(await page.getByRole('button',{name:'Resume BYO Setup',exact:true}).count(),0);
  if(process.env.SUPPORT_VISUAL_DIR)writeFileSync(join(process.env.SUPPORT_VISUAL_DIR,'wizard-screen-walkthrough.json'),JSON.stringify({steps,commands,transport:'provider doubles; no hosted I/O'},null,2));
  assert.deepEqual(errors,[]);assert.deepEqual(external,[]);console.log('PASS: actual five-step client wizard validation/draft/review/lost-response retry; one creation; twelve-stage BYO navigation/copy/manual-vs-proof/block/reopen/refresh/revision conflict/client isolation; branded file input; role gate, focus/Escape; four widths/light-dark. No external requests.');
-}catch(e){console.error('Fixture RPC calls:',JSON.stringify(calls.map(c=>({name:c.name,request:c.a.p_request}))));console.error('Browser errors:',JSON.stringify(errors));if(browser){for(const c of browser.contexts())for(const p of c.pages())console.error('Visible alerts:',await p.locator('[role="alert"]').allTextContents())}throw e}finally{await browser?.close();await server.close()}
+ }
+}catch(e){console.error(e);console.error('Fixture RPC calls:',JSON.stringify(calls.map(c=>({name:c.name,request:c.a.p_request}))));console.error('Browser errors:',JSON.stringify(errors));if(browser){for(const c of browser.contexts())for(const p of c.pages())console.error('Visible alerts:',await p.locator('[role="alert"]').allTextContents().catch(()=>[]))}throw e}finally{await browser?.close();await server.close()}

@@ -1,4 +1,5 @@
 import { loadSupportPage } from './supabase.js';
+import {refreshPaperStatus} from './paper-supply.js';
 import {ensureClientDraft,rememberClientDraft,persistClientDraft,validateClientStage,openByoWizard,updateByoWizard} from './wizard-controller.js';
 import { captureView, viewCurrent, selectClient, clientDataMatches } from './async-context.js';
 import { notify, confirmDialog, showMessage, deleteUserDialog, cancelDialogs } from './dialogs.js';
@@ -344,6 +345,9 @@ export function initEvents() {
       }
       return;
     }
+    if (action === 'refresh-paper') {
+      await refreshPaperStatus(loadClientData,render);return;
+    }
     if (action === 'refresh-operations') {
       const client=pState.selectedClient;if(!client)return;
       await loadPlatform();if(!current())return;
@@ -572,6 +576,7 @@ export function initEvents() {
 
   document.addEventListener("change", event => {
     if(event.target.matches?.('[data-byo-mode]')&&pState.byoWizard){pState.byoWizard.mode=['fresh','existing'].includes(event.target.value)?event.target.value:null;render();return;}
+    if(event.target.matches?.('[data-byo-category]')&&pState.byoWizard){pState.byoWizard.category=event.target.value;pState.byoWizard.problemOpen=true;render();return;}
     if(event.target.matches?.('input[type="file"][name="enrollment"]')){
       const label=event.target.closest('.file-picker')?.querySelector('[data-file-name]');if(label)label.textContent=event.target.files?.[0]?.name||'No file selected';
     }

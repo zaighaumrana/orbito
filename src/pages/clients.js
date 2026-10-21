@@ -131,7 +131,8 @@ export function pageClientDetail() {
     ${(o.thermal_periods || []).map(t=>`<tr><td>${esc(t.month)}</td><td>${esc(t.document_type)}</td><td>${esc(t.paper_width_mm)}</td><td>${t.events}</td><td>${metres(t.estimated_mm)}</td><td>${metres(t.reprint_mm)}</td><td>${t.unavailable}</td></tr>`).join('') || '<tr><td colspan="7">No thermal events ingested.</td></tr>'}
     </tbody></table></div><p class="muted">Latest 120 period/document/width groups. Lifetime totals above include all records.</p>
   </div>
-  <div class="card"><h2>Paper Requests / Deliveries</h2>
+  <div class="card paper-section"><div class="paper-section-heading"><h2>Paper Requests / Deliveries</h2><button type="button" class="secondary-button" data-p-action="refresh-paper">Refresh paper status</button></div>
+    <p class="muted" role="status" aria-live="polite" data-paper-refresh-status>${esc(cd.paperRefreshMessage||'Reads Platform records only. Your delivery draft is retained; Shop synchronization is separate.')}</p>
     ${paperRequests(c,o.requests||[],canConfig)}
     ${canConfig ? `<h3>Record confirmed delivery</h3><form data-p-form="paper-delivery" class="form-grid">
       <label class="field"><span>Related request</span><select name="request_id"><option value="">Standalone supply</option>${(o.requests || []).filter(r=>['requested','approved','dispatched'].includes(r.status)).map(r=>`<option value="${r.request_id}">${esc(r.request_id)}</option>`).join('')}</select></label>

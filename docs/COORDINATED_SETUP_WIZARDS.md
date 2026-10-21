@@ -6,6 +6,42 @@ installation procedure is authoritative in the Shop repository's
 Nothing in this checkpoint authorizes a hosted migration, installation or release
 promotion. Both existing feature PRs must remain open, Draft and unmerged.
 
+## Focused frontend refinement — 2026-10-22
+
+`src/byo-stages.js` now defines all twelve stages as objectives, locations,
+prerequisites, ordered tasks, explained copyable commands, expected results,
+completion criteria and specific recovery. The wizard consumes these definitions
+directly; `byoGuideContent` remains a generated documentation/walkthrough view.
+Future-stage navigation never implies prerequisites have been met. Normal progress
+is separate from the expandable problem report; fixed diagnostic enums, blocked
+marks, canonical authorization, revision checks and stage-level audit are retained.
+No per-subtask persistence was added.
+
+Instructions cover new-terminal `$setupRoot` restoration, original-file checks,
+Fresh/Existing safeguards, routine read-only `--status` versus recovery resume,
+explicit build/receipt verification, independent hosting/routing, real CAPTCHA,
+the separate six-step Shop onboarding, optional Support and actual ticket UUID
+acceptance. Status acceptance fields read `owner-reported` or `not recorded`;
+these receipts never establish machine-verified hosted acceptance. The owner
+reports fresh Client1 installation/onboarding/ticket communication now working;
+older pending/unapplied-hosted statements below describe the Oct21 checkpoint.
+This correction pass neither repeats nor independently certifies those hosted actions.
+
+Customer Support enrollment uses aligned controls with field-local help and mobile
+stacking. Paper Requests / Deliveries has a local Refresh paper status action. It
+uses the existing authorized client loader in read-only mode, suppresses automatic
+managed Support reconciliation, fences departed client/session/request contexts,
+prevents overlapping reads and preserves the latest unsaved delivery form values.
+A no-longer-active draft request is retained with an explicit review warning.
+Failure leaves previous records visible and labeled potentially stale. Refresh
+does not force Shop synchronization or change request/delivery state.
+
+Only focused walkthrough/browser and syntax checks are needed for this frontend
+pass. No new migration, function deployment, backend contract, Shop change or
+hosted mutation is required. Existing hosted rollout gates remain separately owned.
+Current UI wording was checked against [Pages hosting](https://developers.cloudflare.com/pages/configuration/git-integration/)
+and [Supabase Auth redirects](https://supabase.com/docs/guides/auth/redirect-urls).
+
 ## Client creation
 
 Add New Client preserves the original five sections: business, owner, plan and

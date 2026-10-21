@@ -212,10 +212,11 @@ export async function loadPlatform(retryRole=true) {
     throw error;
   }
 }
-export async function loadClientData(client) {
+export async function loadClientData(client,{readOnly=false,preserveOnError=false}={}) {
   if(!pState.authenticated || !client)return false;
   if(!['master_admin','portfolio_manager'].includes(pState.currentUser.role))return false;
   if(pState.selectedClient?.id!==client.id)selectClient(client);
+  const previous=pState.clientData;
   const context=captureView(),request=++pState.clientRequestGeneration;
   const current=()=>viewCurrent(context,false) && request===pState.clientRequestGeneration;
   pState.clientData={clientId:client.id,requestGeneration:request,loading:true};
@@ -229,7 +230,7 @@ export async function loadClientData(client) {
     if(!current())return false;
     if(operations.error)throw new Error('Client operations unavailable. Refresh status before making changes.');
     let supportStatus=support.error?{state:'attention',reason:'status_unavailable'}:support.data;
-    if(pState.currentUser.role==='master_admin'&&client.pairing_mode==='managed'&&client.onboarding_version===2&&provision.data?.job?.state==='complete'&&supportStatus?.state!=='enabled'&&supportStatus?.state!=='revoked'){
+    if(!readOnly&&pState.currentUser.role==='master_admin'&&client.pairing_mode==='managed'&&client.onboarding_version===2&&provision.data?.job?.state==='complete'&&supportStatus?.state!=='enabled'&&supportStatus?.state!=='revoked'){
       try{
         const automatic=await pb.functions.invoke('platform-provision',{body:{client_id:client.id,request_id:crypto.randomUUID(),action:'support-reconcile',params:{}}});
         if(!current())return false;
@@ -247,7 +248,9 @@ export async function loadClientData(client) {
     return true;
   } catch {
     if(!current())return false;
-    pState.clientData={clientId:client.id,requestGeneration:request,loading:false,_error:'Client operations unavailable. Refresh status before making changes.'};
+    pState.clientData=preserveOnError&&previous?.clientId===client.id&&!previous._error
+      ? {...previous,requestGeneration:request,loading:false,paperRefreshError:true}
+      : {clientId:client.id,requestGeneration:request,loading:false,_error:'Client operations unavailable. Refresh status before making changes.'};
     return true;
   }
 }

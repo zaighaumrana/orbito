@@ -1,7 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';import vm from 'node:vm';import {readFileSync} from 'node:fs';import {stripTypeScriptTypes} from 'node:module';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const esc=value=>String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;');
-const ui={URL,esc};vm.createContext(ui);vm.runInContext(read('src/support-setup.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ui);vm.runInContext(read('src/client-setup.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ui);
+const ui={URL,esc};vm.createContext(ui);for(const file of ['src/support-setup.js','src/byo-stages.js','src/client-setup.js'])vm.runInContext(read(file).replace(/^import .*$/gm,'').replace(/^export /gm,''),ui);
 const client={id:50,name:'Example Shop',owner_name:'Owner',owner_email:'owner@example.test',onboarding_version:2,pairing_mode:'byo',plan:'Pro',shop_url:'https://shop.example.test',supabase_url:'https://abcdefghijklmnopqrst.supabase.co',technician_module_enabled:true,live_tracking_enabled:true};
 const keys=['migrations','database_privileges','rpc_privileges','sequence_privileges','private_config','storage','owner_reservation','bridge_mode','config_projection','database_reachable','bridge_configuration','edge_functions','runtime_configuration','authentication'];
 const health={checks:Object.fromEntries(keys.map(k=>[k,true])),contract:'orbito-onboarding-runtime-v1',owner_account:'missing',infrastructure:'ready',owner_setup:'owner_setup_pending',onboarding:'onboarding_pending'};
@@ -40,7 +40,7 @@ test('BYO Support readiness derives observations without inventing credential en
  d.supportAutomation={state:'waiting',reason:'status_unavailable'};assert.equal(ui.supportReadiness(c,d).label,'Waiting for prerequisites');assert.match(ui.supportReadiness(c,d).message,/unavailable/);
 });
 test('BYO guide covers all twelve operator stages, safe copy values and retained-file recovery without secret inputs',()=>{
- const html=ui.byoGuideContent(client,detail(health));assert.equal((html.match(/<li><h3>/g)||[]).length,12);assert.match(html,/Sensitive file/);assert.match(html,/remove|delete/);assert.match(html,/scripts\/setup-byo\.mjs/);assert.match(html,/Choose existing/);assert.match(html,/--status/);assert.doesNotMatch(html,/<input|CALL_SECRET=|SOURCE_SECRET=/);
+ const html=ui.byoGuideContent(client,detail(health));assert.equal((html.match(/<li><h3>/g)||[]).length,12);assert.match(html,/original private bridge package/);assert.match(html,/remove|delete/);assert.match(html,/scripts\/setup-byo\.mjs/);assert.match(html,/Existing is for/);assert.match(html,/--status/);assert.doesNotMatch(html,/<input|CALL_SECRET=|SOURCE_SECRET=/);
  for(const step of ['--login','--public-config','--verify-dist','--enroll','--record-acceptance','URL Configuration','Turnstile challenge','hash-only','Refresh paper status','Business\/Branding'])assert.ok(html.includes(step),step);
  assert.match(html,/--project-ref abcdefghijklmnopqrst/);assert.match(html,/CLIENT-50/);assert.match(html,/owner@example.test/);
  const malicious=ui.renderClientSetup({...client,owner_name:'<img src=x onerror=alert(1)>',shop_url:'javascript:alert(1)'},detail(health),true);

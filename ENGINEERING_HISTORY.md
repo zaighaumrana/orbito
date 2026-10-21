@@ -1861,3 +1861,34 @@ skip confirmation is pending unavailable connector/browser access. No deployment
 hosted DB/Auth/Vault/DNS change, customer install, managed promotion or merge.
 The new Platform migration remains unapplied hosted; rollout order is documented
 in docs/COORDINATED_SETUP_WIZARDS.md. Previous evidence remains preserved.
+
+## 2026-10-22 — Practical BYO instructions and read-only Paper refresh
+
+Branch: feature/verified-customer-support-platform; starting HEAD 84c5e970ae34.
+
+Real onboarding exposed that sequential technical paragraphs still needed external
+interpretation. All twelve stages now use structured objectives, locations,
+prerequisites, numbered tasks, explained commands, expected results and specific
+recovery. New-terminal folder restoration is explicit; routine status is separate
+from provider continuation. Owner/core, optional Support/ticket UUID and Paper
+acceptance remain distinct from recorded backend observations and manual marks.
+Problem reporting is expandable with understandable fixed categories. Existing
+server authorization, revision, stage persistence and audit contracts are unchanged.
+
+Support enrollment fields align with field-local help and responsive stacking.
+Paper Requests / Deliveries gains Refresh paper status using the existing client
+loader with automatic managed Support reconciliation disabled. Context/generation
+guards reject departed responses; overlapping reads are blocked. The latest
+delivery draft survives refresh/failure, including an explicit review warning when
+its selected request is no longer active. Refresh never forces Shop sync or writes.
+
+Validation: one mocked on-screen CLI walkthrough, the focused --refinement-only
+browser path, visual inspection at desktop/light and mobile/dark, changed-JS syntax
+and scope/credential/whitespace review. No full suites, Shop tests or database tests.
+Local fixtures do not establish hosted acceptance. Owner-reported working Client1
+flows supersede earlier pending-hosted notes without being retested here.
+
+No migration, Edge, Shop, release, customer-private file or hosted configuration
+change. Commit/push to existing Draft PR5 is authorized with [CF-Pages-Skip]; exact
+SHA, push, PR and provider skip proof are recorded in the single external correction
+report. No deployment or merge; previous evidence remains preserved.

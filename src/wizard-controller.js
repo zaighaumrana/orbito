@@ -45,7 +45,7 @@ export async function refreshByoWizard(pb,render){
  try{const {data,error}=await pb.rpc('platform_byo_progress',{p_client:ui.clientId,p_project_ref:ui.projectRef});
   if(!viewCurrent(context)||pState.byoWizard!==ui)return;
   if(error||data?.client_id!==ui.clientId||data.project_ref!==ui.projectRef)throw Error();
-  ui.snapshot=data;ui.step=data.current_step;ui.error=null;
+  ui.snapshot=data;ui.step=data.current_step;ui.error=null;ui.category=null;ui.problemOpen=false;
  }catch{if(viewCurrent(context))ui.error='Recorded progress is unavailable or changed. Instructions remain readable, but acknowledgments cannot be saved. Refresh or ask the Master to review the unapplied progress migration; do not rerun customer installation.'}
  finally{if(viewCurrent(context)&&pState.byoWizard===ui){ui.loading=false;render()}}
 }
@@ -54,12 +54,13 @@ export async function updateByoWizard(pb,render,action,category){
  if(action==='byo-refresh')return refreshByoWizard(pb,render);
  const next=action==='byo-next'?Math.min(12,ui.step+1):action==='byo-back'?Math.max(1,ui.step-1):ui.step;
  const mark=({'byo-ack':'acknowledged','byo-block':'blocked','byo-skip':'not_applicable'})[action]||null;
+ if(mark==='blocked'&&!category)return;
  if(!ui.snapshot){if(!mark){ui.step=next;render()}return}
  ui.busy=true;render();
  try{const {data,error}=await pb.rpc('platform_byo_progress',{p_client:ui.clientId,p_project_ref:ui.projectRef,p_binding:ui.snapshot.client_binding,p_revision:ui.snapshot.revision,p_step:next,p_mark:mark,p_category:mark==='blocked'?category:null});
   if(!viewCurrent(context)||pState.byoWizard!==ui)return;
   if(error||data?.client_id!==ui.clientId||data.project_ref!==ui.projectRef)throw Error();
-  ui.snapshot=data;ui.step=data.current_step;ui.error=null;
+  ui.snapshot=data;ui.step=data.current_step;ui.error=null;ui.category=null;ui.problemOpen=false;
  }catch{if(viewCurrent(context))ui.error='Progress was not confirmed. Another operator or target change may have superseded this version. Refresh the recorded state before retrying; no customer operation was repeated.'}
  finally{if(viewCurrent(context)&&pState.byoWizard===ui){ui.busy=false;render()}}
 }
