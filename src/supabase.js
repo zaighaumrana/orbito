@@ -176,7 +176,7 @@ export async function loadPlatform(retryRole=true) {
   if(identity.auth_user_id!==context.id || identity.session_id!==context.session)throw new PlatformAuthError('authority');
   if(identity.role!==context.role){refreshRoleState(identity);context=captureAuthority();}
   if(context.role!=='master_admin'){
-    const datasets=context.role==='portfolio_manager'?['clients','support','invoices','account']:['clients','usage','invoices','payments','credits','rateLog','account'];
+    const datasets=context.role==='portfolio_manager'?['clients','invoices','account']:['clients','usage','invoices','payments','credits','rateLog','account'];
     const [pages,summary,dashboard]=await Promise.all([Promise.all(datasets.map(name=>memberRows(name,context,onRoleChange))),pb.rpc('platform_usage_summary'),pb.rpc('platform_dashboard_summary')]);
     if(summary.error || !Array.isArray(summary.data))throw summary.error || Error('Usage summary unavailable.');
     if(dashboard.error || !Number.isInteger(dashboard.data?.open_tickets))throw dashboard.error || Error('Dashboard summary unavailable.');
@@ -186,7 +186,7 @@ export async function loadPlatform(retryRole=true) {
     Object.assign(pState.data,next,{usageSummary:summary.data,openTickets:dashboard.data.open_tickets});
   }else{
   const [clients,support,usage,invoices,rateLog,payments,credits,platformUsers,summary,teamArchive,teamHistory] = await Promise.all([
-    allRows('clients','id'), allRows('support_tickets','id'),
+    allRows('clients','id'), pb.rpc('platform_dashboard_summary'),
     allRows('usage_logs','id'), allRows('billing_cycles','id'), allRows('pricing_rate_log','id'),
     allRows('payments','id'), allRows('client_credit','id'),
     allRows('platform_users','id','id,auth_user_id,name,email,role,status,created_at,suspended_from'),
@@ -195,9 +195,10 @@ export async function loadPlatform(retryRole=true) {
     pState.currentUser.role==='master_admin'?pb.rpc('platform_team_history'):{data:{operations:[]}},
   ]);
   if (summary.error || !Array.isArray(summary.data)) throw summary.error || Error('Usage summary unavailable.');
+  if(support.error || !Number.isInteger(support.data?.open_tickets))throw support.error || Error('Support summary unavailable.');
   if(teamHistory.error || !Array.isArray(teamHistory.data?.operations))throw teamHistory.error || Error('Team history unavailable.');
   if(!authorityCurrent(context))return;
-  Object.assign(pState.data, { clients,support,usage,invoices,rateLog,payments,credits,platformUsers,usageSummary: summary.data,teamArchive,teamOperations:teamHistory.data.operations });
+  Object.assign(pState.data, { clients,support:[],openTickets:support.data.open_tickets,usage,invoices,rateLog,payments,credits,platformUsers,usageSummary: summary.data,teamArchive,teamOperations:teamHistory.data.operations });
   }
   pState.dataReady=true;pState.dataError=null;
   if (pState.selectedClient) {
@@ -211,6 +212,26 @@ export async function loadPlatform(retryRole=true) {
     pState.onDataError?.();
     throw error;
   }
+}
+// Refresh the selected client row without loading unrelated financial/team ledgers.
+export async function refreshClientStatus(client){
+ const context=captureView();
+ if(!client||!viewCurrent(context)||pState.selectedClient?.id!==client.id)return;
+ try{
+  let fresh;
+  if(context.role==='master_admin'){
+   const {data,error}=await pb.from('clients').select('*').eq('id',client.id).single();if(error)throw error;fresh=data;
+  }else if(context.role==='portfolio_manager'){
+   const rows=await memberRows('clients',context,role=>refreshRoleState({...pState.currentUser,role}));fresh=rows.find(c=>c.id===client.id);
+  }else throw new PlatformAuthError('authority');
+  if(!viewCurrent(context))return;
+  if(fresh?.id!==client.id)throw Error('Client unavailable');
+  pState.data.clients=pState.data.clients.map(c=>c.id===fresh.id?fresh:c);pState.selectedClient=fresh;return fresh;
+ }catch{
+  if(!viewCurrent(context))return;
+  pState.clientData={clientId:client.id,_error:'Client status could not be verified. Refresh before making changes.'};
+  throw Error(pState.clientData._error);
+ }
 }
 export async function loadClientData(client,{readOnly=false,preserveOnError=false}={}) {
   if(!pState.authenticated || !client)return false;
@@ -279,11 +300,26 @@ export async function updateClientConfig(client, updates) {
 
 // Support is paged independently; late responses cannot cross session/role/view boundaries.
 export async function loadSupportPage(offset=0) {
+ if(!pState.authenticated||pState.page!=='support'||!['master_admin','portfolio_manager'].includes(pState.currentUser.role))throw new PlatformAuthError('authority');
+ if(!Number.isSafeInteger(offset)||offset<0||offset>5000)throw Error('Choose a valid Support page.');
  const context=captureView(),generation=pState.authorityGeneration,request=(pState.supportRequest||0)+1;
  pState.supportRequest=request;
- if(!['master_admin','portfolio_manager'].includes(pState.currentUser.role))throw new PlatformAuthError('authority');
- const {data,error}=await pb.rpc('platform_support_ticket_page',{p_offset:offset});
- if(!viewCurrent(context)||generation!==pState.authorityGeneration||request!==pState.supportRequest)return;
- if(error||!Array.isArray(data?.rows))throw error||Error('Support tickets unavailable.');
- pState.supportView=data;
+ const previous=pState.supportView,view=pState.supportView={rows:previous?.offset===offset?previous.rows:[],drafts:previous?.drafts||{},offset,has_more:false,loading:true,ready:false,error:null};
+ const current=()=>viewCurrent(context)&&generation===pState.authorityGeneration&&request===pState.supportRequest;
+ try{
+  const {data,error}=await pb.rpc('platform_support_ticket_page',{p_offset:offset});
+  if(!current())return false;
+  if(error||!Array.isArray(data?.rows)||data.rows.length>50||data.offset!==offset||data.rows.some(t=>!Number.isSafeInteger(t.id)||!Number.isSafeInteger(t.revision)||t.revision<1||typeof t.verified!=='boolean'))throw error||Error('Invalid Support page.');
+  Object.assign(view,data,{loading:false,ready:true});return true;
+ }catch(error){
+  if(!current())return false;
+  if(error?.code==='42501'||error?.status===401||error?.status===403)view.rows=[];
+  view.loading=false;view.error='Support tickets could not be verified. Refresh this page, or sign in again if your access changed.';
+  throw Error(view.error);
+ }
+}
+export async function loadSupportSummary(){
+ const context=captureView();
+ try{const {data,error}=await pb.rpc('platform_dashboard_summary');if(!viewCurrent(context))return;if(error||!Number.isInteger(data?.open_tickets))throw Error();pState.data.openTickets=data.open_tickets;}
+ catch{if(viewCurrent(context))pState.data.openTickets=null;}
 }

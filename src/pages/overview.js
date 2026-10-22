@@ -9,7 +9,7 @@ export function pageOverview() {
   const clients = pState.data.clients;
   const active  = clients.filter(c => lifecycleState(c) === 'Active').length;
   const suspended = clients.filter(c => lifecycleState(c) === 'Suspended').length;
-  const openTickets = role==='billing_person'?pState.data.openTickets:pState.data.support.filter(s => s.status === "Open").length;
+  const openTickets = pState.data.openTickets ?? 'Unavailable';
 
   const showFinancials = role === "master_admin" || role === "billing_person";
   const showAddClient  = role === "master_admin" || role === "portfolio_manager";

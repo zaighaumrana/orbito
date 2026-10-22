@@ -1,4 +1,4 @@
-import { loadSupportPage } from './supabase.js';
+import {openSupport,resolveSupportTicket} from './support-controller.js';
 import {refreshPaperStatus} from './paper-supply.js';
 import {submitPaperDelivery} from './paper-delivery.js';
 import {restoreRoute} from './client-routes.js';
@@ -9,7 +9,7 @@ import { resetTurnstile, mountTurnstile, cleanupTurnstile, captchaBusy } from '.
 import { pState, clearSensitiveState }                          from "./state.js";
 import { pb, PLATFORM_AUTH_EMAIL,
          loadConfig, loadPlatform, loadClientData, loadOperatorIdentity,
-         updateClientConfig }              from "./supabase.js";
+         updateClientConfig, refreshClientStatus }              from "./supabase.js";
 import { render, syncSidebar }             from "./render.js";
 import { generateInvoice, printClientInvoices } from "./billing.js";
 import { validateSession }                 from "./helpers.js";
@@ -48,7 +48,7 @@ export function initEvents() {
       pState.page = el.dataset.pPage;
       pState.filter = "";
       selectClient(el.dataset.pPage==='client-detail'?pState.selectedClient:null);
-      if(pState.page==='support'){pState.supportView={rows:[],offset:0,has_more:false};render();await loadSupportPage(0);if(pState.page==='support')render();return;}
+      if(pState.page==='support'){await openSupport(render);return;}
       render(); return;
     }
 
@@ -357,8 +357,8 @@ export function initEvents() {
     }
     if (action === 'refresh-operations') {
       const client=pState.selectedClient;if(!client)return;
-      await loadPlatform();if(!current())return;
-      if(await loadClientData(pState.selectedClient))render(); return;
+      const fresh=await refreshClientStatus(client);if(!current()||!fresh)return;
+      if(await loadClientData(fresh,{readOnly:true}))render(); return;
     }
     if (action === 'paper-status') {
       if(!clientDataMatches())return;
@@ -539,22 +539,14 @@ export function initEvents() {
     }
 
     if(action==='support-page'){
-      el.disabled=true;
-      try {await loadSupportPage(Number(el.dataset.offset));if(current())render();}finally{if(el.isConnected)el.disabled=false;}
+      if(pState.supportView?.loading||pState.supportView?.resolving)return;
+      await openSupport(render,Number(el.dataset.offset));
       return;
     }
     /* ── Resolve support ticket ── */
     if (action === "resolve-ticket") {
-      const ticket=(pState.supportView?.rows||[]).find(t=>t.id===Number(el.dataset.pId));
-      if(!ticket)return;
-      el.disabled=true;
-      const resolution=document.getElementById('support-resolution-'+ticket.id)?.value.trim()||'';
-      const { error } = await pb.rpc('platform_support_ticket_resolve',{p_ticket:ticket.id,p_revision:ticket.revision,p_resolution:resolution});
-      if(el.isConnected)el.disabled=false;
-      if(!current())return;
-      if (error) { notify.error(error); return; }
-      await loadPlatform(); if(!current())return;
-      await loadSupportPage(pState.supportView?.offset||0); if(current())render(); return;
+      const id=Number(el.dataset.pId),resolution=document.getElementById('support-resolution-'+id)?.value.trim()||'';
+      await resolveSupportTicket(id,resolution,render,Number(el.dataset.pRevision));return;
     }
     })().catch(error => {
       if(eventGeneration!==pState.authorityGeneration || (eventContext && !current()))return;

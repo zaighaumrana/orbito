@@ -1987,3 +1987,42 @@ only; no full suites, Docker, browser, hosted SQL or deployment. Previous migrat
 Support-v4 artifacts/fingerprints, frontend, Edge Functions and Shop are untouched.
 Feature-only commit/push uses [CF-Pages-Skip]; PR5 remains Draft against development.
 The owner must review the one-migration dry-run and separately apply/verify it.
+
+## 2026-10-23 — Authoritative Support navigation and selective refreshes
+Branch: feature/verified-customer-support-platform
+
+### Changed / why
+Direct /support could render raw aggregate tickets without verified context or
+revision, while Resolve silently searched a different paginated list. All Support
+entry paths now share the authorized page loader; raw tickets never render.
+Revision-bearing actions reject missing/stale records, prevent overlap, retain
+attempted resolution text, and require refresh after conflicts/uncertain outcomes.
+Confirmed resolution refreshes only the current page and dashboard count. The
+aggregate uses a bounded count instead of loading the entire raw Support table.
+Client Refresh status reads the selected client/authorized client projection and
+four status RPCs without unrelated ledgers or automatic enrollment writes. Normal
+client opening and provisioning retain their existing optional Support lifecycle.
+
+### Evidence / validation
+Read relevant prior external reports and orchestration/browser logs before edits.
+New read-only hosted logs independently confirm HTTP546 at 150840ms and the
+migration/function checkpoints before later successful same-request recovery.
+The existing single-invocation chain has no cumulative deadline. A safe bounded
+continuation requires trusted pause/ownership semantics; the failure RPC invalidates
+health and cannot be reused as an ordinary pause. Concrete plan and remaining risk:
+docs/MANAGED_PROVISIONING_TIMEOUT.md. No orchestration workaround was introduced.
+
+Four focused Support/loading tests, three existing rendering/route checks, the
+single Support browser fixture (direct/reload/history/sidebar/pagination and both
+operator roles), syntax and explicit synthetic-public build passed. Controlled
+8ms upstream-delay comparison: resolution 15→3 requests (77.18→31.12ms), Master
+status refresh 17→5 (62.40→30.88ms). Fixture timings are not hosted speedup claims.
+Broader financial/team loading and session validation remain; no stale-permission
+or financial cache was introduced. External evidence holds concise measurements.
+
+### Deployment / Git
+Frontend deployment only. No SQL, Edge, Shop, installed customer data, immutable
+support-v4 package/fingerprint, selector or pinned job changed. Managed timeout
+remains open pending the separately reviewed orchestration change and acceptance.
+Commit/push to existing PR5 uses no skip marker so configured feature preview may
+build. No manual deployment or merge; PR remains Draft against development.

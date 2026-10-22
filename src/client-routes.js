@@ -1,6 +1,7 @@
 import {pState} from './state.js';
 import {captureAuthority,authorityCurrent,selectClient} from './async-context.js';
 import {loadClientData} from './supabase.js';
+import {openSupport} from './support-controller.js';
 let epoch=0;
 export function routePath(){
  const historical=pState.clientView==='historical';
@@ -29,5 +30,7 @@ export async function restoreRoute(render,target=location.href){
   if(!current())return;selectClient(client);clientId=client.id;selection=pState.clientSelectionGeneration;pState.page='client-detail';render();
   if(await loadClientData(client,{readOnly:true})&&current()&&pState.selectedClient?.id===client.id)render();return;
  }
- pState.page=({'/':'overview','/billing':'billing','/support':'support','/settings':'settings','/team':'team'})[path]||'overview';render();
+ pState.page=({'/':'overview','/billing':'billing','/support':'support','/settings':'settings','/team':'team'})[path]||'overview';
+ if(pState.page==='support'){await openSupport(render);return;}
+ render();
 }
