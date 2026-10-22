@@ -1966,3 +1966,24 @@ and final security review remain. No merge/production approval. Source commits u
 [CF-Pages-Skip]; actual post-push provider records belong in external evidence.
 See Release-parity.md, Existing-shop-upgrade.md, Release-rollout.md and the issue
 register. Previous evidence and history remain intact.
+
+## 2026-10-22 — Guarded empty-development anonymous Support closure
+Branch: feature/verified-customer-support-platform
+
+Owner confirmed development project ukbhyerxshteyetwomqy has no clients, Support
+tickets, provisioning jobs or Managed release pins and approved this narrow
+closure. Supabase CLI 2.120.0 generated
+20261022184736_close_empty_dev_anonymous_support.sql. It locks those four tables,
+rechecks emptiness before transaction-local compatibility approval, then preserves
+the staged table/column/sequence revocations, legacy policy removal and final
+privilege/policy verification guard. A changed precondition or remaining effective
+grant aborts the entire transaction. No data deletion or authenticated grant change.
+
+Focused in-memory PostgreSQL execution passed exact SQL/PLpgSQL syntax and commit,
+nonempty refusal, rollback on inherited residual permission, successful closure,
+authenticated-grant preservation and transaction-local approval expiry. SQL review
+followed PostgreSQL REVOKE and explicit-locking documentation. Diff/scope review
+only; no full suites, Docker, browser, hosted SQL or deployment. Previous migrations,
+Support-v4 artifacts/fingerprints, frontend, Edge Functions and Shop are untouched.
+Feature-only commit/push uses [CF-Pages-Skip]; PR5 remains Draft against development.
+The owner must review the one-migration dry-run and separately apply/verify it.
