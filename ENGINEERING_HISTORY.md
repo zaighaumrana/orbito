@@ -1921,3 +1921,48 @@ No Shop, migration, Edge, metering or business-rule change; no backend deploymen
 required. Authorized feature-only commit/push uses [CF-Pages-Skip]; final SHA and
 provider confirmation are recorded in the external PAPER_UX_009_2026-10-22 report.
 PR5 remains Draft for development; no merge or deployment is authorized.
+
+## 2026-10-22 — Final coordinated release parity, routes and support consent
+Branch: feature/verified-customer-support-platform
+
+### Purpose / changed
+Complete final Managed/BYO parity and remaining frontend/security corrections.
+Authorized client-detail and Historical URLs survive refresh/Back/Forward after
+canonical identity/data load; role/session/selection fences protect late responses.
+Public Shop export requires exact URL and matching unexpired anon JWT plus a valid
+public widget key. Guided fresh setup references 37 migrations; existing Shops use
+the dedicated additive upgrader rather than SQL-only installation.
+
+### Release / security decisions
+Built NEW immutable support-v4 only after completed Shop backend commit 089fd787.
+The package has 37 migrations/7 functions, SHA-256
+f5295937f06e45177190bedebf19a54c86fd067d03785365a393e3de269e062f.
+Updated active pointer, registry (retaining v1/v2/v3), promotion catalog, forward SQL
+allowlist and optional reconciler together. Existing job pins never silently move;
+missing packages fail closed. New forward SQL and platform-support gate require
+separate owner/case/purpose consent before Managed-only, single-use Master handoff.
+Shop binds one actual session, checks trusted expiry/revoke, and exposes owner
+history. It does not infer approval from a ticket or claim GoTrue sign-out/cached
+data erasure. Old unconsented grants are denied; BYO handoff remains prohibited.
+
+Prepared guarded anonymous-intake closure outside automatic migrations. Current
+authenticated sender is source-compatible, but installed historical sender
+compatibility is unverified: closure is unapplied and remains a release blocker.
+
+### Validation / deployment impact
+Two focused Platform tests, local route browser fixture, explicit synthetic-public
+build and changed Edge Deno typechecks passed. Targeted PG17 checks passed for both
+forward chains, existing-v2 owner/data/credential preservation, consent authority,
+idempotency/binding/expiry/revoke, issuance/exchange, final exact catalog and immutable
+pins, and guarded table/column/sequence closure. Final package/source parity checked
+against committed Shop blobs; prior packages unchanged. No broad suite or hosted
+mutation. Detailed scope/results: docs/Release-parity-acceptance.md.
+
+Owner must authorize forward Platform SQL, platform-provision/platform-support,
+Shop missing SQL/all seven functions, and both frontend deployments in documented
+order. Existing custom Data API hooks require reviewed composition. Fresh separate
+Managed/BYO acceptance, hosted revocation/provider recovery, installed-sender gate
+and final security review remain. No merge/production approval. Source commits use
+[CF-Pages-Skip]; actual post-push provider records belong in external evidence.
+See Release-parity.md, Existing-shop-upgrade.md, Release-rollout.md and the issue
+register. Previous evidence and history remain intact.

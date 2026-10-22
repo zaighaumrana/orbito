@@ -1,0 +1,30 @@
+[
+  {
+    "release_id": "accepted-v1",
+    "sha256": "7f8e4cd5614a4b19e155f5114d49517dddb6c9c2ef7d62a2bc71e3927d97c940",
+    "migrations": 32,
+    "functions": 6,
+    "approved_for_new": false
+  },
+  {
+    "release_id": "support-v2",
+    "sha256": "144d918859db1007cccfbed724d1988a043ca1e5fef42ce694dee6df1a603414",
+    "migrations": 34,
+    "functions": 7,
+    "approved_for_new": false
+  },
+  {
+    "release_id": "support-v3",
+    "sha256": "f3fb64e51f1d07c536c626acd33b0e05b98b4fe5a22c3a7c3ff1a02a6a9e5bfd",
+    "migrations": 36,
+    "functions": 7,
+    "approved_for_new": false
+  },
+  {
+    "release_id": "support-v4",
+    "sha256": "f5295937f06e45177190bedebf19a54c86fd067d03785365a393e3de269e062f",
+    "migrations": 37,
+    "functions": 7,
+    "approved_for_new": true
+  }
+]

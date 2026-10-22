@@ -7,7 +7,8 @@ export function visibleClients(clients,view='current',filter=''){
 export function publicEnvironment(client,anon,site){
  if(!/^https:\/\/[a-z]{20}\.supabase\.co$/.test(client.supabase_url || ''))throw Error('Exact Shop URL required.');
  let claims;try{claims=JSON.parse(atob(anon.split('.')[1].replaceAll('-','+').replaceAll('_','/')));}catch{throw Error('Use the public Shop anon JWT, never a service/secret key.');}
- if(claims.role!=='anon' || /[\r\n]/.test(anon) || !site || /\s/.test(site))throw Error('Only public Shop anon and site keys are allowed.');
+ const ref=new URL(client.supabase_url).hostname.split('.')[0];
+ if(!claims||Array.isArray(claims)||typeof claims!=='object'||!/^[\w-]+\.[\w-]+\.[\w-]+$/.test(anon)||claims.role!=='anon'||claims.ref!==ref||!Number.isFinite(claims.exp)||claims.exp<=Date.now()/1000 || !/^[A-Za-z0-9_-]{10,200}$/.test(site)||/^(?:[123]x0+|replace|your|example)/i.test(site))throw Error('Use this Shop project’s unexpired public anon JWT and its configured public Turnstile site key. Never enter a private key.');
  return `VITE_SUPABASE_URL=${client.supabase_url}\nVITE_SUPABASE_ANON=${anon}\nVITE_TURNSTILE_SITE_KEY=${site}`;
 }
 export function lifecyclePanel(client,detail,master){

@@ -24,9 +24,10 @@ export async function reconcileManagedSupport(admin:any,caller:any,actorId:strin
  };
  let context=await command('context');
  if(context.state==='enabled'||context.state==='revoked'||!context.ready)return context;
- if(activeRelease.release_id!=='support-v2')return command('record',{state:'waiting',reason:'release_not_promoted'});
- const release=await validateRelease(releases['support-v2']);
- if(activeRelease.sha256!==release.sha256)throw Error('Active release fingerprint mismatch');
+ const selected=context.release_sha256?Object.values(releases).find((r:any)=>r.sha256===context.release_sha256):releases[activeRelease.release_id];
+ if(!selected)return command('record',{state:'waiting',reason:'release_not_promoted'});
+ const release=await validateRelease(selected);
+ if(!context.release_sha256&&activeRelease.sha256!==release.sha256)throw Error('Active release fingerprint mismatch');
  if(context.release_sha256&&context.release_sha256!==release.sha256)throw Error('Pinned Support release unavailable; restore its immutable package.');
  const record=(state:string,reason:string)=>command('record',{state,reason,release_sha256:release.sha256});
  try{
@@ -46,6 +47,20 @@ export async function reconcileManagedSupport(admin:any,caller:any,actorId:strin
   if(live?.owner_account!=='active'||!live.onboarding_completed_at||live.suspended!==false||live.platform_client_id!==clientId||live.source_id!==context.source_id||live.client_binding!==context.client_binding)throw Error('provider_attention');
   const history=await api('/database/query',{query:'select version,name,statements from supabase_migrations.schema_migrations order by version'});
   const missing=await approvedSupportHistory(history,release);
+  if(release.migrations.some((m:any)=>m.name==='support_session_consent')){
+   // Optional enrollment must not silently perform a security/backend upgrade
+   // while only deploying support-tickets. The dedicated upgrade deploys all
+   // required functions; fresh core provisioning already installed these stages.
+   if(missing.length)throw Error('history_attention');
+   const capable=(await api('/database/query',{query:'select public.support_consent_capability() as ready'}))?.[0]?.ready;
+   if(capable!==true)throw Error('history_attention');
+   const publicKey=publicShopKey(await api('/api-keys?reveal=true'),ref);
+   for(const name of ['login','account-admin','verify-pin']){
+    const checked=await fetcher(`https://${ref}.supabase.co/functions/v1/${name}`,{method:'POST',redirect:'error',signal:AbortSignal.timeout(10000),headers:{apikey:publicKey,Authorization:'Bearer '+publicKey,'x-retrasell-support-policy':'v1','Content-Type':'application/json'},body:'{}'});
+    if(!checked.ok){await checked.body?.cancel();throw Error('history_attention')}const policy=await checked.json();
+    if(policy?.contract!=='retrasell-owner-consent-v1'||policy.function!==name)throw Error('history_attention');
+   }
+  }
   await record('preparing','enrollment');
   for(const migration of missing)await api('/database/query',{query:managedMigrationQuery(migration)});
   // Only the optional function is upgraded here. Login, gateway settings on

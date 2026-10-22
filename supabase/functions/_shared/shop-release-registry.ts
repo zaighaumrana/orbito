@@ -1,7 +1,9 @@
 import accepted from './shop-release.json' with {type:'json'};
 import support from '../../releases/shop-release-support-v2.json' with {type:'json'};
+import v3 from '../../releases/shop-release-support-v3.json' with {type:'json'};
+import v4 from '../../releases/shop-release-support-v4.json' with {type:'json'};
 import active from '../../releases/active-shop-release.json' with {type:'json'};
-export const releases:Record<string,any>={'accepted-v1':accepted,'support-v2':support};
+export const releases:Record<string,any>={'accepted-v1':accepted,'support-v2':support,'support-v3':v3,'support-v4':v4};
 export const activeRelease=active;
 export async function validateRelease(release:any){
  const {sha256,...body}=release;

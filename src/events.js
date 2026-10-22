@@ -1,6 +1,7 @@
 import { loadSupportPage } from './supabase.js';
 import {refreshPaperStatus} from './paper-supply.js';
 import {submitPaperDelivery} from './paper-delivery.js';
+import {restoreRoute} from './client-routes.js';
 import {ensureClientDraft,rememberClientDraft,persistClientDraft,validateClientStage,openByoWizard,updateByoWizard} from './wizard-controller.js';
 import { captureView, viewCurrent, selectClient, clientDataMatches } from './async-context.js';
 import { notify, confirmDialog, showMessage, deleteUserDialog, cancelDialogs } from './dialogs.js';
@@ -38,6 +39,7 @@ export function initEvents() {
 
     /* Page navigation */
     if (el.dataset.pPage) {
+      pState.routeError=null;
       if (!pState.authenticated) return;
       if(el.dataset.pPage==='team'){
         const identity=await loadOperatorIdentity();
@@ -242,7 +244,7 @@ export function initEvents() {
         pState.currentUser = { ...identity,sessionToken:crypto.randomUUID() };pState.authenticated=true;
         await loadConfig();if(!owns() || !pState.authenticated)return;
         await loadPlatform();if(!owns() || !pState.authenticated)return;
-        pState.page = 'overview';pState.loginLoading=false;render();
+        pState.page = 'overview';pState.loginLoading=false;await restoreRoute(render);
       } catch (error) {
         if(!owns())return;
         clearSensitiveState();
@@ -269,6 +271,7 @@ export function initEvents() {
       await pb.auth.signOut({ scope: "local" });return;
     }
 
+    pState.routeError=null;
     /* ── Open client detail ── */
     if (action === "open-client") {
       const client = pState.data.clients.find(c => String(c.id) === String(el.dataset.pId));

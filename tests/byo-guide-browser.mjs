@@ -23,7 +23,7 @@ try{
   if(a.p_step){if(a.p_revision!==s.revision||a.p_binding!==s.client_binding)return {error:{code:'40001'}};s=structuredClone(s);s.revision++;s.current_step=a.p_step;if(a.p_mark)s.marks[a.p_step]={mark:a.p_mark,category:a.p_category};s.history.push({actor:'synthetic-master',at:'2026-10-21T12:00:00Z',step:a.p_step,mark:a.p_mark||'viewed'});records.set(a.p_client,s)}return {data:structuredClone(s)};
  });
  function fixture(){
-  const enrich=async rows=>{rows.forEach(c=>{c.pairing_mode='byo';if(c.id===2){c.supabase_url='https://bcdefghijklmnopqrstu.supabase.co';c.owner_email='other@example.test';c.owner_name='Other Owner'}});for(const c of await window.wizardRPC('created',{},window.fixtureRole))if(!rows.some(x=>x.id===c.id))rows.push(c);return rows};
+  const enrich=async rows=>{rows.forEach(c=>{c.pairing_mode='byo';if(c.id===2){c.supabase_url='https://bcdefghijklmnopqrstu.supabase.co';c.owner_email='other@example.test';c.owner_name='Other Owner';if(window.routeOnly)c.lifecycle_state='Archived'}});for(const c of await window.wizardRPC('created',{},window.fixtureRole))if(!rows.some(x=>x.id===c.id))rows.push(c);return rows};
   const from=window.fixtureSDK.from;window.fixtureSDK.from=table=>{const q=from(table);if(table==='clients'){const range=q.range;q.range=async(...a)=>{const r=await range(...a);r.data=await enrich(r.data);return r}}return q};
   const original=window.fixtureSDK.rpc;window.fixtureSDK.rpc=async(name,a={})=>{
   if(['platform_byo_progress','platform_create_client_once'].includes(name))return window.wizardRPC(name,a,window.fixtureRole);
@@ -33,14 +33,25 @@ try{
    r.data.rows=await enrich(r.data.rows);
   }return r;
  }}
- await context.addInitScript({content:'('+installPlatformFixture.toString()+')();('+fixture.toString()+')();'});
+ await context.addInitScript({content:'window.routeOnly='+JSON.stringify(process.argv.includes('--route-only'))+';('+installPlatformFixture.toString()+')();('+fixture.toString()+')();'});
  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(15000);
  const ready=()=>page.waitForFunction(async()=>{const {pState}=await import('/src/state.js');return pState.authenticated&&pState.dataReady});
  const clients=async()=>{if(await page.locator('#p-sidebar').getAttribute('aria-hidden')==='true')await page.locator('#p-menu-btn').click();await page.locator('[data-p-page="clients"]').first().click()};
  const openClient=async id=>{await clients();await page.locator(`[data-p-action="open-client"][data-p-id="${id}"]`).click();await page.getByRole('button',{name:'Resume BYO Setup',exact:true}).waitFor()};
  const wizardStep=n=>page.waitForFunction(n=>document.querySelector('[data-wizard="byo"]')?.dataset.step===String(n),n);
  const shots=async prefix=>{if(!process.env.SUPPORT_VISUAL_DIR)return;mkdirSync(process.env.SUPPORT_VISUAL_DIR,{recursive:true});for(const width of [320,768,1024,1440])for(const theme of ['light','dark']){await page.setViewportSize({width,height:1000});await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);assert.ok(await page.getByRole('dialog').evaluate(e=>e.scrollWidth<=e.clientWidth+1),'dialog horizontal overflow');await page.getByRole('dialog').evaluate(e=>e.scrollTop=0);await page.screenshot({path:join(process.env.SUPPORT_VISUAL_DIR,`${prefix}-${width}-${theme}.png`)})}};
- if(process.argv.includes('--refinement-only')){
+ if(process.argv.includes('--route-only')){
+  const selected=id=>page.waitForFunction(async id=>{const {pState}=await import('/src/state.js');return pState.page==='client-detail'&&pState.selectedClient?.id===id&&pState.clientData?.clientId===id&&!pState.clientData.loading},id);
+  await page.goto(origin+'/clients/1');await ready();await selected(1);assert.equal(new URL(page.url()).pathname,'/clients/1');
+  await page.reload();await ready();await selected(1);
+  await page.goto(origin+'/clients?view=historical');await ready();await page.locator('[data-p-action="open-client"][data-p-id="2"]').click();await selected(2);assert.match(page.url(),/\/clients\/2\?view=historical$/);
+  await page.reload();await ready();await selected(2);await page.getByRole('button',{name:'← Back',exact:true}).click();assert.match(page.url(),/\/clients\?view=historical$/);
+  await page.goBack();await selected(2);await page.goForward();await page.waitForFunction(async()=>{const {pState}=await import('/src/state.js');return pState.page==='clients'&&pState.clientView==='historical'});
+  await page.goto(origin+'/clients/999');await ready();await page.getByText('This client is unavailable or you do not have access.',{exact:true}).waitFor();
+  await page.goto(origin+'/clients/2?view=historical&fixtureRole=portfolio_manager');await ready();await page.getByText('Historical clients require the Master administrator.',{exact:true}).waitFor();
+  assert.equal(await page.evaluate(async()=>{const {pState}=await import('/src/state.js');return pState.selectedClient?.id??null}),null);assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
+  console.log('PASS: authorized direct detail/reload, historical selection/reload, Back/Forward, missing ID and Manager historical denial; no external requests.');
+ }else if(process.argv.includes('--refinement-only')){
   // Focused correction pass: no client creation, database or hosted operations.
   await page.goto(origin+'/');await ready();await openClient(1);
   const support=page.locator('.support-enrollment');

@@ -1,3 +1,4 @@
+import {routePath} from './client-routes.js';
 import { cleanupTurnstile, mountTurnstile } from './turnstile.js';
 import { pState, PCFG, getNav } from "./state.js";
 import { pModal }        from "./modals/index.js";
@@ -88,17 +89,8 @@ export function render() {
   document.documentElement.dataset.theme = pState.theme;
   /* Sync URL with current page state */
   if (pState.authenticated) {
-    const urlMap = {
-      "overview":      "/",
-      "clients":       "/clients",
-      "client-detail": "/clients",
-      "billing":       "/billing",
-      "support":       "/support",
-      "settings":      "/settings",
-      "team":          "/team",
-    };
-    const target = urlMap[pState.page] || "/";
-    if (window.location.pathname !== target) {
+    const target = routePath();
+    if (window.location.pathname+window.location.search !== target) {
       history.pushState({ page: pState.page }, "", target);
     }
   }
@@ -170,7 +162,7 @@ export function render() {
             </button>
           </div>
         </header>
-        <main class="content" id="main-content">${platformPage()}</main>
+        <main class="content" id="main-content">${pState.routeError?`<p role="alert">${esc(pState.routeError)}</p>`:""}${platformPage()}</main>
       </div>
     </div>
     ${pModal()}

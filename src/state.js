@@ -52,7 +52,7 @@ export function clearSensitiveState() {
   pState.reauthLoading=false;pState.passwordSaving=false;
   pState.diagnosticAttempt=null;pState.resetAttempt=null;pState.resetLoading=false;
   pState.loginAttempt=null;pState.loginLoading=false;pState.authRouting=false;
-  pState.dataReady=false;pState.dataError=null;pState.clientView='current';
+  pState.dataReady=false;pState.dataError=null;pState.clientView='current';pState.routeError=null;
   pState.teamTab='Active';pState.supportView=null;pState.supportRequest=(pState.supportRequest||0)+1;
   PCFG={admin_username:""};
 }
