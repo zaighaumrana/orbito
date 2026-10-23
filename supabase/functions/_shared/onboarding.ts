@@ -1,6 +1,6 @@
 import { pollShopBridge } from './bridge-call.ts'
 export class OnboardingError extends Error {}
-export async function runOnboarding(admin: any, request: any, platformUrl: string) {
+export async function runOnboarding(admin: any, request: any, platformUrl: string,fetcher:typeof fetch=fetch) {
   const step = async (name: string, data: any = {}) => {
     const result = await admin.rpc('platform_onboarding_step', { p_request:request.request_id,p_step:name,p_data:data })
     if (result.error) throw new OnboardingError('Onboarding state could not be saved. Retry the same request or reconcile the pending job.')
@@ -22,7 +22,7 @@ export async function runOnboarding(admin: any, request: any, platformUrl: strin
     }
     const token = Deno.env.get('PLATFORM_MANAGEMENT_TOKEN')
     if (!token) throw new OnboardingError('Managed setup requires Platform Management API authorization. For client-owned projects choose BYO and install the pairing file once.')
-    const response = await fetch(`https://api.supabase.com/v1/projects/${target.project_ref}/secrets`, {
+    const response = await fetcher(`https://api.supabase.com/v1/projects/${target.project_ref}/secrets`, {
       method:'POST',redirect:'error',signal:AbortSignal.timeout(15000),
       headers:{ Authorization:`Bearer ${token}`,'Content-Type':'application/json' },body:JSON.stringify(secrets),
     })
@@ -33,7 +33,7 @@ export async function runOnboarding(admin: any, request: any, platformUrl: strin
   }
   const optionalInvite = request.action === 'invite-owner'
   let response: Response
-  try { response = await fetch(`https://${target.project_ref}.supabase.co/functions/v1/platform-bridge`, {
+  try { response = await fetcher(`https://${target.project_ref}.supabase.co/functions/v1/platform-bridge`, {
     method:'POST',redirect:'error',signal:AbortSignal.timeout(30000),
     headers:{ Authorization:`Bearer ${target.call_secret}`,'Content-Type':'application/json' },
     body:JSON.stringify(request.action === 'bootstrap-shop' ? { operation:'bootstrap',payload:target.payload } : optionalInvite ? { operation:'invite-owner',payload:target.payload } : { operation:'status' }),
@@ -45,7 +45,7 @@ export async function runOnboarding(admin: any, request: any, platformUrl: strin
     await response.body?.cancel()
     if (response.status !== 401) {
       try {
-        const status = await fetch(`https://${target.project_ref}.supabase.co/functions/v1/platform-bridge`, {
+        const status = await fetcher(`https://${target.project_ref}.supabase.co/functions/v1/platform-bridge`, {
           method:'POST',redirect:'error',signal:AbortSignal.timeout(10000),
           headers:{ Authorization:`Bearer ${target.call_secret}`,'Content-Type':'application/json' },body:'{"operation":"status"}',
         })
@@ -71,12 +71,12 @@ export async function runOnboarding(admin: any, request: any, platformUrl: strin
   const invitation = ['sent','failed','pending'].includes(result.invitation) ? result.invitation : 'already_provisioned'
   if (request.action === 'bootstrap-shop') {
     await step('registered', result)
-    const projection = await pollShopBridge(admin,request.client_id)
+    const projection = await pollShopBridge(admin,request.client_id,fetcher)
     if (!projection.ok) throw new OnboardingError('Owner is reserved, but initial billing/config projection is pending. Retry provisioning; the owner will not be duplicated.')
   }
   if (request.action === 'bootstrap-shop') {
     try {
-      const status = await fetch(`https://${target.project_ref}.supabase.co/functions/v1/platform-bridge`, {
+      const status = await fetcher(`https://${target.project_ref}.supabase.co/functions/v1/platform-bridge`, {
         method:'POST',redirect:'error',signal:AbortSignal.timeout(30000),
         headers:{Authorization:`Bearer ${target.call_secret}`,'Content-Type':'application/json'},body:'{"operation":"status"}',
       })

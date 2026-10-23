@@ -62,6 +62,15 @@ try{
   }
   await page.evaluate(async()=>{const {supportSetupPanel}=await import('/src/support-setup.js');document.getElementById('platform-app').innerHTML=supportSetupPanel({pairing_mode:'byo'},{},false)});assert.equal(await page.locator('form').count(),0);
  }
+ await page.goto(origin+'/clients?fixtureRole=master_admin',{waitUntil:'domcontentloaded'});
+ await page.waitForFunction(async()=>{const {pState}=await import('/src/state.js');return pState.page==='clients'&&pState.dataReady;});
+ assert.equal((await page.evaluate(()=>window.fixtureSupportCalls)).filter(n=>n==='platform_route_resource').length,1);
+ assert.ok(!(await page.evaluate(()=>window.fixtureSupportCalls)).includes('platform_read_page'));
+ await page.locator('[data-p-action="open-client"][data-p-id="1"]').first().click();
+ await page.waitForFunction(async()=>{const {pState}=await import('/src/state.js');return pState.page==='client-detail'&&pState.clientData.clientId===1&&!pState.clientData.loading;});
+ assert.ok(page.url().includes('/clients/1'));
+ await page.reload({waitUntil:'domcontentloaded'});
+ await page.waitForFunction(async()=>{const {pState}=await import('/src/state.js');return pState.selectedClient?.id===1&&pState.clientData.clientId===1&&!pState.clientData.loading;});
  await page.goto(origin+'/?fixtureRole=billing_person',{waitUntil:'domcontentloaded',timeout:60000});await page.waitForFunction(async()=>{const {pState}=await import('/src/state.js');return pState.authenticated&&pState.dataReady;});assert.equal(await page.locator('[data-p-page="support"]').count(),0);
  assert.deepEqual(errors,[]);assert.deepEqual(external,[]);console.log('PASS: actual Platform Support navigation, verified/legacy provenance, escaped input/resolution, expected revision, pagination, Master/Manager access, Billing exclusion, 320/768/1440px; zero page errors/external requests.');
 }finally{await browser?.close();await server.close();}

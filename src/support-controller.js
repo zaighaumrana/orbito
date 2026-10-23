@@ -4,6 +4,7 @@ import {captureView,viewCurrent} from './async-context.js';
 import {notify} from './dialogs.js';
 
 export async function openSupport(render,offset=0){
+ pState.dataReady=true;pState.dataError=null;
  const context=captureView();
  try{const pending=loadSupportPage(offset);render();await pending;}
  catch(error){if(viewCurrent(context))notify.warning(error.message);}

@@ -15,7 +15,7 @@ export function billingModals(type, md) {
       <div class="modal-backdrop">
         <div class="modal" style="max-width:680px">
           <div style="display:flex;justify-content:space-between;align-items:center">
-            <h2>Usage Logs — ${esc(client?.name || "Client")}</h2>
+            <h2>Usage Logs — ${esc(client?.name || "Client")}</h2><nav class="toolbar"><span>Up to 100 entries per page</span><button data-p-action="usage-page" data-offset="${Math.max(0,(pState.usageOffset||0)-100)}" ${pState.usageOffset?'':'disabled'}>Previous</button><button data-p-action="usage-page" data-offset="${(pState.usageOffset||0)+100}" ${logs.length===100?'':'disabled'}>Next</button></nav>
             <button class="icon-button" data-p-close>✕</button>
           </div>
           <div class="table-wrap" style="max-height:420px;overflow-y:auto">

@@ -23,6 +23,7 @@ export function viewCurrent(context,checkModal=true) {
 export function selectClient(client=null) {
   pState.clientSelectionGeneration++;
   pState.clientRequestGeneration++;
+  pState.clientFinanceLoaded=null;pState.financeOffset=0;
   pState.selectedClient=client;
   pState.clientData={};
 }

@@ -131,99 +131,45 @@ export async function loadConfig() {
   if (error) throw error;
   if (data && generation===pState.authorityGeneration) setPCFG(data);
 }
-async function memberRows(dataset,context,onRoleChange) {
-  const rows=[];
-  for(let offset=0;;offset+=1000){
-    const {data,error}=await pb.rpc('platform_read_page',{p_dataset:dataset,p_offset:offset});
-    if(error)throw error;
-    if(data?.auth_user_id!==context.id || data?.session_id!==context.session || !Array.isArray(data?.rows)
-      || !['master_admin','portfolio_manager','billing_person'].includes(data.role))throw Error('Read authorization could not be verified.');
-    if(data.role!==context.role){
-      // Handle each owned response even if another dataset already rejected.
-      if(authorityCurrent(context))onRoleChange(data.role);
-      throw Error('Your role changed. Refreshing authorized data.');
-    }
-    rows.push(...data.rows);if(data.rows.length<1000)return rows;
+export async function loadPlatform(){
+ if(!pState.authenticated)return;
+ const context=captureView(),request=(pState.routeRequest||0)+1;pState.routeRequest=request;
+ pState.dataReady=false;pState.dataError=null;
+ const page=pState.page;
+ if(page==='support'){pState.dataReady=true;return;}
+ try{
+  const {data,error}=await pb.rpc('platform_route_resource',{p_resource:page,p_client:page==='client-detail'?pState.selectedClient?.id:null,p_offset:pState.resourceOffset||0,p_search:pState.filter||'',p_view:pState.clientView||'current'});
+  if(!viewCurrent(context,false)||request!==pState.routeRequest)return;
+  if(error)throw error;
+  if(data?.auth_user_id!==context.id||data.session_id!==context.session||data.role!==context.role){refreshRoleState({...pState.currentUser,role:data?.role});pState.dataError='Your access changed. Refresh this page to load authorized records.';pState.onRoleChange?.();throw new PlatformAuthError('authority');}
+  Object.assign(pState.data,data.data);pState.resourcePage={offset:data.data.offset||0,has_more:data.data.has_more===true};
+  if(page==='client-detail'){
+   const client=data.data.clients?.find(c=>c.id===context.client);if(!client)throw Error('Client unavailable');pState.selectedClient=client;
   }
+  pState.dataReady=true;
+ }catch(error){if(viewCurrent(context,false)&&request===pState.routeRequest){pState.dataReady=false;pState.dataError='This resource could not be verified. Refresh the current page before making changes.';pState.onDataError?.();}throw error;}
 }
-// Paginate historical ledgers instead of silently accepting the default 1000 rows.
-async function allRows(table, order, select = '*') {
-  const rows = [];
-  for (let offset = 0;; offset += 1000) {
-    const { data, error } = await pb.from(table).select(select).order(order, { ascending: false }).range(offset, offset + 999);
-    if (error) throw error;
-    rows.push(...data); if (data.length < 1000) return rows;
-  }
+export async function loadInvoiceResource(invoiceId){
+ const context=captureView();const {data,error}=await pb.rpc('platform_route_resource',{p_resource:'invoice',p_client:invoiceId});
+ if(!viewCurrent(context))return false;if(error||data?.role!==context.role||data?.auth_user_id!==context.id||data?.session_id!==context.session)throw Error('Invoice could not be verified.');
+ pState.data.invoices=[data.data.invoice,...(pState.data.invoices||[]).filter(i=>i.id!==invoiceId)];
+ pState.data.payments=[...data.data.payments,...(pState.data.payments||[]).filter(p=>p.invoice_id!==invoiceId)];
+ pState.data.usage=data.data.usage;return true;
 }
-export async function loadPlatform(retryRole=true) {
-  if(!pState.authenticated)return;
-  let context=captureAuthority();
-  let roleRefresh;
-  const onRoleChange=role=>{
-    refreshRoleState({...pState.currentUser,role});context=captureAuthority();
-    if(retryRole){
-      const refreshed=context;roleRefresh=loadPlatform(false);
-      // The old aggregate may already have failed; still render its successor.
-      roleRefresh.then(()=>{if(authorityCurrent(refreshed))pState.onRoleChange?.();},()=>{});
-    }else{
-      pState.dataError='Your role changed again. Refresh authorized Platform data before making changes.';
-      pState.onDataError?.();
-    }
-  };
-  try {
-  const identity=await loadOperatorIdentity();
-  if(!authorityCurrent(context))return;
-  if(identity.auth_user_id!==context.id || identity.session_id!==context.session)throw new PlatformAuthError('authority');
-  if(identity.role!==context.role){refreshRoleState(identity);context=captureAuthority();}
-  if(context.role!=='master_admin'){
-    const datasets=context.role==='portfolio_manager'?['clients','invoices','account']:['clients','usage','invoices','payments','credits','rateLog','account'];
-    const [pages,summary,dashboard]=await Promise.all([Promise.all(datasets.map(name=>memberRows(name,context,onRoleChange))),pb.rpc('platform_usage_summary'),pb.rpc('platform_dashboard_summary')]);
-    if(summary.error || !Array.isArray(summary.data))throw summary.error || Error('Usage summary unavailable.');
-    if(dashboard.error || !Number.isInteger(dashboard.data?.open_tickets))throw dashboard.error || Error('Dashboard summary unavailable.');
-    if(!authorityCurrent(context))return;
-    const next={clients:[],support:[],usage:[],invoices:[],rateLog:[],payments:[],credits:[],platformUsers:[],teamArchive:[],teamOperations:[]};
-    datasets.forEach((name,i)=>next[name==='account'?'platformUsers':name]=pages[i]);
-    Object.assign(pState.data,next,{usageSummary:summary.data,openTickets:dashboard.data.open_tickets});
-  }else{
-  const [clients,support,usage,invoices,rateLog,payments,credits,platformUsers,summary,teamArchive,teamHistory] = await Promise.all([
-    allRows('clients','id'), pb.rpc('platform_dashboard_summary'),
-    allRows('usage_logs','id'), allRows('billing_cycles','id'), allRows('pricing_rate_log','id'),
-    allRows('payments','id'), allRows('client_credit','id'),
-    allRows('platform_users','id','id,auth_user_id,name,email,role,status,created_at,suspended_from'),
-    pb.rpc('platform_usage_summary'),
-    pState.currentUser.role==='master_admin'?allRows('platform_team_archive','deleted_at'):[],
-    pState.currentUser.role==='master_admin'?pb.rpc('platform_team_history'):{data:{operations:[]}},
-  ]);
-  if (summary.error || !Array.isArray(summary.data)) throw summary.error || Error('Usage summary unavailable.');
-  if(support.error || !Number.isInteger(support.data?.open_tickets))throw support.error || Error('Support summary unavailable.');
-  if(teamHistory.error || !Array.isArray(teamHistory.data?.operations))throw teamHistory.error || Error('Team history unavailable.');
-  if(!authorityCurrent(context))return;
-  Object.assign(pState.data, { clients,support:[],openTickets:support.data.open_tickets,usage,invoices,rateLog,payments,credits,platformUsers,usageSummary: summary.data,teamArchive,teamOperations:teamHistory.data.operations });
-  }
-  pState.dataReady=true;pState.dataError=null;
-  if (pState.selectedClient) {
-    const selected=pState.data.clients.find(c => c.id === pState.selectedClient.id);
-    if(selected)pState.selectedClient=selected;else selectClient();
-  }
-  }catch(error){
-    if(roleRefresh)return roleRefresh;
-    if(!authorityCurrent(context))return;
-    pState.dataReady=false;pState.dataError='Authorized Platform data is unavailable. Refresh before making changes.';
-    pState.onDataError?.();
-    throw error;
-  }
+export async function loadClientFinance(offset=0){
+ const context=captureView(),request=(pState.financeRequest||0)+1;pState.financeRequest=request;
+ const {data,error}=await pb.rpc('platform_route_resource',{p_resource:'client-finance',p_client:pState.selectedClient?.id,p_offset:offset});
+ if(!viewCurrent(context)||request!==pState.financeRequest)return;if(error||data?.role!==context.role||data?.auth_user_id!==context.id||data?.session_id!==context.session)throw Error('Client finance could not be verified.');
+ Object.assign(pState.data,{invoices:data.data.invoices,payments:data.data.payments});pState.clientFinanceLoaded=context.client;pState.financeOffset=offset;
 }
 // Refresh the selected client row without loading unrelated financial/team ledgers.
 export async function refreshClientStatus(client){
  const context=captureView();
  if(!client||!viewCurrent(context)||pState.selectedClient?.id!==client.id)return;
  try{
-  let fresh;
-  if(context.role==='master_admin'){
-   const {data,error}=await pb.from('clients').select('*').eq('id',client.id).single();if(error)throw error;fresh=data;
-  }else if(context.role==='portfolio_manager'){
-   const rows=await memberRows('clients',context,role=>refreshRoleState({...pState.currentUser,role}));fresh=rows.find(c=>c.id===client.id);
-  }else throw new PlatformAuthError('authority');
+  const {data,error}=await pb.rpc('platform_route_resource',{p_resource:'client-detail',p_client:client.id});
+  if(error||data?.auth_user_id!==context.id||data?.session_id!==context.session||data?.role!==context.role)throw Error('Client authorization unavailable');
+  const fresh=data.data.clients?.[0];
   if(!viewCurrent(context))return;
   if(fresh?.id!==client.id)throw Error('Client unavailable');
   pState.data.clients=pState.data.clients.map(c=>c.id===fresh.id?fresh:c);pState.selectedClient=fresh;return fresh;
@@ -322,4 +268,12 @@ export async function loadSupportSummary(){
  const context=captureView();
  try{const {data,error}=await pb.rpc('platform_dashboard_summary');if(!viewCurrent(context))return;if(error||!Number.isInteger(data?.open_tickets))throw Error();pState.data.openTickets=data.open_tickets;}
  catch{if(viewCurrent(context))pState.data.openTickets=null;}
+}
+
+export async function loadUsageResource(clientId,offset=0){
+ const context=captureView(),request=(pState.usageRequest||0)+1;pState.usageRequest=request;
+ const {data,error}=await pb.rpc('platform_route_resource',{p_resource:'usage',p_client:clientId,p_offset:offset});
+ if(!viewCurrent(context)||request!==pState.usageRequest)return false;
+ if(error||data?.role!==context.role||data?.auth_user_id!==context.id||data?.session_id!==context.session)throw Error('Usage could not be verified.');
+ pState.data.usage=data.data.usage;pState.usageOffset=offset;return true;
 }

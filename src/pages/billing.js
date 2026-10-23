@@ -12,7 +12,7 @@ export function pageBilling() {
 
   const rows = clients.filter(c => lifecycleState(c) === 'Active').map(c => {
     const b           = computeClientBilling(c.id);
-    const lastInvoice = invoices
+    const lastInvoice = (pState.data.latestInvoices || invoices)
       .filter(i => i.client_id === c.id)
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
     return { c, b, lastInvoice, hasInventory: !!c.inventory_billable || b.inventoryCount > 0 };
@@ -25,7 +25,7 @@ export function pageBilling() {
 
   return `
     ${tit("Billing", `${monthLabel} — Usage-Based Invoicing · policy activation required`, "")}
-    <p>${invoices.length?'Showing up to the latest 25 issued invoices. Outstanding total includes all issued invoices.':'No issued invoices yet.'}</p>
+    <p>Client page ${Math.floor((pState.resourceOffset||0)/50)+1}. Estimates below cover this page; invoice summaries show the latest 25 for these clients. Open an invoice for its complete payments and receipt details.</p>
 
     <p class="muted">Amounts below are rate-snapshot estimates. Clients without an agreed policy/currency, or with flagged carry history, cannot generate invoices. Mixed currencies are not consolidated.</p>
     <div class="grid kpi-grid" style="margin-bottom:4px">

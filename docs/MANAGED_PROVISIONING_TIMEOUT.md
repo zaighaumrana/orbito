@@ -1,56 +1,98 @@
-# Managed setup execution window — 2026-10-23
+# Bounded Managed provisioning — 2026-10-23
 
-## Confirmed cause and current boundary
+The preceding implementation exhausted one Edge invocation at HTTP 546 / 150840ms.
+Migration/function checkpoints saved progress but did not yield. Owner setup later
+completed through administrator-assisted recovery. This implementation supersedes
+the earlier plan; hosted rollout and fresh acceptance remain pending.
 
-Read-only development logs independently show one platform-provision response with
-HTTP 546 and execution_time_ms=150840. Current stage records show project-access at
-20:26:36Z, migrations passed at 20:28:31Z and six functions passed at 20:28:53Z
-(2026-10-22). The first invocation had almost exhausted its wall-clock budget before
-owner setup. Later same-request recovery completed bridge-owner and preflight at
-20:46:39Z/20:46:41Z. These are checkpoint timestamps, not per-query database timings.
+## Execution and ownership
 
-`managed-setup.ts` sequentially performs every missing migration, server/Turnstile
-setup, function deployments, bridge-owner and preflight in one request. Each
-management request has its own 30-second timeout, but there is no total invocation
-deadline. Parent checkpoints do not yield execution. Owner bootstrap includes
-additional bridge calls/projection/status reads. Shortening individual timeouts or
-parallelizing migrations would not safely bound this chain.
+CLI-generated Platform migration
+`20261022235702_route_resources_and_managed_continuations.sql` adds `paused` and a
+private RLS-protected invocation record. The canonical live Master claims the
+original request under client/job locks. Only its current token and still-live
+Master session may advance stages, pairing or the release pin. Legacy Managed
+begin and unfenced stage/onboarding entry points fail closed, including v1 helpers.
+Existing non-Managed semantics and immutable job pins remain.
 
-[Supabase's wall-clock guidance](https://supabase.com/docs/guides/troubleshooting/edge-function-wall-clock-time-limit-reached-Nk38bW)
-confirms the 150-second Free-plan limit and the 546 symptom. Existing setup pins
-the exact release/request, checks migration provenance and retains passed stages.
-`platform_provision_begin` rejects competing running work. Interrupted recovery
-waits ten minutes; it must not be shortened to race an active provisioner.
+`InvocationBudget` starts at handler entry: 85 seconds total, at most five leaf
+units, at least 30 seconds remaining before another unit, and an eight-second
+checkpoint reserve. Fetches, bodies and internal client RPCs share the remaining
+budget; individual requests are capped at 20 seconds. A slow individual unit may
+still fail conservatively. Owner bootstrap and final preflight start in separate
+invocations. There are no detached workers or self-invocation loops.
 
-## Bounded continuation implementation plan
+Normal flow is `running → paused → running → complete`. A pause is allowed only
+between acknowledged units with no uncertain provider write. It preserves healthy
+connection state and never runs the failure step. Completion requires its verified
+final stage. The browser awaits each paused response before continuing with the
+same UUID/params/pin. It stops on navigation, changed session/view, errors, missing
+secret or unexpected request identity. Reload offers Continue/Retry for the recorded
+job. No automatic network retry occurs.
 
-This frontend correction deliberately leaves the orchestrator unchanged. A proper
-change crosses trusted SQL job ownership, Edge execution and the continuation UI:
+## Uncertainty and exceptional recovery
 
-1. Add a forward Platform migration with an explicit paused state/operation and
-   invocation ownership token. Only the active invocation may finish or pause its
-   job atomically. The existing failure operation is unsuitable for a normal pause:
-   it records failure and clears verified connection health. Never mark a pause
-   complete or release ownership while a provider write is outstanding.
-2. Set an absolute invocation deadline with headroom below 150 seconds. Bound all
-   provider requests, response bodies and internal RPCs by remaining time. Execute
-   a bounded number of migration/function work units and yield only after a durable
-   passed checkpoint and no in-flight write. Owner-bootstrap and preflight need
-   their own independently bounded invocations; they cannot simply be appended
-   after a nearly exhausted installation call.
-3. Return a structured pending response with the original immutable request ID.
-   The UI issues one serial continuation after verified paused status, rechecking
-   current operator/view ownership. Never create another UUID or run overlapping
-   continuations. Keep manual same-request recovery for a disconnected operator.
-4. Preserve original release pins, exact SQL hashes, owner reservation, Vault values
-   and uncertain-write fences. A timeout after SQL commit requires ledger read-back;
-   a provider function/secret outcome needs authoritative reconciliation before
-   replay. No self-invocation loop or unowned background promise.
-5. Test deadline-boundary yields, interrupted acknowledgments, simultaneous resume,
-   stale ownership tokens, no repeated passed stages, unknown remote outcomes and
-   owner/preflight completion using a small focused fixture. Separately authorize
-   the forward SQL and platform-provision rollout before a fresh hosted acceptance.
+Each leaf operation persists its dispatch identity before work. Its uncertainty
+clears atomically with the passed checksum after acknowledgment. Lost acknowledgments
+cannot silently become a normal pause or a different operation.
 
-All this can preserve Shop support-v4 and its fingerprint: the changes belong to
-the Platform orchestrator, not its immutable Shop package. The current timeout risk
-remains open; successful manual recovery is not proof the risk is fixed.
+- Migration commit/reply loss: recover the original request through the existing
+  interruption gate if still running. The server reads remote version/name/statements,
+  verifies the pinned SHA and full ordered prefix, and skips SQL already installed.
+  Missing/conflicting provenance stops without replay.
+- Function/secret/configuration/owner uncertainty stops automatic continuation.
+  An administrator must verify the operation is terminal and inspect the original
+  target, exact deployed source/gateway, secret installation or owner reservation.
+  Function inventory alone cannot prove deployed bytes. Do not audit credentials.
+- After at least ten minutes from the last job update, a live Master may call
+  `platform_managed_confirm(p_request,p_stage,p_reference,p_reason,p_completed)`.
+  Use the original stage and nonsecret authoritative provider evidence reference.
+  `true` means verified complete; `false` means verified NOT applied and safe to
+  retry. This is audited as operator-reported, not machine-verified. Never use it
+  just because the UI showed an error. The delay applies even to retry jobs.
+- Existing `platform_provision_reconcile` retains its original delay/audit. Closing
+  an unresolved provider fence is denied. Time passage never automatically steals
+  ownership. A stale token cannot checkpoint after a new invocation takes ownership.
+
+Turnstile plaintext stays in the current submit closure, is removed from the form
+and goes directly to the Shop secret API. It never enters job params, browser
+storage or logs. If the browser closes before that stage passes, Continue requests
+the original secret again. The existing stage fingerprint rejects a different
+secret for that request. Already-passed stages need no secret re-entry.
+
+## Managed / BYO traceability
+
+| Requirement | Managed | BYO / rationale |
+| --- | --- | --- |
+| Schema, consent, security and shared dependencies | Pinned support-v4 SQL/source | Same v4 manifest/customer CLI package; no Shop backend changes |
+| Function bytes and gateways | Six core functions; optional Support from same pin after owner readiness | Seven exact packages/gateways; existing readiness checks |
+| Checkpoints and conservative recovery | Platform token, dispatch fence, bounded Edge calls | Existing customer-local sequential installer journals and provider reconciliation; no Platform Edge execution limit |
+| Turnstile and pairing secrets | Submit memory then protected Shop secret API | Customer-controlled local secret installation; no new persistence |
+| Owner, binding and runtime | Canonical bootstrap/preflight now separately bounded | Existing reserved owner/binding/runtime checks, unchanged |
+| Existing installs and upgrades | No automatic upgrade or repinning | Existing additive upgrader; healthy Shops remain operational |
+
+This migration is Platform control-plane only, not a missing Shop requirement.
+Do not install it into Shops or regenerate support-v4. Its canonical fingerprint
+remains `f5295937f06e45177190bedebf19a54c86fd067d03785365a393e3de269e062f`.
+The parity check compares all embedded bytes to committed Shop source and selectors.
+Older immutable releases and original job pins remain unchanged.
+
+## Rollout and verification boundary
+
+Local source tests, real PG17 ownership/race checks and a local browser fixture
+validate the implementation. Engine provider transport is mocked; no fresh hosted
+installation or live provider recovery is claimed.
+
+Inspect Platform migration history and original jobs; ensure no Managed invocation
+is active. Apply the new forward migration to Platform, deploy only
+`platform-provision`, then release the frontend against those compatible APIs. The
+brief SQL-to-Edge interval fails closed for old Managed callers. Never run an old
+Managed worker during cutover, reset customers or repin requests. Preserve Vault.
+
+No hosted SQL/Edge changes occurred in this pass. The automatic feature preview
+can build, but its APIs need this coordinated rollout before functional acceptance.
+Production promotion remains separately authorized. Complete one fresh Managed
+acceptance and explicit uncertain-provider recovery before claiming the previous
+hosted timeout resolved. BYO administration is unavailable; local parity is not a
+new remote BYO installation. See [resources](ON_DEMAND_RESOURCES.md) and
+[release parity](Release-parity.md).

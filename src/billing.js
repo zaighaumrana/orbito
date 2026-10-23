@@ -31,7 +31,7 @@ export async function generateInvoice(clientId) {
 
 // ── Lifecycle flag ────────────────────────────────────────────────
 export function getLifecycleFlag(client) {
-  const lastInvoice = pState.data.invoices.find(i => i.client_id === client.id);
+  const lastInvoice = (pState.data.latestInvoices || pState.data.invoices).find(i => i.client_id === client.id);
   if (!lastInvoice) return null;
   if (lastInvoice.status === "Paid") return { label: "Upfront Paid", cls: "good" };
   if (client.grace_period_ends_at && new Date(client.grace_period_ends_at) > new Date())

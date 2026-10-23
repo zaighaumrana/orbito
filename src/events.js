@@ -9,7 +9,7 @@ import { resetTurnstile, mountTurnstile, cleanupTurnstile, captchaBusy } from '.
 import { pState, clearSensitiveState }                          from "./state.js";
 import { pb, PLATFORM_AUTH_EMAIL,
          loadConfig, loadPlatform, loadClientData, loadOperatorIdentity,
-         updateClientConfig, refreshClientStatus }              from "./supabase.js";
+         updateClientConfig, refreshClientStatus, loadInvoiceResource, loadClientFinance, loadUsageResource }              from "./supabase.js";
 import { render, syncSidebar }             from "./render.js";
 import { generateInvoice, printClientInvoices } from "./billing.js";
 import { validateSession }                 from "./helpers.js";
@@ -45,11 +45,11 @@ export function initEvents() {
         const identity=await loadOperatorIdentity();
         if(!current() || identity.role!=='master_admin' || identity.auth_user_id!==pState.currentUser.auth_user_id){if(current())notify.error('Team Management is restricted to the verified Master Admin.');return;}
       }
-      pState.page = el.dataset.pPage;
+      pState.page = el.dataset.pPage;if(pState.page!=='clients')pState.clientView='current';
       pState.filter = "";
       selectClient(el.dataset.pPage==='client-detail'?pState.selectedClient:null);
       if(pState.page==='support'){await openSupport(render);return;}
-      render(); return;
+      pState.resourceOffset=0;const nav=captureView();const pending=loadPlatform();render();await pending;if(viewCurrent(nav))render();return;
     }
 
     /* Open modal */
@@ -76,7 +76,10 @@ export function initEvents() {
       if(action==='client-review')draft.reviewed=true;else draft.step=Math.max(0,Math.min(4,draft.step+(action==='client-next'?1:-1)));
       persistClientDraft();render();return;
     }
-    if(action==='reload-platform'){await loadPlatform();if(current())render();return;}
+    if(action==='resource-page'){pState.resourceOffset=Number(el.dataset.offset)||0;await loadPlatform();if(current())render();return;}
+    if(action==='usage-page'){if(await loadUsageResource(pState.modal?.data?.clientId,Number(el.dataset.offset)||0))render();return;}
+    if(action==='load-client-finance'){await loadClientFinance(Number(el.dataset.offset)||0);if(current())render();return;}
+    if(action==='reload-platform'){await loadPlatform();if(current()&&pState.page==='client-detail')await loadClientData(pState.selectedClient,{readOnly:true});if(current())render();return;}
     if(['generate-invoice','mark-paid','clear-credit','view-invoice','view-logs','print-invoice','edit-client-rates'].includes(action)
       && (!['master_admin','billing_person'].includes(pState.currentUser.role) || pState.dataReady===false))return;
     if(action==='open-shop-support'){
@@ -243,8 +246,7 @@ export function initEvents() {
         attempt.phase='loading';
         pState.currentUser = { ...identity,sessionToken:crypto.randomUUID() };pState.authenticated=true;
         await loadConfig();if(!owns() || !pState.authenticated)return;
-        await loadPlatform();if(!owns() || !pState.authenticated)return;
-        pState.page = 'overview';pState.loginLoading=false;await restoreRoute(render);
+        pState.dataReady=true;pState.loginLoading=false;await restoreRoute(render);
       } catch (error) {
         if(!owns())return;
         clearSensitiveState();
@@ -274,13 +276,14 @@ export function initEvents() {
     pState.routeError=null;
     /* ── Open client detail ── */
     if (action === "open-client") {
-      const client = pState.data.clients.find(c => String(c.id) === String(el.dataset.pId));
+      let client = pState.data.clients.find(c => String(c.id) === String(el.dataset.pId));
       if (!client) return;
       selectClient(client);
       pState.page           = "client-detail";
       pState.clientData     = {};
       render();
-      if(await loadClientData(client))render(); return;
+      const detailContext=captureView();await loadPlatform();if(!viewCurrent(detailContext))return;client=pState.selectedClient;
+      if(await loadClientData(client,{readOnly:true})&&viewCurrent(detailContext))render(); return;
     }
 
     // Explicit recovery of a durable commercial intent; unresolved requests are
@@ -317,7 +320,7 @@ export function initEvents() {
       }finally{el.disabled=false;}
       return;
     }
-    if(action==='client-view') { pState.clientView=el.dataset.view;render();return; }
+    if(action==='client-view') {pState.clientView=el.dataset.view;pState.resourceOffset=0;await loadPlatform();render();return;}
     if (action === 'suspend-client' || action === 'activate-client') {
       const client = pState.data.clients.find(c => c.id === Number(el.dataset.pId));
       if(!clientDataMatches(client))return;
@@ -401,12 +404,14 @@ export function initEvents() {
       const newInvoice = await generateInvoice(clientId);
       if(!current())return;
       await loadPlatform();if(current())render();
+      if(current()&&newInvoice?.id)await loadInvoiceResource(newInvoice.id);
       if (current() && client && newInvoice) printClientInvoices(client, [newInvoice]);
       return;
     }
 
     /* ── Mark paid → open payment modal ── */
     if (action === "mark-paid") {
+      if(!await loadInvoiceResource(Number(el.dataset.pId))||!current())return;
       pState.modal = {
         type: "record-payment",
         data: { invoiceId: Number(el.dataset.pId), clientId: Number(el.dataset.pClientId) },
@@ -422,18 +427,21 @@ export function initEvents() {
 
     /* ── View invoice ── */
     if (action === "view-invoice") {
+      if(!await loadInvoiceResource(Number(el.dataset.pId))||!current())return;
       pState.modal = { type: "view-invoice", data: { invoiceId: Number(el.dataset.pId) } };
       render(); return;
     }
 
     /* ── View logs ── */
     if (action === "view-logs") {
+      if(!await loadUsageResource(Number(el.dataset.pId))||!current())return;
       pState.modal = { type: "view-logs", data: { clientId: Number(el.dataset.pId) } };
       render(); return;
     }
 
     /* ── Print invoice ── */
     if (action === "print-invoice") {
+      if(!await loadInvoiceResource(Number(el.dataset.pId))||!current())return;
       const invoice = pState.data.invoices.find(i => i.id === Number(el.dataset.pId));
       const client  = pState.data.clients.find(c => c.id === invoice?.client_id);
       if (!invoice || !client) return;
@@ -560,7 +568,9 @@ export function initEvents() {
   document.addEventListener("input", event => {
     if (event.target.dataset.pFilter !== undefined) {
       const position=event.target.selectionStart;
-      pState.filter = event.target.value; render();
+      pState.filter = event.target.value;
+      if(['clients','team','billing'].includes(pState.page)){clearTimeout(pState.searchTimer);const ctx=captureView();pState.searchTimer=setTimeout(async()=>{if(!viewCurrent(ctx))return;pState.resourceOffset=0;try{await loadPlatform();if(viewCurrent(ctx))render();}catch{if(viewCurrent(ctx))render();}},250);return;}
+      render();
       const input=document.querySelector('[data-p-filter]');input?.focus();if(input && position!==null && input.type!=='search')input.setSelectionRange(position,position);
     }
   });

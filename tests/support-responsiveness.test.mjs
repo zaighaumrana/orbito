@@ -15,7 +15,7 @@ function fixture({baseline=false,delay=0}={}){
   if(name==='platform_operator_identity')return reply(name,state.currentUser);
   if(name==='platform_support_ticket_page'){if(held)return held;return reply(name,{rows,offset:args.p_offset,has_more:false});}
   if(name==='platform_support_ticket_resolve'){calls.push(name);if(delay)await new Promise(r=>setTimeout(r,delay));if(resolveError)return {error:resolveError};rows=[{...rows[0],status:'Resolved',revision:2}];return {data:{resolved:true,revision:2}};}
-  return reply(name,name==='platform_dashboard_summary'?{open_tickets:0}:name==='platform_usage_summary'?[]:name==='platform_team_history'?{operations:[]}:name==='platform_provision_status'?{job:{state:'complete'}}:name==='platform_client_operations'?{client:1}:{state:'waiting'});
+  return reply(name,name==='platform_route_resource'?{...state.currentUser,data:{clients:[client]}}:name==='platform_dashboard_summary'?{open_tickets:0}:name==='platform_usage_summary'?[]:name==='platform_team_history'?{operations:[]}:name==='platform_provision_status'?{job:{state:'complete'}}:name==='platform_client_operations'?{client:1}:{state:'waiting'});
  },from:table=>({select(){return this},order(){return this},eq(){return this},single(){return reply(table+'.single',client)},range(){return reply(table,table==='clients'?[client]:[])}}),functions:{invoke:()=>{throw Error('Navigation must not write to a provider')}}};
  const messages=[],ctx={pState:state,pb,URL,Date,localStorage:{removeItem(){}},setPCFG(){},refreshRoleState(){},crypto,notify:{success:m=>messages.push(m),warning:m=>messages.push(m),error:m=>messages.push(m)}};
  vm.createContext(ctx);vm.runInContext(strip(read('src/async-context.js')),ctx);

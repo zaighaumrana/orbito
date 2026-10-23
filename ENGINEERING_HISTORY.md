@@ -2026,3 +2026,53 @@ support-v4 package/fingerprint, selector or pinned job changed. Managed timeout
 remains open pending the separately reviewed orchestration change and acceptance.
 Commit/push to existing PR5 uses no skip marker so configured feature preview may
 build. No manual deployment or merge; PR remains Draft against development.
+
+
+## 2026-10-23 — On-demand resources and bounded Managed continuations
+Branch: feature/verified-customer-support-platform
+
+### Purpose / changed
+The broad loader fetched unused ledgers/team data and repeated identity checks.
+It now reads the current route through a canonical authorized RPC: bounded/searchable
+client cards, exact client details, deferred history/usage, complete explicit
+invoice reads and on-demand Team. Overview uses global SQL summaries; page estimates
+are labelled and latest invoice status is separate from bounded history. Authority,
+view/client generations and request counters reject departed responses. Resource
+failures retain a retry view. Existing Support resolution remains page/count-only;
+navigation adds no enrollment side effects. No permission/financial cache was added.
+
+The previous Managed 150840ms failure arose from cumulative work without a total
+deadline. A CLI-generated forward migration adds durable paused state, invocation/
+session fencing and dispatch uncertainty. Existing stage, onboarding, pin and
+operation checks sit behind the fence, including legacy v1 entry points. Only the
+current live Master invocation advances work. Pauses preserve connection health;
+completion requires its verified final stage. Unknown writes cannot pause or be
+closed away. Exceptional operator attestation keeps a ten-minute delay even after
+transport failure and is audited as operator-reported.
+
+The Edge handler budgets 85 seconds from entry, bounds requests by remaining time,
+limits leaf units and isolates owner/preflight. Browser continuation awaits each
+pause, preserves original UUID/params/pin, stops on uncertain/departed responses and
+offers reload-safe Continue. Turnstile stays in submit memory only; original-secret
+re-entry is needed if its stage remains pending. Lost migration replies require
+exact ledger/source read-back; other unknown writes require provider review. No
+automatic stealing, write replay or worker loop was introduced.
+
+### Validation / integrity
+Eleven focused source/Support checks passed: actual engine multi-pause completion,
+no replay, lost migration/secret replies and serial frontend submission. Owned PG17
+checks cover the forward chain, concurrent row ownership, stale/unfenced denial,
+health-preserving pause, recovery delay and scoped roles. Local Support/route
+browser, Edge typecheck, explicit synthetic-public build, syntax/diff and exact
+committed-source release parity passed. Controlled route fixture: 13→1 requests,
+400817→5947 JSON bytes, 52.85→13.45ms at 8ms upstream delay; not hosted latency claims.
+Prior evidence is preserved in the external workspace.
+
+Read-only hosted checks confirm protected Master binding and 20 Vault records.
+No hosted writes, resets, SQL/Edge rollout or production deployment occurred.
+SQL then platform-provision then frontend rollout/fresh hosted acceptance remain.
+Managed/BYO share unchanged support-v4 packages/gateways/selectors/fingerprint;
+new invocation state is Platform-only. Shop source, older releases and original
+pins are untouched. Existing feature PRs stay Draft/Open against development.
+The frontend commit allows automatic preview without CF skip. See
+ON_DEMAND_RESOURCES.md and MANAGED_PROVISIONING_TIMEOUT.md in docs/.

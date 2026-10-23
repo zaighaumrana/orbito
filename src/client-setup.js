@@ -4,7 +4,7 @@ import {renderByoWizard} from './wizard-views.js';
 import {createByoStages,renderByoStage} from './byo-stages.js';
 export function managedSetupModal(client,detail,action='managed-setup') {
   const job=detail.provisioning?.job;
-  const retry=job?.state==='retry' && ['managed-setup','rotate-turnstile'].includes(job.action);
+  const retry=['retry','paused'].includes(job?.state) && ['managed-setup','rotate-turnstile'].includes(job.action);
   return `<div class="modal-backdrop"><section class="modal" role="dialog" aria-modal="true"><h2>${action==='rotate-turnstile'?'Rotate Turnstile Secret':'Provision managed Shop'}</h2><p>Target: ${esc(client.supabase_url)}. The server uses an approved Shop release. Successful stages are retained; owner passwords remain in Shop Auth.</p><form data-p-form="client-provisioning" autocomplete="off"><label class="field"><span>Public Turnstile site key</span><input name="site_key" required maxlength="200" value="${esc(retry?job.params.site_key:client.turnstile_site_key || '')}" ${retry?'readonly':''}></label><label class="field"><span>Turnstile Secret · install once, never retained</span><input name="turnstile_secret" type="password" autocomplete="off" maxlength="512"><small>Re-enter only if this stage needs retry. Leave blank if the recorded Turnstile stage already passed.</small></label><button class="primary-button" name="action" value="${retry?'resume':action}">${retry?'Retry recorded stages':'Install on this Shop'}</button><button type="button" class="secondary-button" data-p-close>Cancel</button></form></section></div>`;
 }
 export const copyValue = (value,label='Copy') => `<button type="button" class="setup-copy" data-p-action="copy-setup" data-copy-value="${esc(value)}" aria-label="Copy ${esc(label)}">${esc(label)}</button>`;
@@ -13,7 +13,7 @@ export function setupState(client,detail) {
   const connected=checks.database_reachable===true;
   const runtime=['migrations','database_privileges','rpc_privileges','sequence_privileges','private_config','storage','database_reachable','bridge_configuration','edge_functions','runtime_configuration','authentication'].every(k=>checks[k]===true);
   const reserved=checks.owner_reservation===true, active=h.owner_setup==='owner_active' && h.owner_account==='active', complete=h.onboarding==='onboarding_complete';
-  const busy=job && job.state!=='complete' && job.state!=='retry';
+  const busy=job && !['complete','retry','paused'].includes(job.state);
   let action=client.pairing_mode==='byo' ? 'byo-setup':'managed-setup',label=client.pairing_mode==='byo' ? 'Complete BYO Setup':'Provision managed Shop';
   let message='Connect this Shop and install its runtime before reserving the owner.';
   if (detail.provisioning?.connection?.bridge_call_configured && connected) { action='bootstrap-shop';label='Provision Shop';message='Reserve the owner and send the initial Shop configuration.'; }
@@ -21,9 +21,9 @@ export function setupState(client,detail) {
   if (reserved && runtime) { action='onboarding-status';label='Check Owner Account';message='Create one confirmed Auth user in the Shop Dashboard using the reserved email, then check here.'; }
   if (h.owner_account==='conflict') { action='onboarding-status';label='Check Owner Account';message='Owner identity conflicts with the reservation. Reconcile Shop Auth and existing account mappings before retrying.'; }
   if (h.infrastructure==='ready' && ['ready','active'].includes(h.owner_account)) { action='open-login';label='Open Shop Login';message=active?'The owner can finish the six saved setup steps in the Shop.':'Owner account detected. Log into the Shop to activate ownership and begin setup.'; }
-  if (job?.state==='retry' && job.action==='bootstrap-shop' && runtime && !complete) { action='resume';label='Retry Provisioning';message='Resume the recorded operation using the same owner reservation.'; }
+  if (['retry','paused'].includes(job?.state) && job.action==='bootstrap-shop' && runtime && !complete) { action='resume';label='Retry Provisioning';message='Resume the recorded operation using the same owner reservation.'; }
   if (complete) { action='open-shop';label='Open Shop';message='Business setup is complete.'; }
-  if(job?.state==='retry' && ['managed-setup','rotate-turnstile'].includes(job.action)) {action='managed-setup';label='Retry managed provisioning';message='Resume the recorded stages. Re-enter the Turnstile secret only if its installation stage needs retry.';}
+  if(['retry','paused'].includes(job?.state) && ['managed-setup','rotate-turnstile'].includes(job.action)) {action='managed-setup';label=job.state==='paused'?'Continue managed provisioning':'Retry managed provisioning';message='Resume the recorded stages. Re-enter the Turnstile secret only if its installation stage needs retry.';}
   return {h,checks,job,connected,runtime,reserved,active,complete,busy,action,label,message};
 }
 const status=(label,ok,positive='Verified') => `<li><span class="setup-dot ${ok?'good':'pending'}" aria-hidden="true"></span>${esc(label)}<span class="setup-value">${ok?esc(positive):'Pending'}</span></li>`;

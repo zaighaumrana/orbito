@@ -51,6 +51,5 @@ const bootGeneration=pState.authorityGeneration,requestedRoute=location.href;
   pState.currentUser=identity;pState.authenticated=true;await loadConfig();
   if(bootGeneration!==pState.authorityGeneration || !pState.authenticated)return;
   pState.page=({'/':'overview','/clients':'clients','/billing':'billing','/support':'support','/settings':'settings','/team':'team'})[window.location.pathname] || 'overview';
-  await loadPlatform();if(bootGeneration!==pState.authorityGeneration || !pState.authenticated)return;
-  await validateSession(render);if(bootGeneration===pState.authorityGeneration)await restoreRoute(render,requestedRoute);
+  pState.dataReady=true;await restoreRoute(render,requestedRoute);
 })().catch(()=>{if(bootGeneration!==pState.authorityGeneration)return;pState.authRouting=false;cancelDialogs();clearSensitiveState();pState.page='login';render();notify.error('Account verification is unavailable. Sign in again or retry when your connection is restored.');});

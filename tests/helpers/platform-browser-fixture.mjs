@@ -26,6 +26,12 @@ export function installPlatformFixture() {
     signOut:async()=>{signedIn=false;localStorage.removeItem('synthetic-login');notifyAuth('SIGNED_OUT');return{};},signInWithPassword:async()=>{signedIn=true;localStorage.setItem('synthetic-login','true');window.fixtureRole='master_admin';notifyAuth('SIGNED_IN');return {data:{session:authSession(),user:user()}};},
     resetPasswordForEmail:async()=>({error:window.fixtureRecoveryError}),refreshSession:async()=>({data:{session:authSession()}})},
     rpc:async(name,args={})=>{
+      if(name==='platform_route_resource'){
+       let pageClients=clients.filter(c=>(!args.p_client||c.id===args.p_client)&&(!args.p_search||c.name.toLowerCase().includes(args.p_search.toLowerCase())));
+       const resource=args.p_resource;
+       const data=resource==='team'?{platformUsers:window.fixtureUsers,teamArchive:window.fixtureArchive,teamOperations:window.fixtureOperations}:resource==='settings'?{}:{clients:pageClients,invoices:[],payments:[],usage:[],usageSummary:[],openTickets:1,overview:{clients:clients.length,active:clients.length,suspended:0,provisioning:0,historical:0}};
+       return {data:{...identity(),data:{...data,offset:args.p_offset||0,has_more:false}}};
+      }
       const data=name==='platform_operator_identity'?identity():name==='platform_session_status'?{authorized:!window.fixtureRevoked,...identity()}:name==='platform_team_setup_context'?{kind:'active',auth_user_id:actor,session_id:session}:
         name==='platform_account_access_notice'?{auth_user_id:actor,inactive:false}:name==='platform_team_history'?{operations:window.fixtureOperations}:name==='platform_usage_summary'?[]:name==='platform_dashboard_summary'?{open_tickets:1}:
         name==='platform_read_page'?{...identity(),rows:args.p_offset?[]:datasets()[args.p_dataset]}:name==='platform_client_operations'?{client:args.p_client,requests:[],supplies:[],thermal:{},projection:{payload:{outstanding_total:123}}}:{};
