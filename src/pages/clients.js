@@ -16,10 +16,10 @@ export function pageClients() {
   return `
     ${tit("All Clients", "Manage every client on the platform.", `
       <button class="primary-button" data-p-modal="add-client">+ Add Client</button>`)}
-    <div class="toolbar">
+    <div class="toolbar client-toolbar">
       ${(pState.currentUser.role==='master_admin'?[['current','Current clients'],['historical','Historical / Archived'],['all','All clients']]:[['current','Current clients']]).map(([view,label])=>`<button class="secondary-button" data-p-action="client-view" data-view="${view}" aria-pressed="${pState.clientView===view}">${label}</button>`).join('')}
       <label class="field"><span>Search clients</span><input class="search" data-p-filter placeholder="Name or industry"
-        value="${esc(pState.filter)}" style="min-width:260px"></label>
+        value="${esc(pState.filter)}"></label>
     </div>
     <div class="grid tenant-grid">
       ${clients.length ? clients.map(c => {
@@ -50,7 +50,7 @@ export function pageClients() {
                 data-p-id="${c.id}">
                 ${c.status === "Active" ? "Suspend" : "Activate"}
               </button>`:''}
-              ${role==='master_admin' && lifecycleState(c)!=='Archived'?`<button class="secondary-button" data-p-action="archive-client" data-p-id="${c.id}">Archive / Retire</button>`:''}
+              ${role==='master_admin' && lifecycleState(c)!=='Archived'?`<button class="danger-button" data-p-action="archive-client" data-p-id="${c.id}">Archive / Retire</button>`:''}
             </div>
           </div>`;
       }).join("") : `<div class="empty">No clients yet. Add your first client.</div>`}
@@ -112,8 +112,8 @@ export function pageClientDetail() {
       <p>Estimated Current Charges: <strong>${ready ? safeAmount(billing.grandTotal) : 'Unavailable'}</strong></p>
       <p>Issued outstanding: <strong>${safeAmount(projection?.outstanding_total)}</strong></p>
       <p class="muted">Per-event rate snapshots; unpaid invoices remain separate. THERMAL adds no charge.</p>
-      ${canBill ? `<button class="secondary-button" data-p-action="edit-client-rates" data-p-id="${c.id}">Edit Rates</button>
-      <button class="secondary-button" data-p-action="generate-invoice" data-p-id="${c.id}" ${ready ? '' : 'disabled'}>Generate Invoice</button>` : ''}
+      ${canBill ? `<div class="action-group"><button class="secondary-button" data-p-action="edit-client-rates" data-p-id="${c.id}">Edit Rates</button>
+      <button class="secondary-button" data-p-action="generate-invoice" data-p-id="${c.id}" ${ready ? '' : 'disabled'}>Generate Invoice</button></div>` : ''}
       ${master?`<details class="setup-advanced"><summary>Advanced / Technical Details · Billing Sync</summary>
       <p>Source: ${esc(source?.source_id || 'Not provisioned')}</p>
       <p>Last exchange: ${esc(source?.last_received_at || 'Never')} · ${source?.enabled ? 'Enabled' : 'Disabled'}</p>
@@ -147,7 +147,7 @@ export function pageClientDetail() {
       <div class="paper-actions"><button class="secondary-button" type="submit">Confirm delivered supply / fulfill request</button><button class="secondary-button" type="button" data-p-action="reconcile-paper-delivery" hidden>Check original delivery</button></div><p class="muted" role="status" aria-live="polite" data-delivery-status></p></form>` : ''}
     <h3>Recent confirmed supplies</h3>${(o.supplies || []).map(d=>`<p>${esc(d.reference)} · ${d.roll_count} × ${metres(d.usable_length_mm)} m · width ${d.paper_width_mm} mm · ${esc(d.delivered_at)}</p>`).join('') || '<p>No delivered supply recorded.</p>'}
   </div>
-  <div class="card"><h2>Invoice History</h2><p class="muted">Up to 25 invoices per history page; open an invoice for complete payment details.</p>${pState.clientFinanceLoaded===c.id?`<button data-p-action="load-client-finance" data-offset="${Math.max(0,(pState.financeOffset||0)-25)}" ${pState.financeOffset?'':'disabled'}>Previous invoices</button><button data-p-action="load-client-finance" data-offset="${(pState.financeOffset||0)+25}" ${pState.data.invoices.length===25?'':'disabled'}>Next invoices</button>`:''}${pState.clientFinanceLoaded!==c.id?'<button class="secondary-button" data-p-action="load-client-finance">Load invoice history</button>':''}${(pState.data.invoices || []).filter(i=>i.client_id===c.id).map(i=>`<div class="list-row"><span>INV-${i.id} · ${esc(i.period_start)} — ${esc(i.period_end)}</span><strong>${safeAmount(i.total_due)} · ${esc(i.payment_status)}</strong>${canBill?`<span><button data-p-action="view-invoice" data-p-id="${i.id}">View</button>${ready && i.payment_status!=='Paid' ? `<button data-p-action="mark-paid" data-p-id="${i.id}" data-p-client-id="${c.id}">Record Payment</button>` : ''}</span>`:''}</div>`).join('') || '<p>No invoices.</p>'}</div>
+  <div class="card"><h2>Invoice History</h2><p class="muted">Up to 25 invoices per history page; open an invoice for complete payment details.</p>${pState.clientFinanceLoaded===c.id?`<nav class="pagination" aria-label="Invoice history pages"><button class="secondary-button" data-p-action="load-client-finance" data-offset="${Math.max(0,(pState.financeOffset||0)-25)}" ${pState.financeOffset?'':'disabled'}>Previous invoices</button><button class="secondary-button" data-p-action="load-client-finance" data-offset="${(pState.financeOffset||0)+25}" ${pState.data.invoices.length===25?'':'disabled'}>Next invoices</button></nav>`:''}${pState.clientFinanceLoaded!==c.id?'<button class="secondary-button" data-p-action="load-client-finance">Load invoice history</button>':''}${(pState.data.invoices || []).filter(i=>i.client_id===c.id).map(i=>`<div class="list-row"><span>INV-${i.id} · ${esc(i.period_start)} — ${esc(i.period_end)}</span><strong>${safeAmount(i.total_due)} · ${esc(i.payment_status)}</strong>${canBill?`<span class="action-group"><button class="secondary-button" data-p-action="view-invoice" data-p-id="${i.id}">View</button>${ready && i.payment_status!=='Paid' ? `<button class="secondary-button" data-p-action="mark-paid" data-p-id="${i.id}" data-p-client-id="${c.id}">Record Payment</button>` : ''}</span>`:''}</div>`).join('') || '<p>No invoices.</p>'}</div>
   ${backendInventoryPanel(c,master)}
   ${upgradePanel(c,master)}
   ${master?`<details class="card setup-advanced"><summary>Advanced / Reconciliation History</summary>

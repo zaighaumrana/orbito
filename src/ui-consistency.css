@@ -1,0 +1,48 @@
+/* Existing RetraSell tokens; explicit primitives, no global native-control reset. */
+.section-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--rs-space-4);flex-wrap:wrap}
+.section-heading>div{min-width:0;flex:1 1 240px}.section-heading>button{flex-shrink:0}
+.section-heading p{margin-top:var(--rs-space-2);line-height:1.6}
+.pagination{display:flex;align-items:center;gap:var(--rs-space-3);flex-wrap:wrap;padding:var(--rs-space-4);border:1px solid var(--rs-divider);border-radius:var(--rs-radius-control);background:var(--rs-surface);font-size:14px}
+.pagination>span{margin-right:auto;color:var(--rs-muted)}
+.field{min-width:0}.field small{color:var(--rs-muted);font-size:12px;line-height:1.6;font-weight:400}
+.field-wide{grid-column:1/-1}.field :is(input,select,textarea){min-width:0;max-width:100%}.field select{padding-right:var(--rs-space-8)}
+.check-field{display:flex;align-items:flex-start;gap:var(--rs-space-3);font-size:14px;line-height:1.6;min-width:0}
+.check-field input{width:20px;height:20px;margin:2px 0 0;flex:none;accent-color:var(--rs-primary)}
+.copy-button{display:inline-flex;justify-content:center;align-items:center;vertical-align:middle;flex:0 0 36px;width:36px;height:36px;padding:0;border:1px solid var(--rs-divider);border-radius:var(--rs-radius-control);background:var(--rs-surface);color:var(--rs-muted);position:relative}
+.copy-button:hover{color:var(--rs-primary);background:var(--rs-surface-hover);border-color:var(--rs-border)}
+.copy-button:active{background:var(--rs-info-bg)}.copy-button[data-copied=true]{color:var(--rs-success);border-color:var(--rs-success);background:var(--rs-success-bg)}
+.copy-button[data-copied=true]::after{content:'Copied';position:absolute;bottom:100%;right:0;padding:4px 8px;background:var(--rs-success-bg);color:var(--rs-success);border:1px solid var(--rs-success);border-radius:4px;font-size:12px;white-space:nowrap;z-index:1}
+.metadata-grid{margin:var(--rs-space-4) 0;display:grid;gap:var(--rs-space-3)}
+.metadata-grid>div,.setup-advanced .metadata-grid>div{display:grid;grid-template-columns:minmax(120px,.7fr) minmax(0,2fr);gap:var(--rs-space-4);margin:0;align-items:start}
+.metadata-grid dt{color:var(--rs-muted);font-size:12px;padding-top:8px}
+.metadata-grid dd,.technical-details .metadata-grid dd{display:flex;align-items:flex-start;gap:var(--rs-space-3);margin:0;min-width:0}
+.metadata-grid code{flex:1;min-width:0;overflow-wrap:anywhere;white-space:pre-wrap;font:12px/1.7 var(--rs-font-mono);padding-top:8px}
+.evidence-details{margin-top:var(--rs-space-4);padding:var(--rs-space-4);border:1px solid var(--rs-divider);border-radius:var(--rs-radius-control);min-width:0}
+.evidence-details summary{font-weight:600;cursor:pointer}.evidence-details p{margin-top:var(--rs-space-3)}
+.evidence-details pre{font:12px/1.7 var(--rs-font-mono);white-space:pre-wrap;overflow-wrap:anywhere;max-height:420px;overflow:auto;margin:var(--rs-space-3) 0 0}
+.evidence-actions{display:flex;justify-content:flex-end;margin-top:var(--rs-space-2)}
+.upgrade-panel,.backend-evidence{display:grid;gap:var(--rs-space-4);min-width:0}
+.upgrade-panel p,.backend-evidence p{line-height:1.65}.upgrade-panel .action-group{padding-top:0}
+.workflow-stage{display:grid;gap:var(--rs-space-4);padding-top:var(--rs-space-6);border-top:1px solid var(--rs-divider);min-width:0}
+.workflow-stage h3{font-size:16px;line-height:24px}.workflow-stage .form-grid{gap:var(--rs-space-6);align-items:start}
+.summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:var(--rs-space-4)}
+.summary-grid>div{display:grid;align-content:start;gap:var(--rs-space-2);padding:var(--rs-space-4);border:1px solid var(--rs-divider);border-radius:var(--rs-radius-control);min-width:0}
+.summary-grid span{font-size:12px}.summary-grid strong{font-size:15px;overflow-wrap:anywhere}
+.inline-notice{padding:var(--rs-space-4);border-left:3px solid var(--rs-warning);border-radius:var(--rs-radius-control);background:var(--rs-warning-bg);color:var(--rs-warning)}
+.inline-notice.error{border-color:var(--rs-danger);background:var(--rs-danger-bg);color:var(--rs-danger)}
+.upgrade-steps{padding:0;list-style:none;display:grid;gap:var(--rs-space-2);margin:0}
+.upgrade-steps li{display:flex;justify-content:space-between;align-items:center;gap:var(--rs-space-3);padding:var(--rs-space-3) var(--rs-space-4);border:1px solid var(--rs-divider);border-radius:var(--rs-radius-control)}
+.upgrade-review-actions{border-top:1px solid var(--rs-divider);padding-top:var(--rs-space-4)!important}
+.evidence-summary{display:grid;gap:var(--rs-space-6)}.evidence-summary section{display:grid;gap:var(--rs-space-2)}.evidence-summary ul{margin:0;padding-left:20px;line-height:1.7}
+.content>.card:not(.upgrade-panel):not(.backend-evidence)>:is(h2,h3,p,details,form,.list-row)+:is(h2,h3,p,details,form,.list-row,.pagination,.table-wrap){margin-top:var(--rs-space-3)}
+.content>.grid>.card>:is(h2,h3,p,details)+:is(h2,h3,p,details,.action-group){margin-top:var(--rs-space-3)}
+.client-toolbar>.field{flex:1 1 240px}.client-toolbar .search{width:100%;min-width:0}
+.tenant-card,.tenant-card-head>div,.list-row>*{min-width:0;overflow-wrap:anywhere}.tenant-card-actions{gap:var(--rs-space-3)}
+.list-row{flex-wrap:wrap}.table-actions{min-width:240px}.table-actions button{margin:4px}
+.usage-modal{width:min(900px,100%)}.usage-modal .table-wrap{max-height:50dvh;overflow:auto}.invoice-table{border:1px solid var(--rs-divider);border-radius:var(--rs-radius-control)}
+.primary-button,.secondary-button,.danger-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;text-align:center;white-space:normal}
+.team-tabs{gap:var(--rs-space-2)}.team-tab{display:inline-flex;align-items:center;gap:var(--rs-space-2)}
+.technical-details{min-width:0}.technical-details>summary{line-height:1.6}.upgrade-panel .badge{white-space:normal}
+.setup-advanced pre{white-space:pre-wrap;overflow-wrap:anywhere}.setup-advanced form{display:grid;gap:var(--rs-space-3)}
+@media(max-width:600px){.metadata-grid>div,.setup-advanced .metadata-grid>div{grid-template-columns:minmax(0,1fr);gap:4px}.metadata-grid dt{padding-top:0}.pagination{gap:8px}.pagination>span{flex-basis:100%}.pagination>button{flex:1}.upgrade-steps li{align-items:flex-start}.workflow-stage .form-grid{grid-template-columns:minmax(0,1fr)}.table-actions{min-width:180px}}
+@media(pointer:coarse){.copy-button{width:44px;height:44px;flex-basis:44px}}

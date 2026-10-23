@@ -10,8 +10,8 @@ function renderContext(state={}) {
  const app={innerHTML:''};
  const ctx={pState:{page:'login',authenticated:false,currentUser:{role:'master_admin',email:'master@example.test'},data:{clients:[],support:[],platformUsers:[]},...state},PCFG:{admin_username:'Alias'},esc:escape,
   document:{getElementById:()=>app,documentElement:{dataset:{}}},cleanupTurnstile(){},mountTurnstile(){},tit:()=>'',getNav:()=>[],pModal:()=>'',history:{pushState(){}},window:{location:{pathname:'/'}},
-  pageOverview:()=>'',pageClients:()=>'',pageClientDetail:()=>'',pageBilling:()=>'',pageSupport:()=>'',hydrateClientDraft(){},syncModalFocus(){},resetModalFocus(){},teamRoles:{master_admin:'Master Admin',portfolio_manager:'Portfolio Manager',billing_person:'Billing Person'}};
- vm.createContext(ctx);vm.runInContext(read('src/async-context.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ctx);vm.runInContext(strip(read('src/pages/settings.js')),ctx);vm.runInContext(strip(read('src/render.js')),ctx);
+  pageOverview:()=>'',pageClients:()=>'',pageClientDetail:()=>'',pageBilling:()=>'',pageSupport:()=>'',hydrateClientDraft(){},hydratePaperDelivery(){},syncModalFocus(){},resetModalFocus(){},teamRoles:{master_admin:'Master Admin',portfolio_manager:'Portfolio Manager',billing_person:'Billing Person'}};
+ vm.createContext(ctx);vm.runInContext(read('src/async-context.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ctx);vm.runInContext(strip(read('src/client-routes.js')),ctx);vm.runInContext(strip(read('src/pages/settings.js')),ctx);vm.runInContext(strip(read('src/render.js')),ctx);
  return {ctx,app};
 }
 function checkPasswordForms(html) {
@@ -76,7 +76,7 @@ test('mouse and native Auth submit each invoke the existing login once; disabled
 });
 test('main dispatcher leaves Auth submission to its dedicated handler and recovery account comes from the recovery session',async()=>{
  let submit,authChange,calls=0;const createSetupRouter=({state})=>({boot:async()=>false,event:(_event,session)=>{state.recoveryEmail=session.user.email;state.authenticated=false;}});
- const ctx={createSetupRouter,URLSearchParams,window:{location:{search:'',pathname:'/'},addEventListener(){}},document:{addEventListener:(_type,fn)=>submit=fn},pState:{},render(){},initEvents(){},handleFormSubmit:async()=>{calls++;},
+ const ctx={createSetupRouter,URLSearchParams,location:{href:'http://localhost/'},window:{location:{search:'',pathname:'/'},addEventListener(){}},document:{addEventListener:(_type,fn)=>submit=fn},pState:{},render(){},initEvents(){},handleFormSubmit:async()=>{calls++;},
   pb:{auth:{onAuthStateChange:fn=>authChange=fn,getSession:async()=>({data:{session:null}})}},alert:message=>{throw Error(message)}};
  ctx.cancelDialogs ||= ()=>{}; ctx.notify ||= {error:message=>assert.fail(String(message)),success:()=>{},info:()=>{}}; vm.createContext(ctx);vm.runInContext(read('src/async-context.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ctx);await vm.runInContext(strip(read('src/main.js')),ctx);
  await submit({target:{dataset:{authForm:'login'}},preventDefault(){throw Error('Main intercepted Auth form');}});assert.equal(calls,0);

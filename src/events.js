@@ -93,8 +93,9 @@ export function initEvents() {
       return;
     }
     if (action === 'copy-setup') {
-      try { await navigator.clipboard.writeText(el.dataset.copyValue || '');el.textContent='Copied'; }
-      catch { notify.error('Copy is unavailable. Select the displayed value to copy it.'); }
+      try { el.disabled=true;await navigator.clipboard.writeText(el.dataset.copyValue || '');if(!current())return;el.dataset.copied='true';el.title='Copied';const feedback=el.querySelector('[data-copy-feedback]');if(feedback)feedback.textContent='Copied';setTimeout(()=>{if(el.isConnected){delete el.dataset.copied;el.title=el.getAttribute('aria-label');if(feedback)feedback.textContent='';}},2000); }
+      catch { if(current())notify.error('Copy is unavailable. Select the displayed value to copy it.'); }
+      finally {if(el.isConnected)el.disabled=false;}
       return;
     }
     if (action === 'retry-verification') { void mountTurnstile(); return; }
@@ -569,6 +570,13 @@ export function initEvents() {
   });
 
   /* ── Input (filter + dynamic form) ── */
+  const rememberUpgrade=event=>{
+    const el=event.target,v=pState.backendUpgrade;
+    if(!el.matches?.('.upgrade-panel [id^="upgrade-"]')||pState.page!=='client-detail'||pState.currentUser.role!=='master_admin'||v?.clientId!==pState.selectedClient?.id||v.busy)return;
+    v.draft={...v.draft,[el.id]:{value:el.value,checked:el.checked}};
+  };
+  document.addEventListener('input',rememberUpgrade);
+  document.addEventListener('change',rememberUpgrade);
   document.addEventListener("input", event => {
     if (event.target.dataset.pFilter !== undefined) {
       const position=event.target.selectionStart;

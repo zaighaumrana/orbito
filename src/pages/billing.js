@@ -84,24 +84,24 @@ export function pageBilling() {
                     ${esc(payStatus)}
                   </span>
                 </td>
-                <td style="display:flex;gap:6px;flex-wrap:wrap">
+                <td class="table-actions">
                   ${(b.billCount + b.inventoryCount) > 0 && c.billing_policy === "usage-v1" && c.currency && !c.accounting_review_required ? `
-                    <button class="primary-button" style="font-size:12px;padding:5px 10px"
+                    <button class="primary-button"
                       data-p-action="generate-invoice" data-p-id="${c.id}">
                       Gen Invoice
                     </button>` : ""}
                   ${(payStatus === "Unpaid" || payStatus === "Partial") && lastInvoice ? `
-                    <button class="secondary-button" style="font-size:12px;padding:5px 10px"
+                    <button class="secondary-button"
                       data-p-action="mark-paid"
                       data-p-id="${lastInvoice.id}"
                       data-p-client-id="${c.id}">
                       Record Payment
                     </button>` : ""}
-                  <button class="secondary-button" style="font-size:12px;padding:5px 10px"
+                  <button class="secondary-button"
                     data-p-action="edit-client-rates" data-p-id="${c.id}">
                     Edit Rates
                   </button>
-                  <button class="secondary-button" style="font-size:12px;padding:5px 10px"
+                  <button class="secondary-button"
                     data-p-action="view-logs" data-p-id="${c.id}">
                     Logs
                   </button>
@@ -138,8 +138,8 @@ export function pageBilling() {
                   ${inv.payment_status||"Unpaid"}
                 </span>
               </td>
-              <td style="display:flex;gap:4px">
-                <button class="secondary-button" style="font-size:12px;padding:4px 8px"
+              <td class="table-actions">
+                <button class="secondary-button"
                   data-p-action="view-invoice" data-p-id="${inv.id}">View</button>
               </td>
             </tr>`;

@@ -13,11 +13,9 @@ export function billingModals(type, md) {
       .sort((a, b) => new Date(b.recorded_at) - new Date(a.recorded_at));
     return `
       <div class="modal-backdrop">
-        <div class="modal" style="max-width:680px">
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <h2>Usage Logs — ${esc(client?.name || "Client")}</h2><nav class="toolbar"><span>Up to 100 entries per page</span><button data-p-action="usage-page" data-offset="${Math.max(0,(pState.usageOffset||0)-100)}" ${pState.usageOffset?'':'disabled'}>Previous</button><button data-p-action="usage-page" data-offset="${(pState.usageOffset||0)+100}" ${logs.length===100?'':'disabled'}>Next</button></nav>
-            <button class="icon-button" data-p-close>✕</button>
-          </div>
+        <div class="modal usage-modal">
+          <div class="section-heading"><div><h2>Usage Logs</h2><p class="muted">${esc(client?.name || 'Client')} · Billing and inventory events</p></div><button class="icon-button" data-p-close aria-label="Close usage logs">✕</button></div>
+          <nav class="pagination" aria-label="Usage log pages"><span>Up to 100 entries per page</span><button class="secondary-button" data-p-action="usage-page" data-offset="${Math.max(0,(pState.usageOffset||0)-100)}" ${pState.usageOffset?'':'disabled'}>Previous</button><button class="secondary-button" data-p-action="usage-page" data-offset="${(pState.usageOffset||0)+100}" ${logs.length===100?'':'disabled'}>Next</button></nav>
           <div class="table-wrap" style="max-height:420px;overflow-y:auto">
             <table>
               <thead><tr>
@@ -61,9 +59,9 @@ export function billingModals(type, md) {
     return `
       <div class="modal-backdrop">
         <div class="modal" style="max-width:520px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <div class="section-heading">
             <h2>Record Payment</h2>
-            <button class="icon-button" data-p-close>✕</button>
+            <button class="icon-button" data-p-close aria-label="Close dialog">✕</button>
           </div>
           <div style="background:var(--surface-2);padding:12px;border-radius:8px;margin-bottom:14px;
                       font-size:14px;display:grid;gap:6px">
@@ -138,19 +136,19 @@ export function billingModals(type, md) {
     const sym       = esc(client?.currency_symbol || "Rs.");
     if (!invoice) return `
       <div class="modal-backdrop">
-        <div class="modal"><button data-p-close>Close</button></div>
+        <div class="modal"><button class="secondary-button" data-p-close>Close</button></div>
       </div>`;
     return `
       <div class="modal-backdrop">
         <div class="modal" style="max-width:620px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <div class="section-heading">
             <h2>Invoice #INV-${invoice.id}</h2>
-            <div style="display:flex;gap:8px">
+            <div class="action-group">
               <button class="secondary-button"
                 data-p-action="print-invoice" data-p-id="${invoice.id}">
                 Print / PDF
               </button>
-              <button class="icon-button" data-p-close>✕</button>
+              <button class="icon-button" data-p-close aria-label="Close dialog">✕</button>
             </div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;font-size:14px">
@@ -166,7 +164,7 @@ export function billingModals(type, md) {
                 ? new Date(invoice.due_date).toLocaleDateString() : "—"}</span>
             </div>
           </div>
-          <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:14px">
+          <div class="table-wrap invoice-table">
             <table style="min-width:unset">
               <thead><tr style="background:var(--surface-2)">
                 <th>Description</th>
@@ -240,9 +238,9 @@ export function billingModals(type, md) {
     return `
       <div class="modal-backdrop">
         <div class="modal" style="max-width:420px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <div class="section-heading">
             <h2>Edit Rates — ${cl?.name}</h2>
-            <button class="icon-button" data-p-close>✕</button>
+            <button class="icon-button" data-p-close aria-label="Close dialog">✕</button>
           </div>
           <p class="muted" style="font-size:13px;margin-bottom:14px">
             Rate changes apply going forward only. Historical billing is locked at the rate logged at time of event.

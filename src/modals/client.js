@@ -81,7 +81,7 @@ export function clientModals(type, md) {
         <div class="modal" style="max-width:520px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
             <h2>Edit — ${esc(c.name)}</h2>
-            <button class="icon-button" data-p-close>✕</button>
+            <button class="icon-button" aria-label="Close dialog" data-p-close>✕</button>
           </div>
           <form data-p-form="edit-client">
             ${c.onboarding_version === 2 ? `<p>Shop ownership: ${c.pairing_mode==='byo'?'Client-owned / BYO':'Managed'} · immutable to preserve bindings and history.</p><input type="hidden" name="pairing_mode" value="${esc(c.pairing_mode)}">` : ''}

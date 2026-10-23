@@ -7,6 +7,7 @@ import vm from 'node:vm';
 import {makeUpgradePlan,requireUpgradeProgress,verifyUpgradeResult,digest} from '../supabase/functions/_shared/upgrade-contract.js';
 import {executeUpgrade} from '../supabase/functions/_shared/upgrade-engine.js';
 import {upgradeBackend} from '../../Orbitoshopv2-v1/scripts/upgrade-backend.mjs';
+import {hasUpgradePlan} from '../src/upgrade-assessment.js';
 import {classifyClosure} from '../scripts/support-closure-preflight.mjs';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const source=JSON.parse(read('supabase/releases/shop-release-support-v4.json')),target=JSON.parse(read('supabase/releases/shop-release-support-v6.json')),catalog=JSON.parse(read('supabase/releases/approved-shop-releases.json'));
@@ -58,8 +59,8 @@ test('populated Platform intake cannot be treated as empty closure; already-clos
  assert.match(classifyClosure({platform_schema:true,clients:1,tickets:1,jobs:0,pins:0,closure_applied:false}),/BLOCKED-POPULATED/);assert.equal(classifyClosure({platform_schema:true,closure_applied:true,anonymous_closed:true}),'already-applied-and-closed');assert.throws(()=>classifyClosure({platform_schema:false}),/never.*Shop/);
 });
 test('upgrade frontend captures approval fields before submitting render and denies departed or unauthorized views',async()=>{
- const id='99500000-0000-4000-8000-000000000002',state={authenticated:true,page:'client-detail',authorityGeneration:1,currentUser:{auth_user_id:id,session_id:id,role:'master_admin'},selectedClient:{id:100,pairing_mode:'managed'},clientSelectionGeneration:1,backendUpgrade:{clientId:100,job:{request_id:id,project_ref:identity.project_ref,target_sha256:target.sha256,plan_sha256:'a'.repeat(64)}}};let args,fields=[{id:'upgrade-source-review',value:'real-source-review'}];
- const ctx={pState:state,document:{querySelectorAll:()=>fields},pb:{rpc:async(name,a)=>{if(name==='platform_upgrade_approve')args=a;return {data:state.backendUpgrade.job};}},esc:String,inputDialog:async()=>`UPGRADE ${identity.project_ref} ${target.sha256}`,confirmDialog:async()=>true,notify:{error:()=>{}}};vm.createContext(ctx);
+ const id='99500000-0000-4000-8000-000000000002',state={authenticated:true,page:'client-detail',authorityGeneration:1,currentUser:{auth_user_id:id,session_id:id,role:'master_admin'},selectedClient:{id:100,pairing_mode:'managed'},clientSelectionGeneration:1,backendUpgrade:{clientId:100,job:{request_id:id,project_ref:identity.project_ref,target_sha256:target.sha256,plan_sha256:'a'.repeat(64)}}};state.backendUpgrade.job={...state.backendUpgrade.job,...identity,source_sha256:source.sha256,plan_sha256:'a'.repeat(64),plan:plan()};let args,fields=[{id:'upgrade-source-review',value:'real-source-review'}];
+ const ctx={hasUpgradePlan,pState:state,document:{querySelectorAll:()=>fields},pb:{rpc:async(name,a)=>{if(name==='platform_upgrade_approve')args=a;return {data:state.backendUpgrade.job};}},esc:String,inputDialog:async()=>`UPGRADE ${identity.project_ref} ${target.sha256}`,confirmDialog:async()=>true,notify:{error:()=>{}}};vm.createContext(ctx);
  const strip=s=>s.replace(/^import .*$/gm,'').replace(/^export /gm,'');vm.runInContext(strip(read('src/async-context.js')),ctx);vm.runInContext(strip(read('src/backend-upgrade.js')),ctx);
  await ctx.handleUpgrade('upgrade-approve',()=>{fields=[];});assert.equal(args.p_conditions.source_review_reference,'real-source-review');
  state.currentUser.role='billing_person';args=null;await ctx.handleUpgrade('upgrade-approve',()=>{});assert.equal(args,null);

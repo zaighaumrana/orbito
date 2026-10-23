@@ -52,7 +52,7 @@ export function pageSupport() {
           </article>`;
       }).join("") : `<div class="empty">${view?.ready?'No support tickets.':'Load verified Support tickets using Refresh.'}</div>`}
     </div>
-    <nav class="toolbar support-pagination" aria-label="Support ticket pages">
+    <nav class="pagination support-pagination" aria-label="Support ticket pages">
       <button type="button" class="secondary-button" data-p-action="support-page" data-offset="${Math.max(0,(pState.supportView?.offset||0)-50)}" ${busy||!view?.offset?'disabled':''}>Previous</button>
       <span aria-live="polite">Page ${Math.floor((pState.supportView?.offset||0)/50)+1}</span>
       <button type="button" class="secondary-button" data-p-action="support-page" data-offset="${(pState.supportView?.offset||0)+50}" ${busy||!view?.has_more||view.offset>=5000?'disabled':''}>Next</button>

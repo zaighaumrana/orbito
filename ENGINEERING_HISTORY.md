@@ -2193,3 +2193,45 @@ promotion/merge. Support still needs the original user's live authorization. V6 
 all historical packages/fingerprints are unchanged. Existing feature PRs remain
 Draft/Open/unmerged against development. External controlled-upgrades-stabilization
 REPORT.md/CURRENT.md record exact Git/CI/Pages and remaining owner gates.
+
+## 2026-10-24 — Platform UI consistency and truthful upgrade review presentation
+Branch: feature/verified-customer-support-platform
+
+### Purpose / changes
+Restored shared RetraSell control styling across dynamically rendered Client,
+Billing/invoice, Usage Logs, Support, Team and resource paging views. Retained the
+approved assets/Inter/palette and both themes. Added scoped field/check/action/
+pagination/metadata/evidence primitives and an original inline copy SVG with complete
+value copying, accessible labels, keyboard/touch focus and success/failure feedback.
+Managed/BYO upgrade views now lead with release/evidence/plan summaries, grouped
+maintenance/approval controls and distinct recovery states; full identities,
+fingerprints, provider diagnostics, conditions and checkpoints remain expandable.
+The workflow stays lazy and rendering makes no request. Draft fields survive theme
+changes within the existing authorized client view.
+
+Frontend assessment validation now explains empty/malformed/incomplete, unsupported,
+wrong-target/source/binding, stale/expired or conflicting BYO reports before network
+submission. A pending identity is separate from a server job; invalid JSON cannot
+create a phantom Review required state. Approval/install/clearance require a valid
+exact plan. Customer freshness confirmation for timestamp-free v1 reports remains
+customer-reported, never independent proof. Server reservation order and all backend
+security/authorization/request contracts are unchanged.
+
+### Verification / operational boundary
+Three assessment cases, selected approval and three Support/financial/inventory
+continuity cases, eleven existing UI source cases (minimal stale VM dependency
+repairs), isolated browser layout/interaction observations at1440/1024/768/390 in
+both themes, and existing small Support browser regression pass. Final synthetic-
+public build92modules/main499.86kB/gzip137.40, lazy upgrade23.23kB/gzip7.92;
+syntax/diff checks pass. No full suites, Docker/SQL tests or release rebuild.
+
+Read-only Platform review before/after is identical: original request2428e25d,
+Managed targetyqiefgcdvnfmdhuhitdq, v4→v6, three pending steps, no conditions or
+checkpoints, managed-provider-read-only with source unverified. BYO has no persisted
+job; latest restricted report remains partial/unknown. Earlier change audit and
+later saved check timestamp support a refreshed report, not reconstruction of both
+full responses. Existing installed migration20261023141809 is observed, not applied.
+No Shop change, hosted write, approval/cancel/upgrade, backend rollout, production
+deployment or merge. PR5 stays Draft/Open against development; push uses the verified
+[CF-Pages-Skip] convention. New external platform-ui-consistency-2026-10-24 evidence
+contains REPORT/CURRENT, route matrix, before/after captures and owner-only rollout.

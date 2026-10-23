@@ -162,7 +162,7 @@ export function render() {
             </button>
           </div>
         </header>
-        <main class="content" id="main-content">${pState.routeError?`<p role="alert">${esc(pState.routeError)}</p>`:""}${platformPage()}${["overview","clients","billing","team"].includes(pState.page)&&pState.dataReady?`<nav class="toolbar" aria-label="Resource pages"><span>Showing this page of records</span><button data-p-action="resource-page" data-offset="${Math.max(0,(pState.resourceOffset||0)-(pState.page==='team'?100:50))}" ${pState.resourceOffset?'':'disabled'}>Previous</button><button data-p-action="resource-page" data-offset="${(pState.resourceOffset||0)+(pState.page==='team'?100:50)}" ${pState.resourcePage?.has_more?'':'disabled'}>Next</button></nav>`:""}</main>
+        <main class="content" id="main-content">${pState.routeError?`<p role="alert">${esc(pState.routeError)}</p>`:""}${platformPage()}${["overview","clients","billing","team"].includes(pState.page)&&pState.dataReady?`<nav class="pagination" aria-label="Resource pages"><span>Showing this page of records</span><button class="secondary-button" data-p-action="resource-page" data-offset="${Math.max(0,(pState.resourceOffset||0)-(pState.page==='team'?100:50))}" ${pState.resourceOffset?'':'disabled'}>Previous</button><button class="secondary-button" data-p-action="resource-page" data-offset="${(pState.resourceOffset||0)+(pState.page==='team'?100:50)}" ${pState.resourcePage?.has_more?'':'disabled'}>Next</button></nav>`:""}</main>
       </div>
     </div>
     ${pModal()}
