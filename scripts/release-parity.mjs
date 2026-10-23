@@ -48,6 +48,8 @@ export async function validateWorkspace(platformRoot=resolve(import.meta.dirname
  const {buildRelease}=await import(pathToFileURL(resolve(shopRoot,'scripts/build-platform-release.mjs')).href),{installationPlan}=await import(pathToFileURL(resolve(shopRoot,'scripts/backend-plan.mjs')).href);
  same(read(shopRoot,'scripts/backend-inventory.ts'),read(platformRoot,'supabase/functions/_shared/backend-inventory.ts'),'Inventory evidence-model divergence');
  same(read(shopRoot,'scripts/backend-plan.mjs'),read(platformRoot,'supabase/functions/_shared/backend-plan.js'),'Installer planner divergence');
+ for(const name of ['upgrade-contract','upgrade-engine'])same(read(shopRoot,'scripts/'+name+'.mjs'),read(platformRoot,'supabase/functions/_shared/'+name+'.js'),'Managed/BYO upgrade contract divergence: '+name);
+ assert.match(read(shopRoot,'scripts/upgrade-backend.mjs'),/customer-claim/,'BYO execution must claim the same durable Platform pending-operation fence');
  for(const [root,p,pattern]of [[platformRoot,'supabase/functions/_shared/managed-setup.ts',/for\(const migration of plan!\.migrations\)/],[platformRoot,'supabase/functions/_shared/managed-setup.ts',/plan!\.coreFunctions/],[platformRoot,'supabase/functions/_shared/support-automation.ts',/installationPlan\(release,'managed'\)\.deferredFunctions/],[shopRoot,'scripts/byo-setup.mjs',/plan\.coreFunctions/],[shopRoot,'scripts/byo-support-release.mjs',/plan\.deferredFunctions/],[shopRoot,'scripts/byo-support-release.mjs',/migrations:plan\.migrations/]])assert.match(read(root,p),pattern,'Installer is not consuming its approved plan: '+p);
  const result=validateSnapshot({release,source:buildRelease(shopRoot,{support:true}),manifest,active,catalog,shopCatalog,plan:installationPlan});
  for(const c of catalog){

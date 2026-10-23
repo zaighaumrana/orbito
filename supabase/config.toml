@@ -462,3 +462,7 @@ verify_jwt = true
 
 [functions.platform-backend-inventory]
 verify_jwt = true
+
+# Customer clearance is scoped and checked by the handler/DB; Managed callers use live Auth.
+[functions.platform-upgrade]
+verify_jwt = false

@@ -2134,3 +2134,62 @@ No hosted writes, customer upgrade, Auth/Vault change, manual Cloudflare deploym
 production promotion or merge occurred. Original live authorization is needed to
 resume queued Support; offline-first and global exactly-once are not claimed.
 Both existing feature PRs remain Draft/Open against development.
+
+## 2026-10-23 — Controlled Managed/BYO upgrade execution and final acceptance boundaries
+Branch: feature/verified-customer-support-platform
+
+### Changes / decisions
+Added CLI-generated forward migration20261023141809 and platform-upgrade, with a
+private RLS upgrade journal, exact source/target/plan approval, canonical live Master
+and session checks, client-bound invocation fencing, ordered checkpoints and audited
+unknown-outcome reconciliation. Both modes now share the same Platform pending-job
+fence and executable plan/engine. Provisioning/unknown invocations, owner/bootstrap
+and pending config block execution; reverse-direction client-row guards prevent
+new reservations from racing an approved upgrade. No old job/pin is rewritten.
+The v4→v6 plan changes only one missing migration and Bridge/Support packages.
+
+Managed review uses bounded read-only provider evidence; execution permits two writes
+per bounded invocation and pauses serially. Source gaps need explicit operator review;
+maintenance requires a real window and separately recorded acknowledgment. No email
+delivery was invented. The on-demand UI adds plan/approval/progress/recovery and
+downloads no upgrade code until requested. Its9.69kB chunk is separate from the
+496.23kB main build. These are build sizes, not hosted performance measurements.
+
+BYO obtains a private expiring request/plan-scoped clearance after Master review and
+separate customer CLI approval. Customer admin authority stays local. Reports cannot
+be promoted to independent provider proof: final component reports remain
+verification_required, with customer-reported/provider-read-back strength separated.
+Explicit reviewed closure preserves full_source_verified=false. No fake full-source
+complete/Up-to-date state is written. Current SQL is rechecked against the original
+checkpoints before further writes; stale tokens/sessions or conflicting progress stop.
+
+Historical v4 operational documents are labelled as checkpoints with current v6
+guidance. Platform-only empty closure20261022184736 remains unchanged; a read-only
+target preflight blocks populated-target replay, and a separate staged, locked,
+owner-reviewed adoption template preserves tickets and all permission revocations.
+No closure SQL is added to Shop packages or automatically repaired into a ledger.
+
+### Verification / hosted boundary
+Five focused source/CLI/UI cases, three existing directly affected Support/financial/
+legacy-receipt cases, real isolated PG17 approval/ACL/pending/concurrent ownership/
+session/recovery checks, populated closure preservation and one v4→v6 SQL upgrade
+passed. The actual customer CLI fixture completes two serial invocations under its
+original UUID; it also proves a blocked Platform claim causes zero provider writes.
+Changed Edge typecheck, both explicit synthetic-public builds, syntax/diff and final
+committed-source parity pass; the new shared upgrade helpers are gate-checked.
+
+Read-only hosted checks confirm current migration20261023012318, provisionv26 and
+inventoryv1, protected Master binding1/Vault20, populated Platform2clients/3tickets,
+closed anonymous grants and no current pending provisioning/config. Managed test
+ledger matches v4 exactly (37); seven functions/gateways and SQL owner/runtime checks
+are present/ready, not full source/browser acceptance. Retrieved v26 has all20
+referenced files and v6 package. Original bundler warning provenance remains pending
+its exact deployment log; no missing dependency was observed or redeployed.
+
+New SQL→platform-upgrade→compatible UI/tooling rollout is pending. Owner explicitly
+kept independent fresh hosted Managed/BYO acceptance pending; BYO admin remains
+unavailable. No hosted write/reset/customer upgrade/Auth/Vault change/production
+promotion/merge. Support still needs the original user's live authorization. V6 and
+all historical packages/fingerprints are unchanged. Existing feature PRs remain
+Draft/Open/unmerged against development. External controlled-upgrades-stabilization
+REPORT.md/CURRENT.md record exact Git/CI/Pages and remaining owner gates.

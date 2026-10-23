@@ -1,3 +1,5 @@
+> Historical checkpoint / procedure. Current approved fresh source is **support-v6**, not a claim about any existing customer pin or live installed bytes. Use [current controlled-upgrade and rollout guidance](CONTROLLED_BACKEND_UPGRADES.md) before any operation. Earlier v4/v25 statements below describe their dated checkpoint.
+
 # Final shared Shop backend: support-v4
 
 Approved in source for new Managed and BYO installations; deployment and acceptance

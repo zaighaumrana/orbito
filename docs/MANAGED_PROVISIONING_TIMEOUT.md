@@ -1,3 +1,5 @@
+> Historical checkpoint / procedure. Current approved fresh source is **support-v6**, not a claim about any existing customer pin or live installed bytes. Use [current controlled-upgrade and rollout guidance](CONTROLLED_BACKEND_UPGRADES.md) before any operation. Earlier v4/v25 statements below describe their dated checkpoint.
+
 # Bounded Managed provisioning — 2026-10-23
 
 The preceding implementation exhausted one Edge invocation at HTTP 546 / 150840ms.

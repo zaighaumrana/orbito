@@ -1,5 +1,6 @@
 import {openSupport,resolveSupportTicket} from './support-controller.js';
 import {loadBackendInventory} from './backend-inventory.js';
+import {loadUpgradeUI} from './backend-upgrade-loader.js';
 import {refreshPaperStatus} from './paper-supply.js';
 import {submitPaperDelivery} from './paper-delivery.js';
 import {restoreRoute} from './client-routes.js';
@@ -77,6 +78,7 @@ export function initEvents() {
       if(action==='client-review')draft.reviewed=true;else draft.step=Math.max(0,Math.min(4,draft.step+(action==='client-next'?1:-1)));
       persistClientDraft();render();return;
     }
+    if(action?.startsWith('upgrade-')){const workflow=await loadUpgradeUI();if(!current())return;if(action==='upgrade-open')render();else await workflow.handleUpgrade(action,render);return;}
     if(action==='backend-inventory'||action==='backend-inventory-refresh'){const pending=loadBackendInventory(action==='backend-inventory-refresh');render();if(await pending&&current())render();return;}
     if(action==='resource-page'){pState.resourceOffset=Number(el.dataset.offset)||0;await loadPlatform();if(current())render();return;}
     if(action==='usage-page'){if(await loadUsageResource(pState.modal?.data?.clientId,Number(el.dataset.offset)||0))render();return;}

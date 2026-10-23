@@ -24,7 +24,7 @@ export function selectClient(client=null) {
   pState.clientSelectionGeneration++;
   pState.clientRequestGeneration++;
   pState.clientFinanceLoaded=null;pState.financeOffset=0;
-  pState.backendInventory=null;pState.inventoryRequest=(pState.inventoryRequest||0)+1;
+  pState.backendInventory=null;pState.backendUpgrade=null;pState.inventoryRequest=(pState.inventoryRequest||0)+1;
   pState.selectedClient=client;
   pState.clientData={};
 }
