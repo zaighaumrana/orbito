@@ -2076,3 +2076,61 @@ new invocation state is Platform-only. Shop source, older releases and original
 pins are untouched. Existing feature PRs stay Draft/Open against development.
 The frontend commit allows automatic preview without CF skip. See
 ON_DEMAND_RESOURCES.md and MANAGED_PROVISIONING_TIMEOUT.md in docs/.
+
+## 2026-10-23 — Automated release parity, read-only fleet evidence and durable recovery
+Branch: feature/verified-customer-support-platform
+
+### Purpose / changes
+Shared backend approval now requires an executable requirement contract rather
+than matching counts. The canonical gate checks exact committed Shop SQL/function
+bytes, hashes/order, dependencies, gateways, selectors/catalogs and both real
+installer plans. Both repositories expose release:check and focused Actions checks;
+the complete mandatory parity policy was added to Shop without removing its rules.
+Accepted historical packages are anchored to starting commit c9bb36e, because
+legacy v1 had earlier revisions; new immutable artifacts are anchored to their
+first commit. No accepted artifact or original job pin was rewritten.
+
+The new Platform forward migration 20261023012318 adds scoped inventory snapshots,
+live Master/session/invocation/target fencing, policy metadata and authoritative
+financial receipt lookup. New platform-backend-inventory performs bounded read-only
+Managed provider/restricted paired Bridge inspection. The client-detail panel loads
+only on demand, distinguishes historical pins, evidence age, compliance and runtime
+health, and never upgrades or suspends. Partial structural/ledger evidence does not
+prove current deployed source; full-release status remains Unable to verify when
+those bytes cannot be established. BYO has restricted/customer-local diagnostics,
+without granting Platform administrative access.
+
+Existing usage outbox, billing revisions and config journals remain authoritative.
+Shop adds private durable Support submissions, original-actor recovery, lease-fenced
+ACK/backoff/review and explicit pending receipts; Platform receiver dedupe/consent
+is preserved. Legacy pages receive retryable errors for uncertain delivery to retain
+their original UUID. Financial retries read the authoritative original receipt first.
+
+### Final release / validation
+Corrected Shop backend source 95448d75b7c78fbe5e7cf0e9a02f87e7d919650d was committed before
+building NEW support-v6: 38 migrations / 7 functions, canonical SHA-256
+64fcec36fa7a5e2565db2a6d3aa6ddbd8e6c1170eefd4a07a57ae6ba0c066a31.
+Both fresh selectors reference it. The earlier local v5 candidate remains immutable
+and uninstalled, superseded after the final compatibility correction. V4 and older
+accepted releases/pins are preserved; no customer is automatically upgraded.
+
+Nine focused source/contract cases and four bounded Managed engine checks passed.
+The gate rejects seven deliberate divergence cases. Owned isolated PG17 databases
+verify both forward chains, final catalog, concurrent Support dedupe, durable queue
+ACL/actor/restart/lease/ACK recovery, usage replay, actual invoice/payment idempotency
+and receipt read-back, inventory ownership/rate fencing. Changed Edge entrypoints
+typecheck; both explicit synthetic-public frontend builds and syntax/diff checks
+pass. Full/manual hosted acceptance is intentionally deferred. Detailed results,
+final Git/CI/preview observations are in new external release-parity-fleet-continuity
+evidence; previous evidence remains untouched.
+
+### Hosted boundary / rollout
+Read-only inspection confirmed existing Platform migration 20261022235702 and
+platform-provision v25, protected Master binding and 20 Vault rows. Nothing was
+reinstalled. New Platform SQL → inventory function/coordinated provision registry →
+compatible frontend rollout is pending. Shop missing forward SQL must precede
+changed Bridge/Support packages and matching UI, under customer authorization.
+No hosted writes, customer upgrade, Auth/Vault change, manual Cloudflare deployment,
+production promotion or merge occurred. Original live authorization is needed to
+resume queued Support; offline-first and global exactly-once are not claimed.
+Both existing feature PRs remain Draft/Open against development.

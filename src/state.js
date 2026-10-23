@@ -45,6 +45,7 @@ export function clearSensitiveState() {
   pState.currentUser={role:null,username:""};
   pState.selectedClient=null;pState.clientData={};pState.modal=null;
   pState.byoWizard=null;pState.clientWizard=null;
+  pState.backendInventory=null;pState.inventoryRequest=(pState.inventoryRequest||0)+1;
   try{for(const key of Object.keys(sessionStorage))if(key.startsWith('retrasell-client-draft:'))sessionStorage.removeItem(key)}catch{}
   pState.filter='';pState.recoveryEmail=null;pState.setupMessage='';
   for(const key of Object.keys(pState.data))pState.data[key]=Array.isArray(pState.data[key])?[]:{};

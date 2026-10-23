@@ -1,3 +1,4 @@
+import {installationPlan} from './backend-plan.js'
 import {activeRelease,releases,validateRelease} from './shop-release-registry.ts';
 import {managedMigrationQuery,publicShopKey} from './managed-setup.ts';
 import {enrollmentHandler} from '../platform-support-enrollment/handler.ts';
@@ -65,7 +66,7 @@ export async function reconcileManagedSupport(admin:any,caller:any,actorId:strin
   for(const migration of missing)await api('/database/query',{query:managedMigrationQuery(migration)});
   // Only the optional function is upgraded here. Login, gateway settings on
   // existing functions, owner reservation and bridge secrets stay untouched.
-  const fn=release.functions.find((f:any)=>f.name==='support-tickets');
+  const fn=installationPlan(release,'managed').deferredFunctions.find((f:any)=>f.name==='support-tickets');
   const form=new FormData();for(const file of fn.files)form.append('file',new Blob([file.content],{type:'application/typescript'}),file.path);
   form.append('metadata',JSON.stringify({name:fn.name,entrypoint_path:fn.entrypoint,verify_jwt:fn.verify_jwt}));
   await api('/functions/deploy?slug=support-tickets',form);

@@ -1,4 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';import vm from 'node:vm';import {readFileSync} from 'node:fs';import {stripTypeScriptTypes} from 'node:module';import {createHash} from 'node:crypto';import {execFileSync} from 'node:child_process';import {performance} from 'node:perf_hooks';
+import {installationPlan} from '../supabase/functions/_shared/backend-plan.js';
 import {InvocationBudget,ManagedPause} from '../supabase/functions/_shared/managed-invocation.ts';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8'),strip=s=>s.replace(/^import .*$/gm,'').replace(/^export /gm,'');
 test('route data is one owned, role-verified request; unrelated datasets and departed responses cannot publish',async()=>{
@@ -26,7 +27,7 @@ function engineFixture(failSecret=false,loseMigration=false){
   if(u.endsWith('/secrets')){writes.push('secrets');if(failSecret)throw Error('lost reply');return Response.json([]);}
   if(u.includes('/functions/deploy')){const meta=JSON.parse(init.body.get('metadata'));deployed.set(meta.name,{slug:meta.name,verify_jwt:meta.verify_jwt});writes.push('function:'+meta.name);return Response.json({});}
   if(u.endsWith('/functions'))return Response.json([...deployed.values()]);if(u.includes('/api-keys'))return Response.json([]);throw Error('Unexpected synthetic request');};
- const ctx={TextEncoder,URL,InvocationBudget,ManagedPause,crypto,Response,FormData,Blob,AbortSignal,Deno:{env:{get:()=> 'synthetic'}},fetch:fetcher,pinManagedRelease:async()=>release,legacyPublicAnonKey:()=> 'public-anon',configureSupportAuth:async()=>{},runOnboarding:async(_a,r)=>{writes.push(r.action);onboarded=true;}};vm.createContext(ctx);vm.runInContext(stripTypeScriptTypes(strip(read('supabase/functions/_shared/managed-setup.ts'))),ctx);
+ const ctx={installationPlan,TextEncoder,URL,InvocationBudget,ManagedPause,crypto,Response,FormData,Blob,AbortSignal,Deno:{env:{get:()=> 'synthetic'}},fetch:fetcher,pinManagedRelease:async()=>release,legacyPublicAnonKey:()=> 'public-anon',configureSupportAuth:async()=>{},runOnboarding:async(_a,r)=>{writes.push(r.action);onboarded=true;}};vm.createContext(ctx);vm.runInContext(stripTypeScriptTypes(strip(read('supabase/functions/_shared/managed-setup.ts'))),ctx);
  return {run:()=>{const b=new InvocationBudget();return ctx.runManagedSetup(admin,request,'https://qrstabcdefghijklmnop.supabase.co','one-time-secret',{},'master',{beforeWork:b.beforeWork.bind(b),fetch:fetcher})},writes,history,stages};
 }
 test('actual Managed engine advances across bounded invocations without replay and completes owner/preflight',async()=>{

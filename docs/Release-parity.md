@@ -68,3 +68,10 @@ pin checks passed separately. These are local proofs, not hosted deployment proo
 
 See [acceptance](Release-parity-acceptance.md), [upgrade](Existing-shop-upgrade.md),
 [rollout](Release-rollout.md) and [issue register](Final-stabilization-issues.md).
+
+## 2026-10-23 continuation
+
+The historical v4 checkpoint above remains immutable. The current source contract,
+mandatory automated gate, support-v6 release, read-only inventory and delivery
+recovery are described in [Release inventory and continuity](RELEASE_INVENTORY_CONTINUITY.md).
+Run `npm run release:check` against both reviewed checkouts before approval.

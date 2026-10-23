@@ -1,4 +1,5 @@
 import { clientDataMatches } from '../async-context.js';
+import {backendInventoryPanel} from '../backend-inventory.js';
 import {paperRequests} from '../paper-supply.js';
 import { copyValue } from '../client-setup.js';
 import { lifecycleState, canContactShop, visibleClients, lifecyclePanel } from '../lifecycle.js';
@@ -146,6 +147,7 @@ export function pageClientDetail() {
     <h3>Recent confirmed supplies</h3>${(o.supplies || []).map(d=>`<p>${esc(d.reference)} · ${d.roll_count} × ${metres(d.usable_length_mm)} m · width ${d.paper_width_mm} mm · ${esc(d.delivered_at)}</p>`).join('') || '<p>No delivered supply recorded.</p>'}
   </div>
   <div class="card"><h2>Invoice History</h2><p class="muted">Up to 25 invoices per history page; open an invoice for complete payment details.</p>${pState.clientFinanceLoaded===c.id?`<button data-p-action="load-client-finance" data-offset="${Math.max(0,(pState.financeOffset||0)-25)}" ${pState.financeOffset?'':'disabled'}>Previous invoices</button><button data-p-action="load-client-finance" data-offset="${(pState.financeOffset||0)+25}" ${pState.data.invoices.length===25?'':'disabled'}>Next invoices</button>`:''}${pState.clientFinanceLoaded!==c.id?'<button class="secondary-button" data-p-action="load-client-finance">Load invoice history</button>':''}${(pState.data.invoices || []).filter(i=>i.client_id===c.id).map(i=>`<div class="list-row"><span>INV-${i.id} · ${esc(i.period_start)} — ${esc(i.period_end)}</span><strong>${safeAmount(i.total_due)} · ${esc(i.payment_status)}</strong>${canBill?`<span><button data-p-action="view-invoice" data-p-id="${i.id}">View</button>${ready && i.payment_status!=='Paid' ? `<button data-p-action="mark-paid" data-p-id="${i.id}" data-p-client-id="${c.id}">Record Payment</button>` : ''}</span>`:''}</div>`).join('') || '<p>No invoices.</p>'}</div>
+  ${backendInventoryPanel(c,master)}
   ${master?`<details class="card setup-advanced"><summary>Advanced / Reconciliation History</summary>
     ${(o.failures || []).map(f=>`<p>${esc(f.recorded_at)} · ${esc(f.event_id)} · ${esc(f.reason)}</p>`).join('') || '<p>No ingestion failures recorded.</p>'}
     ${(o.config_jobs || []).map(j=>`<p>${esc(j.created_at)} · ${esc(j.state)} · ${esc(JSON.stringify(j.changes))}</p>`).join('')}

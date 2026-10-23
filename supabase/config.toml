@@ -459,3 +459,6 @@ verify_jwt = false
 [functions.platform-support-enrollment]
 # Master user JWT plus live canonical Master/session checks in handler and SQL.
 verify_jwt = true
+
+[functions.platform-backend-inventory]
+verify_jwt = true

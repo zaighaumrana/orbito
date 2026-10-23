@@ -26,7 +26,7 @@ export function getClientActiveCredit(clientId) {
 
 // ── Invoice generation ────────────────────────────────────────────
 export async function generateInvoice(clientId) {
-  return retryOperation(`invoice:${clientId}`, { clientId }, request => rpc('platform_generate_invoice', { p_client: clientId, p_request: request }));
+  return retryOperation(`invoice:${clientId}`, { clientId }, request => rpc('platform_generate_invoice', { p_client: clientId, p_request: request }),{reconcile:request=>rpc('platform_financial_outcome',{p_kind:'invoice',p_request:request,p_target:clientId})});
 }
 
 // ── Lifecycle flag ────────────────────────────────────────────────
