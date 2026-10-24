@@ -21,6 +21,7 @@ export function viewCurrent(context,checkModal=true) {
     && context.selection===pState.clientSelectionGeneration && (!checkModal || context.modal===pState.modal);
 }
 export function selectClient(client=null) {
+  pState.backendUpgrade?.dismissNotice?.();
   pState.clientSelectionGeneration++;
   pState.clientRequestGeneration++;
   pState.clientFinanceLoaded=null;pState.financeOffset=0;

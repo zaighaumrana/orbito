@@ -47,6 +47,7 @@ export function initEvents() {
         const identity=await loadOperatorIdentity();
         if(!current() || identity.role!=='master_admin' || identity.auth_user_id!==pState.currentUser.auth_user_id){if(current())notify.error('Team Management is restricted to the verified Master Admin.');return;}
       }
+      if(window.innerWidth<=1180)syncSidebar(false);
       pState.page = el.dataset.pPage;if(pState.page!=='clients')pState.clientView='current';
       pState.filter = "";
       selectClient(el.dataset.pPage==='client-detail'?pState.selectedClient:null);
@@ -109,9 +110,9 @@ export function initEvents() {
       render(); return;
     }
 
-    /* Mobile sidebar */
-    if (action === "toggle-sidebar") {
-      const sidebar=document.getElementById('p-sidebar'),open=!sidebar?.classList.contains('open');
+    /* Explicit close and shared desktop/mobile navigation toggle. */
+    if (action === "toggle-sidebar" || action === "close-sidebar") {
+      const sidebar=document.getElementById('p-sidebar'),open=action!=='close-sidebar'&&document.getElementById('p-menu-btn')?.getAttribute('aria-expanded')!=='true';
       syncSidebar(open);(open?sidebar?.querySelector('button'):document.getElementById('p-menu-btn'))?.focus();return;
     }
 
@@ -587,7 +588,7 @@ export function initEvents() {
     }
   });
   document.addEventListener('keydown',event=>{
-    if(event.key==='Escape' && document.getElementById('p-sidebar')?.classList.contains('open')){syncSidebar();document.getElementById('p-menu-btn')?.focus();return;}
+    if(event.key==='Escape' && document.getElementById('p-sidebar')?.classList.contains('open')){syncSidebar(false);document.getElementById('p-menu-btn')?.focus();return;}
     if(event.target.matches?.('.team-tab') && ['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){
       const tabs=[...document.querySelectorAll('.team-tab')],at=tabs.indexOf(event.target);
       const next=event.key==='Home'?0:event.key==='End'?tabs.length-1:(at+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;

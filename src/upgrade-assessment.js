@@ -4,6 +4,17 @@ export function hasUpgradePlan(job) {
  return !!(p&&p.contract==='retrasell-controlled-upgrade-v1'&&hash(job.plan_sha256)&&hash(job.source_sha256)&&hash(job.target_sha256)&&job.source_sha256!==job.target_sha256&&
   p.project_ref===job.project_ref&&p.client_id===job.client_id&&p.source_sha256===job.source_sha256&&p.target_sha256===job.target_sha256&&p.source_id===job.source_id&&p.client_binding===job.client_binding&&p.compatibility==='additive-protocol-1'&&Array.isArray(p.steps)&&p.steps.every(s=>s&&['migration','function'].includes(s.type)&&typeof s.name==='string'&&hash(s.sha256)));
 }
+// Shared presentation/dispatch gates. Server authorization is still decisive.
+export function upgradeActionAllowed(action,job,mode) {
+ const state=job?.state,valid=hasUpgradePlan(job);
+ if(action==='upgrade-status')return true;
+ if(action==='upgrade-review')return !valid&&(!job||['review','complete','completed_reviewed','cancelled'].includes(state));
+ if(action==='upgrade-approve')return valid&&['review','paused'].includes(state)&&!job.unknown_step;
+ if(action==='upgrade-execute'||action==='upgrade-download')return valid&&['approved','paused'].includes(state)&&!job.unknown_step&&job.mode===mode&&mode===(action==='upgrade-execute'?'managed':'byo');
+ if(action==='upgrade-reconcile')return ['running','uncertain'].includes(state);
+ if(action==='upgrade-close')return ['review','approved','verification_required'].includes(state);
+ return false;
+}
 // UX validation only. The existing Edge/SQL gates remain authoritative.
 export function validateAssessment(text,{client,catalog,source,job,binding,fresh,now=Date.now()}) {
  if(!text?.trim())throw Error('Ask the customer for their read-only assessment, then paste its JSON report. The assessment is empty.');

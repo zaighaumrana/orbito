@@ -2235,3 +2235,44 @@ No Shop change, hosted write, approval/cancel/upgrade, backend rollout, producti
 deployment or merge. PR5 stays Draft/Open against development; push uses the verified
 [CF-Pages-Skip] convention. New external platform-ui-consistency-2026-10-24 evidence
 contains REPORT/CURRENT, route matrix, before/after captures and owner-only rollout.
+
+## 2026-10-24 — Two targeted frontend fixes: upgrade actions and sidebar visibility
+Branch: feature/verified-customer-support-platform
+
+### Cause / correction
+The upgrade renderer explicitly offered approval in the approved state. Although
+approval already performed a scoped status read, that predicate kept the previous
+action visible. Clearance download lacked a final status read; actions lacked
+success feedback and their late-response guard did not verify ownership of the
+current frontend state object. A local modal could also invalidate that guard and
+leave the same client action busy. Shared rendering/dispatch gates now remove approval
+after approval, require authorization before installation/clearance, publish matching
+authoritative responses, and refresh once when an action returns no job. Busy and
+view/object ownership checks fence duplicate or obsolete actions. Accepted actions
+with an unreadable status block further writes until status is loaded. Scoped
+feedback is dismissed on another action or client selection. Paused approval
+conditions retain their explicit existing renewal path; no backend gate changes.
+
+The sidebar close button used a toggle whose open class was mobile-only. The shared
+button styling exposed Close on desktop without desktop collapse logic; ordinary
+renders/resize also reset mobile visibility. Explicit close, a permanently available
+accessible menu control, per-width in-memory preferences and the existing grid now
+support close/reopen on desktop/mobile. Route renders retain preferences; choosing
+a mobile route closes its overlay. Focus/Escape/inert/ARIA remain synchronized.
+
+### Focused verification / boundary
+Five isolated browser groups pass: Managed and BYO authoritative transitions/final
+acknowledgment, duplicate/stale/failed-status recovery, and keyboard/navigation/layout
+at1440/390px including rerender and remembered resize state. Three existing assessment
+cases and one approval regression pass. Changed JS syntax, explicit synthetic-public
+build and diff checks pass. Main500.39kB/gzip137.59 triggers the500kB advisory; no bundle
+restructure was added to this narrow patch. No full suites, Docker or backend tests.
+
+Read-only before/after selected projection of original request2428e25d-ab5e-4589-aa36-
+fb0ca3f9c5b5 is identical: completed_reviewed, three passed checkpoints, reviewed
+source limitation/full_source_verified=false, original target/pins/history untouched.
+No Shop change, customer action, hosted mutation, release rebuild, backend deploy or
+production deployment. Existing PR5 stays Open/Draft/unmerged against development;
+commit/push uses [CF-Pages-Skip]. Concise external targeted-upgrade-navigation evidence
+contains REPORT/CURRENT, focused logs and preservation result. Owner frontend rollout
+and live smoke remain separate.

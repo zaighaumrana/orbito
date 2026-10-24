@@ -40,6 +40,8 @@ button { cursor: pointer; }
   display: grid;
   grid-template-columns: 260px 1fr;
 }
+.platform-shell.navigation-collapsed { grid-template-columns: minmax(0, 1fr); }
+.platform-shell.navigation-collapsed > .platform-sidebar { display: none; }
 .platform-sidebar {
   position: sticky;
   top: 0;
@@ -411,7 +413,7 @@ small{font-size:12px;line-height:16px}
 .sidebar-account{margin-top:auto;border-top:1px solid #30405D;padding:20px 12px 0;display:grid;gap:4px;overflow-wrap:anywhere}
 .sidebar-caption{color:#A9B7D0;font-size:12px}.sidebar-account>strong{font-size:14px;font-weight:600}
 .sidebar-role{color:#A9B7D0;font-size:12px}.sidebar-logout{margin-top:12px;color:#FF9BA9;padding-left:0}
-.sidebar-close{display:none}
+.sidebar-close{display:inline-flex}
 .skip-link{position:fixed;top:-100px;left:12px;z-index:20000;background:var(--surface);padding:12px;border:2px solid var(--primary)}
 .skip-link:focus{top:12px}
 .card,.tenant-card{border-radius:var(--rs-radius-card);padding:24px;box-shadow:none}

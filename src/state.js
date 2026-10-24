@@ -3,6 +3,7 @@ export const pState = {
   page:           "login",
   theme:          localStorage.getItem("retailos-platform-theme") || "light",
   online:         navigator.onLine,
+  sidebarOpen:    {desktop:true,mobile:false},
   data:           {
     clients: [], support: [], usage: [], invoices: [],
     rateLog: [], payments: [], credits: [], platformUsers: [],
@@ -38,6 +39,7 @@ export function setPCFG(data) {
 
 // Late responses must not repopulate private data after logout/revocation.
 export function clearSensitiveState() {
+  pState.sidebarOpen={desktop:true,mobile:false};
   pState.authorityGeneration++;
   pState.clientSelectionGeneration++;
   pState.clientRequestGeneration++;

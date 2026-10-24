@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
-import {validateAssessment,hasUpgradePlan} from '../src/upgrade-assessment.js';
+import {validateAssessment,hasUpgradePlan,upgradeActionAllowed} from '../src/upgrade-assessment.js';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const catalog=JSON.parse(read('supabase/releases/approved-shop-releases.json'));
 const source=catalog.find(r=>r.release_id==='support-v4'),target=catalog.find(r=>r.approved_for_new);
@@ -29,7 +29,7 @@ test('assessment preserves exact customer/source/target and rejects stale, confl
 });
 test('empty BYO assessment makes zero network calls and creates no phantom job or request UUID',async()=>{
  const id='99500000-0000-4000-8000-000000000002',state={authenticated:true,page:'client-detail',authorityGeneration:1,currentUser:{auth_user_id:id,session_id:id,role:'master_admin'},selectedClient:client,clientSelectionGeneration:1,backendInventory:{catalog},backendUpgrade:{clientId:1,statusLoaded:true,draft:{'upgrade-source':{value:source.sha256},'upgrade-assessment':{value:''}}}};
- let calls=0,message;const ctx={pState:state,hasUpgradePlan,validateAssessment,document:{querySelectorAll:()=>[]},pb:{rpc:async()=>{calls++;},functions:{invoke:async()=>{calls++;}}},notify:{error:m=>message=m}};vm.createContext(ctx);
+ let calls=0,message;const ctx={pState:state,upgradeActionAllowed,hasUpgradePlan,validateAssessment,document:{querySelectorAll:()=>[]},pb:{rpc:async()=>{calls++;},functions:{invoke:async()=>{calls++;}}},notify:{error:m=>message=m}};vm.createContext(ctx);
  const strip=s=>s.replace(/^import .*$/gm,'').replace(/^export /gm,'');vm.runInContext(strip(read('src/async-context.js')),ctx);vm.runInContext(strip(read('src/backend-upgrade.js')),ctx);
  await ctx.handleUpgrade('upgrade-review',()=>{});assert.equal(calls,0);assert.match(message,/empty/);assert.equal(state.backendUpgrade.job,undefined);assert.equal(state.backendUpgrade.requestId,undefined);
 });
