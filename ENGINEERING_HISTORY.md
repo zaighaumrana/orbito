@@ -2303,3 +2303,27 @@ upgrade occurs in this pass. Owner applies to Platform development, verifies, th
 retries the original assessment once. PR5 remains Draft/Open/unmerged to development;
 commit/push preserves [CF-Pages-Skip]. External byo-upgrade-409 evidence records the
 focused results and exact push/skip outcome; hosted acceptance remains owner-run.
+
+## 2026-10-25 — Clearance compatibility regression and issuer review
+Branch: feature/verified-customer-support-platform
+
+Reviewed the Platform clearance issuer: it already forwards the configured public
+key without imposing a legacy JWT format. Runtime, database and Edge code require
+no change. The responsible Shop customer CLI now accepts publishable/legacy anon
+keys, verifies them against the exact Platform project before sending clearance
+authority, and validates the complete authoritative claim identity and plan digest.
+Updated the existing cross-repository mock fixture to use a publishable key, mock
+the read-only gateway check and include the actual claim identity fields.
+
+The single affected customer CLI regression and five focused Shop security groups
+pass with synthetic responses only; changed-JS syntax passes. Canonical parity
+confirms immutable support-v6 is unchanged. Read-only hosted review confirms the
+original Managed and BYO jobs remain completed_reviewed with three passed
+checkpoints and full_source_verified=false. No clearance was regenerated, no
+customer operation ran, and no backend deployment or new release is required.
+
+This Platform test/history commit uses [CF-Pages-Skip]; no Platform deployment is
+authorized. The owner separately authorized normal production deployment from the
+Shop feature branch to its two existing Pages projects. Settings and PR bases stay
+unchanged; both PRs remain Open/Draft/unmerged. New external clearance-compatibility
+evidence records final parity, push, deployment observations and owner acceptance.

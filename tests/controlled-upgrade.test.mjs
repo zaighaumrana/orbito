@@ -35,13 +35,14 @@ test('customer apply refuses missing clearance or blocked authoritative operatio
   const args=['--mode','byo','--project-ref',identity.project_ref,'--client-id','100','--from-sha',source.sha256,'--journal',join(dir,'journal.json'),'--apply'];
   await assert.rejects(upgradeBackend(['--mode','managed']),/Platform/);await assert.rejects(upgradeBackend(args,{invoke:()=>{calls++;throw Error();}}),/clearance/i);assert.equal(calls,0);assert.equal(existsSync(join(dir,'journal.json')),false);
   const p=plan(),platformRef='zyxwvutsrqponmlkjihg',request='99500000-0000-4000-8000-000000000010';
-  writeFileSync(join(dir,'approval.json'),JSON.stringify({contract:'retrasell-byo-upgrade-clearance-v1',platform_url:`https://${platformRef}.supabase.co`,platform_public_key:'x.'+Buffer.from(JSON.stringify({role:'anon',ref:platformRef})).toString('base64url')+'.x',token:'b'.repeat(64),request_id:request,plan:p,plan_sha256:await digest(p)}));
+  writeFileSync(join(dir,'approval.json'),JSON.stringify({contract:'retrasell-byo-upgrade-clearance-v1',platform_url:`https://${platformRef}.supabase.co`,platform_public_key:'sb_publishable_'+('synthetic_only_').repeat(3),token:'b'.repeat(64),request_id:request,plan:p,plan_sha256:await digest(p)}));
+  const fetch=async(url,init)=>{assert.equal(url,`https://${platformRef}.supabase.co/auth/v1/settings`);assert.equal(init.method,'GET');assert.equal(init.headers['x-retrasell-upgrade-token'],undefined);return Response.json({external:{email:true}});};
   let writes=0;const o=observation(source);
   const query=async q=>{if(!q.startsWith('select ')){writes++;throw Error('No provider mutation expected');}if(q.includes('from public.shop_config'))return [o.shop];if(q.includes('schema_migrations'))return o.migrations;return [{runtime:{owner_account:'active',checks:{database:true}}}];};
   const invoke=a=>{if(a[0]==='--version')return '2.120.0';if(a.includes('--help'))return '--linked --project-ref --file --output-format --use-api --env-file';if(a[0]==='projects')return JSON.stringify([{id:identity.project_ref}]);if(a[0]==='functions'&&a[1]==='list')return JSON.stringify(source.functions.map(f=>({name:f.name,verify_jwt:f.verify_jwt})));writes++;throw Error('No function deployment expected');};
-  await assert.rejects(upgradeBackend([...args,'--approval-file',join(dir,'approval.json'),'--platform-project-ref',platformRef,'--cli','C:/fixture/supabase.exe'],{query,invoke,confirm:async()=>`UPGRADE ${identity.project_ref} ${target.sha256}`,platform:async()=>{throw Error('Authoritative pending configuration blocked');}}),/pending configuration/);
+  await assert.rejects(upgradeBackend([...args,'--approval-file',join(dir,'approval.json'),'--platform-project-ref',platformRef,'--cli','C:/fixture/supabase.exe'],{query,invoke,fetch,confirm:async()=>`UPGRADE ${identity.project_ref} ${target.sha256}`,platform:async()=>{throw Error('Authoritative pending configuration blocked');}}),/pending configuration/);
   assert.equal(writes,0);assert.equal(JSON.parse(readFileSync(join(dir,'journal.json'))).request_id,request);
-  let history=o.migrations,claims=0;const ledger={request_id:request,project_ref:identity.project_ref,target_sha256:target.sha256,plan_sha256:await digest(p),plan:p,steps:{},state:'approved'};
+  let history=o.migrations,claims=0;const ledger={...identity,mode:'byo',source_sha256:source.sha256,request_id:request,target_sha256:target.sha256,plan_sha256:await digest(p),plan:p,steps:{},state:'approved'};
   const platform=async(action,fields={})=>{
    if(action==='customer-claim'){assert.ok(['approved','paused'].includes(ledger.state));claims++;ledger.state='running';return structuredClone({...ledger,invocation:`99500000-0000-4000-8000-0000000000${claims+20}`});}
    assert.equal(action,'customer-command');const {kind,args}=fields;
@@ -51,7 +52,7 @@ test('customer apply refuses missing clearance or blocked authoritative operatio
   };
   const successfulQuery=async q=>{if(q.startsWith('begin;')){writes++;history=observation(target).migrations;return [];}if(q.includes('schema_migrations'))return history;return query(q);};
   const successfulInvoke=a=>{if(a[0]==='functions'&&a[1]==='deploy'&&!a.includes('--help')){writes++;return '{}';}return invoke(a);};
-  const result=await upgradeBackend([...args,'--approval-file',join(dir,'approval.json'),'--platform-project-ref',platformRef,'--cli','C:/fixture/supabase.exe'],{query:successfulQuery,invoke:successfulInvoke,confirm:async()=>`UPGRADE ${identity.project_ref} ${target.sha256}`,platform,report:()=>{}});
+  const result=await upgradeBackend([...args,'--approval-file',join(dir,'approval.json'),'--platform-project-ref',platformRef,'--cli','C:/fixture/supabase.exe'],{query:successfulQuery,invoke:successfulInvoke,fetch,confirm:async()=>`UPGRADE ${identity.project_ref} ${target.sha256}`,platform,report:()=>{}});
   assert.equal(result.state,'verification_required');assert.equal(writes,3);assert.equal(claims,2);assert.equal(JSON.parse(readFileSync(join(dir,'journal.json'))).request_id,request);
  }finally{rmSync(dir,{recursive:true,force:true});}
 });
