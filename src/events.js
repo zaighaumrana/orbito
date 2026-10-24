@@ -1,10 +1,17 @@
+import {openSupport,resolveSupportTicket} from './support-controller.js';
+import {loadBackendInventory} from './backend-inventory.js';
+import {loadUpgradeUI} from './backend-upgrade-loader.js';
+import {refreshPaperStatus} from './paper-supply.js';
+import {submitPaperDelivery} from './paper-delivery.js';
+import {restoreRoute} from './client-routes.js';
+import {ensureClientDraft,rememberClientDraft,persistClientDraft,validateClientStage,openByoWizard,updateByoWizard} from './wizard-controller.js';
 import { captureView, viewCurrent, selectClient, clientDataMatches } from './async-context.js';
 import { notify, confirmDialog, showMessage, deleteUserDialog, cancelDialogs } from './dialogs.js';
 import { resetTurnstile, mountTurnstile, cleanupTurnstile, captchaBusy } from './turnstile.js';
 import { pState, clearSensitiveState }                          from "./state.js";
 import { pb, PLATFORM_AUTH_EMAIL,
          loadConfig, loadPlatform, loadClientData, loadOperatorIdentity,
-         updateClientConfig }              from "./supabase.js";
+         updateClientConfig, refreshClientStatus, loadInvoiceResource, loadClientFinance, loadUsageResource }              from "./supabase.js";
 import { render, syncSidebar }             from "./render.js";
 import { generateInvoice, printClientInvoices } from "./billing.js";
 import { validateSession }                 from "./helpers.js";
@@ -34,26 +41,50 @@ export function initEvents() {
 
     /* Page navigation */
     if (el.dataset.pPage) {
+      pState.routeError=null;
       if (!pState.authenticated) return;
       if(el.dataset.pPage==='team'){
         const identity=await loadOperatorIdentity();
         if(!current() || identity.role!=='master_admin' || identity.auth_user_id!==pState.currentUser.auth_user_id){if(current())notify.error('Team Management is restricted to the verified Master Admin.');return;}
       }
-      pState.page = el.dataset.pPage;
+      if(window.innerWidth<=1180)syncSidebar(false);
+      pState.page = el.dataset.pPage;if(pState.page!=='clients')pState.clientView='current';
       pState.filter = "";
       selectClient(el.dataset.pPage==='client-detail'?pState.selectedClient:null);
-      render(); return;
+      if(pState.page==='support'){await openSupport(render);return;}
+      pState.resourceOffset=0;const nav=captureView();const pending=loadPlatform();render();await pending;if(viewCurrent(nav))render();return;
     }
 
     /* Open modal */
     if (el.dataset.pModal) {
+      if(el.dataset.pModal==='byo-setup'){await openByoWizard(pb,render);return;}
+      if(el.dataset.pModal==='add-client'){
+        if(!['master_admin','portfolio_manager'].includes(pState.currentUser.role))return;
+        ensureClientDraft();
+      }
       if(['add-platform-user','master-continuity'].includes(el.dataset.pModal) && pState.currentUser.role!=='master_admin')return;
       pState.modal = { type: el.dataset.pModal, data:{requestId:crypto.randomUUID()} }; render(); return;
     }
 
     const action = el.dataset.pAction;
     if (!action) return;
-    if(action==='reload-platform'){await loadPlatform();if(current())render();return;}
+    if(['byo-refresh','byo-back','byo-next','byo-ack','byo-skip','byo-block'].includes(action)){
+      const category=document.querySelector('[data-byo-category]')?.value;
+      await updateByoWizard(pb,render,action,category);return;
+    }
+    if(['client-back','client-next','client-review'].includes(action)){
+      const form=document.querySelector('form[data-p-form="add-client"]'),draft=ensureClientDraft();if(!form||draft.pending||draft.submitting)return;
+      rememberClientDraft(form);
+      if(action!=='client-back'&&!validateClientStage(form,draft.step))return;
+      if(action==='client-review')draft.reviewed=true;else draft.step=Math.max(0,Math.min(4,draft.step+(action==='client-next'?1:-1)));
+      persistClientDraft();render();return;
+    }
+    if(action?.startsWith('upgrade-')){const workflow=await loadUpgradeUI();if(!current())return;if(action==='upgrade-open')render();else await workflow.handleUpgrade(action,render);return;}
+    if(action==='backend-inventory'||action==='backend-inventory-refresh'){const pending=loadBackendInventory(action==='backend-inventory-refresh');render();if(await pending&&current())render();return;}
+    if(action==='resource-page'){pState.resourceOffset=Number(el.dataset.offset)||0;await loadPlatform();if(current())render();return;}
+    if(action==='usage-page'){if(await loadUsageResource(pState.modal?.data?.clientId,Number(el.dataset.offset)||0))render();return;}
+    if(action==='load-client-finance'){await loadClientFinance(Number(el.dataset.offset)||0);if(current())render();return;}
+    if(action==='reload-platform'){await loadPlatform();if(current()&&pState.page==='client-detail')await loadClientData(pState.selectedClient,{readOnly:true});if(current())render();return;}
     if(['generate-invoice','mark-paid','clear-credit','view-invoice','view-logs','print-invoice','edit-client-rates'].includes(action)
       && (!['master_admin','billing_person'].includes(pState.currentUser.role) || pState.dataReady===false))return;
     if(action==='open-shop-support'){
@@ -63,8 +94,9 @@ export function initEvents() {
       return;
     }
     if (action === 'copy-setup') {
-      try { await navigator.clipboard.writeText(el.dataset.copyValue || '');el.textContent='Copied'; }
-      catch { notify.error('Copy is unavailable. Select the displayed value to copy it.'); }
+      try { el.disabled=true;await navigator.clipboard.writeText(el.dataset.copyValue || '');if(!current())return;el.dataset.copied='true';el.title='Copied';const feedback=el.querySelector('[data-copy-feedback]');if(feedback)feedback.textContent='Copied';setTimeout(()=>{if(el.isConnected){delete el.dataset.copied;el.title=el.getAttribute('aria-label');if(feedback)feedback.textContent='';}},2000); }
+      catch { if(current())notify.error('Copy is unavailable. Select the displayed value to copy it.'); }
+      finally {if(el.isConnected)el.disabled=false;}
       return;
     }
     if (action === 'retry-verification') { void mountTurnstile(); return; }
@@ -78,9 +110,9 @@ export function initEvents() {
       render(); return;
     }
 
-    /* Mobile sidebar */
-    if (action === "toggle-sidebar") {
-      const sidebar=document.getElementById('p-sidebar'),open=!sidebar?.classList.contains('open');
+    /* Explicit close and shared desktop/mobile navigation toggle. */
+    if (action === "toggle-sidebar" || action === "close-sidebar") {
+      const sidebar=document.getElementById('p-sidebar'),open=action!=='close-sidebar'&&document.getElementById('p-menu-btn')?.getAttribute('aria-expanded')!=='true';
       syncSidebar(open);(open?sidebar?.querySelector('button'):document.getElementById('p-menu-btn'))?.focus();return;
     }
 
@@ -220,8 +252,7 @@ export function initEvents() {
         attempt.phase='loading';
         pState.currentUser = { ...identity,sessionToken:crypto.randomUUID() };pState.authenticated=true;
         await loadConfig();if(!owns() || !pState.authenticated)return;
-        await loadPlatform();if(!owns() || !pState.authenticated)return;
-        pState.page = 'overview';pState.loginLoading=false;render();
+        pState.dataReady=true;pState.loginLoading=false;await restoreRoute(render);
       } catch (error) {
         if(!owns())return;
         clearSensitiveState();
@@ -248,15 +279,17 @@ export function initEvents() {
       await pb.auth.signOut({ scope: "local" });return;
     }
 
+    pState.routeError=null;
     /* ── Open client detail ── */
     if (action === "open-client") {
-      const client = pState.data.clients.find(c => String(c.id) === String(el.dataset.pId));
+      let client = pState.data.clients.find(c => String(c.id) === String(el.dataset.pId));
       if (!client) return;
       selectClient(client);
       pState.page           = "client-detail";
       pState.clientData     = {};
       render();
-      if(await loadClientData(client))render(); return;
+      const detailContext=captureView();await loadPlatform();if(!viewCurrent(detailContext))return;client=pState.selectedClient;
+      if(await loadClientData(client,{readOnly:true})&&viewCurrent(detailContext))render(); return;
     }
 
     // Explicit recovery of a durable commercial intent; unresolved requests are
@@ -293,7 +326,7 @@ export function initEvents() {
       }finally{el.disabled=false;}
       return;
     }
-    if(action==='client-view') { pState.clientView=el.dataset.view;render();return; }
+    if(action==='client-view') {pState.clientView=el.dataset.view;pState.resourceOffset=0;await loadPlatform();render();return;}
     if (action === 'suspend-client' || action === 'activate-client') {
       const client = pState.data.clients.find(c => c.id === Number(el.dataset.pId));
       if(!clientDataMatches(client))return;
@@ -325,16 +358,25 @@ export function initEvents() {
       }
       return;
     }
+    if (action === 'refresh-paper') {
+      await refreshPaperStatus(loadClientData,render);return;
+    }
+    if (action === 'reconcile-paper-delivery') {
+      const form=el.closest('form[data-p-form="paper-delivery"]');if(form)await submitPaperDelivery(form,{reconcile:true});return;
+    }
     if (action === 'refresh-operations') {
       const client=pState.selectedClient;if(!client)return;
-      await loadPlatform();if(!current())return;
-      if(await loadClientData(pState.selectedClient))render(); return;
+      const fresh=await refreshClientStatus(client);if(!current()||!fresh)return;
+      if(await loadClientData(fresh,{readOnly:true}))render(); return;
     }
     if (action === 'paper-status') {
       if(!clientDataMatches())return;
       const client=pState.selectedClient;
-      await rpc('platform_paper_action', { p_client: pState.selectedClient.id, p_request: el.dataset.id, p_version: Number(el.dataset.version), p_status: el.dataset.status, p_delivery: null });
-      if(current() && await loadClientData(client))render(); return;
+      if(!['master_admin','portfolio_manager'].includes(pState.currentUser?.role))return;
+      const request=pState.clientData.operations?.requests?.find(r=>r.request_id===el.dataset.id&&r.sync_version===Number(el.dataset.version));
+      if(!request)return;
+      pState.modal={type:'paper-decision',data:{client:client.id,request:request.request_id,version:request.sync_version,status:el.dataset.status}};
+      render();return;
     }
 
     /* ── Module toggles ── */
@@ -368,12 +410,14 @@ export function initEvents() {
       const newInvoice = await generateInvoice(clientId);
       if(!current())return;
       await loadPlatform();if(current())render();
+      if(current()&&newInvoice?.id)await loadInvoiceResource(newInvoice.id);
       if (current() && client && newInvoice) printClientInvoices(client, [newInvoice]);
       return;
     }
 
     /* ── Mark paid → open payment modal ── */
     if (action === "mark-paid") {
+      if(!await loadInvoiceResource(Number(el.dataset.pId))||!current())return;
       pState.modal = {
         type: "record-payment",
         data: { invoiceId: Number(el.dataset.pId), clientId: Number(el.dataset.pClientId) },
@@ -389,18 +433,21 @@ export function initEvents() {
 
     /* ── View invoice ── */
     if (action === "view-invoice") {
+      if(!await loadInvoiceResource(Number(el.dataset.pId))||!current())return;
       pState.modal = { type: "view-invoice", data: { invoiceId: Number(el.dataset.pId) } };
       render(); return;
     }
 
     /* ── View logs ── */
     if (action === "view-logs") {
+      if(!await loadUsageResource(Number(el.dataset.pId))||!current())return;
       pState.modal = { type: "view-logs", data: { clientId: Number(el.dataset.pId) } };
       render(); return;
     }
 
     /* ── Print invoice ── */
     if (action === "print-invoice") {
+      if(!await loadInvoiceResource(Number(el.dataset.pId))||!current())return;
       const invoice = pState.data.invoices.find(i => i.id === Number(el.dataset.pId));
       const client  = pState.data.clients.find(c => c.id === invoice?.client_id);
       if (!invoice || !client) return;
@@ -505,12 +552,15 @@ export function initEvents() {
       return;
     }
 
+    if(action==='support-page'){
+      if(pState.supportView?.loading||pState.supportView?.resolving)return;
+      await openSupport(render,Number(el.dataset.offset));
+      return;
+    }
     /* ── Resolve support ticket ── */
     if (action === "resolve-ticket") {
-      const { error } = await pb.rpc('platform_resolve_ticket',{p_ticket:Number(el.dataset.pId)});
-      if(!current())return;
-      if (error) { notify.error(error); return; }
-      await loadPlatform(); if(current())render(); return;
+      const id=Number(el.dataset.pId),resolution=document.getElementById('support-resolution-'+id)?.value.trim()||'';
+      await resolveSupportTicket(id,resolution,render,Number(el.dataset.pRevision));return;
     }
     })().catch(error => {
       if(eventGeneration!==pState.authorityGeneration || (eventContext && !current()))return;
@@ -521,15 +571,24 @@ export function initEvents() {
   });
 
   /* ── Input (filter + dynamic form) ── */
+  const rememberUpgrade=event=>{
+    const el=event.target,v=pState.backendUpgrade;
+    if(!el.matches?.('.upgrade-panel [id^="upgrade-"]')||pState.page!=='client-detail'||pState.currentUser.role!=='master_admin'||v?.clientId!==pState.selectedClient?.id||v.busy)return;
+    v.draft={...v.draft,[el.id]:{value:el.value,checked:el.checked}};
+  };
+  document.addEventListener('input',rememberUpgrade);
+  document.addEventListener('change',rememberUpgrade);
   document.addEventListener("input", event => {
     if (event.target.dataset.pFilter !== undefined) {
       const position=event.target.selectionStart;
-      pState.filter = event.target.value; render();
+      pState.filter = event.target.value;
+      if(['clients','team','billing'].includes(pState.page)){clearTimeout(pState.searchTimer);const ctx=captureView();pState.searchTimer=setTimeout(async()=>{if(!viewCurrent(ctx))return;pState.resourceOffset=0;try{await loadPlatform();if(viewCurrent(ctx))render();}catch{if(viewCurrent(ctx))render();}},250);return;}
+      render();
       const input=document.querySelector('[data-p-filter]');input?.focus();if(input && position!==null && input.type!=='search')input.setSelectionRange(position,position);
     }
   });
   document.addEventListener('keydown',event=>{
-    if(event.key==='Escape' && document.getElementById('p-sidebar')?.classList.contains('open')){syncSidebar();document.getElementById('p-menu-btn')?.focus();return;}
+    if(event.key==='Escape' && document.getElementById('p-sidebar')?.classList.contains('open')){syncSidebar(false);document.getElementById('p-menu-btn')?.focus();return;}
     if(event.target.matches?.('.team-tab') && ['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){
       const tabs=[...document.querySelectorAll('.team-tab')],at=tabs.indexOf(event.target);
       const next=event.key==='Home'?0:event.key==='End'?tabs.length-1:(at+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;
@@ -538,11 +597,17 @@ export function initEvents() {
   });
 
   document.addEventListener("change", event => {
+    if(event.target.matches?.('[data-byo-mode]')&&pState.byoWizard){pState.byoWizard.mode=['fresh','existing'].includes(event.target.value)?event.target.value:null;render();return;}
+    if(event.target.matches?.('[data-byo-category]')&&pState.byoWizard){pState.byoWizard.category=event.target.value;pState.byoWizard.problemOpen=true;render();return;}
+    if(event.target.matches?.('input[type="file"][name="enrollment"]')){
+      const label=event.target.closest('.file-picker')?.querySelector('[data-file-name]');if(label)label.textContent=event.target.files?.[0]?.name||'No file selected';
+    }
     if (event.target.id === "onboard-inv-select") {
       const rateField = document.getElementById("onboard-inv-rate-field");
       if (rateField) rateField.classList.toggle("hidden", event.target.value !== "true");
     }
   });
+  document.addEventListener('input',event=>{const form=event.target.closest?.('form[data-p-form="add-client"]');if(form){rememberClientDraft(form);if(event.target.name==='plan'){const breaks=form.elements.ems_track_breaks;breaks.disabled=event.target.value!=='Pro Plus';if(breaks.disabled)breaks.value='false';rememberClientDraft(form)}}});
 
   /* Native Enter/assistive-technology submission follows the same Auth action. */
   document.addEventListener("submit", event => {

@@ -6,10 +6,12 @@ import { pState } from './state.js';
 import { esc } from './operations.js';
 import { render } from './render.js';
 
+const onboardingSubmissions=new WeakSet();
 async function submitOnboarding(form, requestedAction) {
   const client = pState.selectedClient, job = pState.clientData.provisioning?.job;
   const context=captureView(),current=()=>viewCurrent(context);
-  if(!current() || !clientDataMatches(client))return;
+  if(!current() || !clientDataMatches(client) || onboardingSubmissions.has(form))return;
+  onboardingSubmissions.add(form);
   let publicEnv;
   form.querySelectorAll('button').forEach(button => { button.disabled = true; });
   try {
@@ -30,7 +32,17 @@ async function submitOnboarding(form, requestedAction) {
         }
         return result.data;
       };
-      const data = await invoke(action, requestedAction === 'resume' ? job.request_id : crypto.randomUUID());
+      const requestId=requestedAction==='resume'?job.request_id:crypto.randomUUID();
+      let data;for(let n=0;n<200;n++){
+        if(!current())return;
+        data=await invoke(action,requestId);
+        if(!current())return;
+        if(data.state!=='paused')break;
+        if(data.request_id!==requestId)throw Error('Continuation identity changed. Refresh the recorded job.');
+        if(data.needs_secret)throw Error('Provisioning is safely paused. Re-enter the original Turnstile secret to continue the recorded request.');
+        notify.info('Provisioning checkpoint saved. Continuing the same installation…');
+      }
+      if(data?.state==='paused')throw Error('Provisioning remains paused. Resume the original recorded operation.');
       if(!current())return;
       publicEnv=data.public_env;
       if (data.message) {
@@ -53,6 +65,7 @@ async function submitOnboarding(form, requestedAction) {
     }
   } catch (error) { if(current())notify.error(error); }
   finally {
+    onboardingSubmissions.delete(form);
     if(current()){
       pState.modal=null;const refreshed=captureView();
       if(await loadClientData(client) && viewCurrent(refreshed)){

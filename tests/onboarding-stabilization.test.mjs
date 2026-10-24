@@ -1,7 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';import vm from 'node:vm';import {readFileSync} from 'node:fs';import {stripTypeScriptTypes} from 'node:module';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const esc=value=>String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;');
-const ui={URL,esc};vm.createContext(ui);vm.runInContext(read('src/client-setup.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ui);
+const ui={URL,esc};vm.createContext(ui);for(const file of ['src/support-setup.js','src/byo-stages.js','src/client-setup.js'])vm.runInContext(read(file).replace(/^import .*$/gm,'').replace(/^export /gm,''),ui);
 const client={id:50,name:'Example Shop',owner_name:'Owner',owner_email:'owner@example.test',onboarding_version:2,pairing_mode:'byo',plan:'Pro',shop_url:'https://shop.example.test',supabase_url:'https://abcdefghijklmnopqrst.supabase.co',technician_module_enabled:true,live_tracking_enabled:true};
 const keys=['migrations','database_privileges','rpc_privileges','sequence_privileges','private_config','storage','owner_reservation','bridge_mode','config_projection','database_reachable','bridge_configuration','edge_functions','runtime_configuration','authentication'];
 const health={checks:Object.fromEntries(keys.map(k=>[k,true])),contract:'orbito-onboarding-runtime-v1',owner_account:'missing',infrastructure:'ready',owner_setup:'owner_setup_pending',onboarding:'onboarding_pending'};
@@ -30,8 +30,19 @@ test('primary action follows pairing, runtime gaps, manual account detection and
  assert.equal(ui.setupState(client,detail({...health,owner_account:'ready'})).action,'open-login');
  assert.equal(ui.setupState(client,detail({...health,onboarding:'onboarding_complete'})).action,'open-shop');
 });
-test('BYO guide uses five stages, safe copy values and removable-file warning without secret inputs',()=>{
- const html=ui.byoSetupModal(client,detail(health));assert.equal((html.match(/<li><h3>/g)||[]).length,5);assert.match(html,/Sensitive file/);assert.match(html,/Delete|delete/);assert.match(html,/byo:setup/);assert.doesNotMatch(html,/<input|CALL_SECRET=|SOURCE_SECRET=/);
+
+test('BYO Support readiness derives observations without inventing credential enablement',()=>{
+ const c=client,d=detail(health);
+ assert.equal(ui.supportReadiness(c,d).label,'Waiting for owner');
+ d.provisioning.connection.health={...health,owner_account:'active'};assert.equal(ui.supportReadiness(c,d).label,'Waiting for Shop onboarding');
+ d.provisioning.connection.health.onboarding='onboarding_complete';assert.equal(ui.supportReadiness(c,d).label,'Ready for BYO Support enrollment');
+ for(const [state,label] of [['installing','Customer installation pending'],['verifying','Platform verification pending'],['enabled','Support enabled'],['attention','Support needs attention'],['revoked','Support revoked']]){d.supportAutomation={state};assert.equal(ui.supportReadiness(c,d).label,label);}
+ d.supportAutomation={state:'waiting',reason:'status_unavailable'};assert.equal(ui.supportReadiness(c,d).label,'Waiting for prerequisites');assert.match(ui.supportReadiness(c,d).message,/unavailable/);
+});
+test('BYO guide covers all twelve operator stages, safe copy values and retained-file recovery without secret inputs',()=>{
+ const html=ui.byoGuideContent(client,detail(health));assert.equal((html.match(/<li><h3>/g)||[]).length,12);assert.match(html,/original private bridge package/);assert.match(html,/remove|delete/);assert.match(html,/scripts\/setup-byo\.mjs/);assert.match(html,/Existing is for/);assert.match(html,/--status/);assert.doesNotMatch(html,/<input|CALL_SECRET=|SOURCE_SECRET=/);
+ for(const step of ['--login','--public-config','--verify-dist','--enroll','--record-acceptance','URL Configuration','Turnstile challenge','hash-only','Refresh paper status','Business\/Branding'])assert.ok(html.includes(step),step);
+ assert.match(html,/--project-ref abcdefghijklmnopqrst/);assert.match(html,/CLIENT-50/);assert.match(html,/owner@example.test/);
  const malicious=ui.renderClientSetup({...client,owner_name:'<img src=x onerror=alert(1)>',shop_url:'javascript:alert(1)'},detail(health),true);
  assert.doesNotMatch(malicious,/<img|href="javascript:/);assert.match(malicious,/&lt;img/);
 });
@@ -56,6 +67,7 @@ Object.assign(ui,{pState:{authenticated:true,clientRequestGeneration:0,currentUs
 vm.runInContext(read('src/async-context.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ui);
 vm.runInContext(read('src/lifecycle.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ui);
 vm.runInContext(read('src/provisioning.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ui);
+vm.runInContext('Object.assign(globalThis,(()=>{'+read('src/paper-supply.js').replace(/^import .*$/gm,'').replace(/^export /gm,'')+';return {paperRequests,paperDecisionModal};})())',ui);
 vm.runInContext(read('src/pages/clients.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ui);
 test('full detail header renders copyable client ID and safe Shop link; legacy Client 1 stays outside V2',()=>{
  ui.pState.selectedClient=client;ui.pState.clientData=detail(health);const html=ui.pageClientDetail();assert.match(html,/Client #50/);assert.match(html,/href="https:\/\/shop.example.test\/"/);assert.doesNotMatch(html,/\/\^https:/);

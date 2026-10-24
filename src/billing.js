@@ -26,12 +26,12 @@ export function getClientActiveCredit(clientId) {
 
 // ── Invoice generation ────────────────────────────────────────────
 export async function generateInvoice(clientId) {
-  return retryOperation(`invoice:${clientId}`, { clientId }, request => rpc('platform_generate_invoice', { p_client: clientId, p_request: request }));
+  return retryOperation(`invoice:${clientId}`, { clientId }, request => rpc('platform_generate_invoice', { p_client: clientId, p_request: request }),{reconcile:request=>rpc('platform_financial_outcome',{p_kind:'invoice',p_request:request,p_target:clientId})});
 }
 
 // ── Lifecycle flag ────────────────────────────────────────────────
 export function getLifecycleFlag(client) {
-  const lastInvoice = pState.data.invoices.find(i => i.client_id === client.id);
+  const lastInvoice = (pState.data.latestInvoices || pState.data.invoices).find(i => i.client_id === client.id);
   if (!lastInvoice) return null;
   if (lastInvoice.status === "Paid") return { label: "Upfront Paid", cls: "good" };
   if (client.grace_period_ends_at && new Date(client.grace_period_ends_at) > new Date())

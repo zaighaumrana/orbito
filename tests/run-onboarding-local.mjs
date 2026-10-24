@@ -15,7 +15,7 @@ const platform=resolve('.');
 const prefix=`onboarding_test_${Date.now()}`;
 const read=p=>readFileSync(p,'utf8');
 function sql(db,text){
- const result=spawnSync(process.env.PSQL || 'psql',['-h','127.0.0.1','-p',port,'-U','postgres','-d',db,'-X','-q','-A','-t','-v','ON_ERROR_STOP=1'],{input:text,encoding:'utf8',windowsHide:true});
+ const result=spawnSync(process.env.PSQL || 'psql',['-h','127.0.0.1','-p',port,'-U','postgres','-d',db,'-X','-q','-A','-t','-v','ON_ERROR_STOP=1','-v','VERBOSITY=verbose'],{input:text,encoding:'utf8',windowsHide:true});
  if(result.error || result.status) throw Error(result.error?.message || result.stderr);
  return result.stdout.trim();
 }
@@ -40,7 +40,11 @@ sql(fresh,read(resolve(shop,'tests/onboarding-v2.sql')));
 sql(fresh,read(resolve(shop,'tests/manual-owner-activation.sql')));
 sql(fresh,read(resolve(shop,'tests/onboarding-stabilization.sql')));
 console.log('PASS Shop: full migration chain + bootstrap/recovery/conflict/completion SQL assertions');
-for(const fixture of ['phase4-usage.sql','phase4-bridge.sql','phase4-thermal.sql','phase4-pin.sql']) sql(fresh,read(resolve(shop,'tests',fixture)));
+// Financial fixtures require pristine projection state; owner-onboarding fixtures
+// above intentionally persist a projection. Keep these independent contracts isolated.
+const financial=database('financial');sql(financial,shopAuth);
+for(const f of migrations(shop))migration(financial,read(resolve(shop,'supabase/migrations',f)));
+for(const fixture of ['phase4-usage.sql','phase4-bridge.sql','phase4-thermal.sql','phase4-pin.sql']) sql(financial,read(resolve(shop,'tests',fixture)));
 console.log('PASS Shop: existing usage, repair billing, bridge, thermal and PIN SQL regressions');
 existing=database('existing');sql(existing,shopAuth);
 shopMigrations=migrations(shop);
@@ -86,8 +90,8 @@ sql(db,platformBootstrap);
 for(const f of migrations(platform))migration(db,read(resolve(platform,'supabase/migrations',f)).replace('create extension if not exists supabase_vault with schema vault;','-- disposable local Vault substitute'));
 sql(db,read(resolve(platform,'tests/onboarding-v2.sql')));
 sql(db,read(resolve(platform,'tests/manual-owner-activation.sql')));
-sql(db,read(resolve(platform,'tests/onboarding-stabilization.sql')));
-for(const fixture of ['control-plane.sql','currencies-boundaries.sql']) sql(db,read(resolve(platform,'tests',fixture)));
+sql(db,read(resolve(platform,'tests/onboarding-role-isolation.sql')));
+for(const fixture of ['control-plane.sql','currencies-boundaries.sql']){console.log('RUN Platform fixture '+fixture);sql(db,read(resolve(platform,'tests',fixture)))}
 console.log('PASS Platform: full migrations, 12 plan/Inventory/Paper combinations with break variants, onboarding SQL, control plane and currency regressions');
 // Reproduce the observed hosted upgrade shape using synthetic identity only:
 // an existing real-email master authorized by UUID, with no platform_users row.

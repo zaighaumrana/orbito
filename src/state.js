@@ -3,10 +3,13 @@ export const pState = {
   page:           "login",
   theme:          localStorage.getItem("retailos-platform-theme") || "light",
   online:         navigator.onLine,
+  sidebarOpen:    {desktop:true,mobile:false},
   data:           {
     clients: [], support: [], usage: [], invoices: [],
     rateLog: [], payments: [], credits: [], platformUsers: [],
   },
+  supportView:    null,
+  supportRequest: 0,
   modal:          null,
   filter:         "",
   clientView:     'current',
@@ -36,20 +39,25 @@ export function setPCFG(data) {
 
 // Late responses must not repopulate private data after logout/revocation.
 export function clearSensitiveState() {
+  pState.sidebarOpen={desktop:true,mobile:false};
   pState.authorityGeneration++;
   pState.clientSelectionGeneration++;
   pState.clientRequestGeneration++;
   pState.authenticated=false;
   pState.currentUser={role:null,username:""};
   pState.selectedClient=null;pState.clientData={};pState.modal=null;
+  pState.byoWizard=null;pState.clientWizard=null;
+  pState.backendInventory=null;pState.backendUpgrade=null;pState.inventoryRequest=(pState.inventoryRequest||0)+1;
+  try{for(const key of Object.keys(sessionStorage))if(key.startsWith('retrasell-client-draft:'))sessionStorage.removeItem(key)}catch{}
   pState.filter='';pState.recoveryEmail=null;pState.setupMessage='';
   for(const key of Object.keys(pState.data))pState.data[key]=Array.isArray(pState.data[key])?[]:{};
   pState.turnstileToken=null;pState.passwordFlow=null;
   pState.reauthLoading=false;pState.passwordSaving=false;
   pState.diagnosticAttempt=null;pState.resetAttempt=null;pState.resetLoading=false;
   pState.loginAttempt=null;pState.loginLoading=false;pState.authRouting=false;
-  pState.dataReady=false;pState.dataError=null;pState.clientView='current';
-  pState.teamTab='Active';
+  pState.dataReady=false;pState.dataError=null;pState.clientView='current';pState.routeError=null;
+  pState.routeRequest=(pState.routeRequest||0)+1;pState.resourceOffset=0;pState.resourcePage=null;pState.clientFinanceLoaded=null;
+  pState.teamTab='Active';pState.supportView=null;pState.supportRequest=(pState.supportRequest||0)+1;
   PCFG={admin_username:""};
 }
 

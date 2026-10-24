@@ -1,13 +1,13 @@
 import { bridgeCallCredential } from './shop-credentials.ts'
 // Only fixed diagnostics leave this module; never return remote bodies or headers.
-export async function pollShopBridge(admin: any, clientId: number) {
+export async function pollShopBridge(admin: any, clientId: number,fetcher:typeof fetch=fetch) {
   let code = 'credential_lookup_failed', httpStatus: number | null = null
   try {
     const target = await bridgeCallCredential(admin,clientId)
     if (!target) code = 'missing_bridge_call_credential'
     else {
       code = 'network_or_timeout'
-      const response = await fetch(`https://${target.project_ref}.supabase.co/functions/v1/platform-bridge`,{
+      const response = await fetcher(`https://${target.project_ref}.supabase.co/functions/v1/platform-bridge`,{
         method:'POST',redirect:'error',signal:AbortSignal.timeout(15000),
         headers:{ Authorization:`Bearer ${target.bridge_call_secret}`,'Content-Type':'application/json' },body:'{}',
       })

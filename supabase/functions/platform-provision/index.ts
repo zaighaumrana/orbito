@@ -1,9 +1,11 @@
+import {InvocationBudget,ManagedPause,ownedManagedClient} from '../_shared/managed-invocation.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.108.2'
 import { pollShopBridge } from '../_shared/bridge-call.ts'
 import { bridgeCallCredential } from '../_shared/shop-credentials.ts'
 import { runOnboarding, OnboardingError } from '../_shared/onboarding.ts'
 import { runManagedSetup, managedPublicEnvironment, ManagedSetupError } from '../_shared/managed-setup.ts'
 import { repairSupportAccess, SupportAccessError } from '../_shared/support-auth.ts'
+import { reconcileManagedSupport } from '../_shared/support-automation.ts'
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Cache-Control': 'no-store' }
 const reply = (status: number, body: unknown) => Response.json(body, { status, headers: cors })
 const fields = ['repair_module_enabled','inventory_module_enabled','technician_module_enabled','live_tracking_enabled','ems_enabled','suspended']
@@ -50,6 +52,7 @@ const hash = async (secret: string) => Array.from(new Uint8Array(await crypto.su
 const randomSecret = () => Array.from(crypto.getRandomValues(new Uint8Array(32))).map(b => b.toString(16).padStart(2,'0')).join('')
 
 Deno.serve(async req => {
+  const budget=new InvocationBudget();
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return reply(405, { error: 'POST required' })
   const url = Deno.env.get('SUPABASE_URL')!
@@ -86,7 +89,7 @@ Deno.serve(async req => {
     }
     return reply(200,{ outcomes })
   }
-  const caller = createClient(url, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: req.headers.get('authorization') ?? '' } }, auth: { persistSession: false } })
+  const caller = createClient(url, Deno.env.get('SUPABASE_ANON_KEY')!, { global: {fetch:budget.fetch.bind(budget), headers: { Authorization: req.headers.get('authorization') ?? '' } }, auth: { persistSession: false } })
   const { data: auth, error: authError } = await caller.auth.getUser()
   if (authError || !auth.user) return reply(401, { error: 'Sign in required' })
   let body: any
@@ -98,12 +101,23 @@ Deno.serve(async req => {
     const bytes = new Uint8Array(size); let offset = 0; for (const chunk of chunks) { bytes.set(chunk,offset); offset += chunk.length }
     body = JSON.parse(new TextDecoder().decode(bytes))
     if (!Number.isSafeInteger(body.client_id) || body.client_id < 1 || !/^[0-9a-f-]{36}$/i.test(body.request_id)) throw new Error()
-    if (!['provision','verify','activate','rotate','replace','provision-call','rotate-call','pair-shop','bootstrap-shop','onboarding-status','invite-owner','managed-setup','rotate-turnstile','frontend-env','repair-support-access'].includes(body.action)) throw new Error()
+    if (!['provision','verify','activate','rotate','replace','provision-call','rotate-call','pair-shop','bootstrap-shop','onboarding-status','invite-owner','managed-setup','rotate-turnstile','frontend-env','repair-support-access','support-reconcile'].includes(body.action)) throw new Error()
     if (!body || Array.isArray(body) || Object.keys(body).some(key => !['client_id','request_id','action','params','credential','turnstile_secret'].includes(key))) throw new Error()
     if (body.turnstile_secret !== undefined && (!['managed-setup','rotate-turnstile'].includes(body.action) || typeof body.turnstile_secret !== 'string' || body.turnstile_secret.length>512)) throw new Error()
     if (body.credential !== undefined) return reply(400, { error:'Shop privileged credentials are not accepted. Use bridge pairing.' })
   } catch { return reply(400, { error: 'Invalid provisioning request' }) }
   const params: any = body.params ?? {}
+  const optionalSupport=async()=>{
+    try{
+      return await reconcileManagedSupport(createClient(url,serviceKey,{auth:{persistSession:false}}),caller,auth.user.id,body.client_id,url,req.headers.get('authorization')||'',key=>Deno.env.get(key))
+    }catch{return {state:'attention',reason:'prerequisites_or_authority'}}
+  }
+  if(body.action==='support-reconcile'){
+    if(!params||Array.isArray(params)||typeof params!=='object'||Object.keys(params).length)return reply(400,{error:'Support uses recorded server state.'})
+    const identity=await caller.rpc('platform_operator_identity')
+    if(identity.error||identity.data?.role!=='master_admin'||identity.data.auth_user_id!==auth.user.id)return reply(403,{error:'Live Master required.'})
+    return reply(200,{support:await optionalSupport()})
+  }
   if(body.action==='repair-support-access'){
     if(!params || Array.isArray(params) || typeof params!=='object' || Object.keys(params).length)return reply(400,{error:'Support configuration must come from Platform server state.'})
     const identity=await caller.rpc('platform_operator_identity')
@@ -120,12 +134,14 @@ Deno.serve(async req => {
     catch{return reply(503,{error:'Managed public configuration is unavailable. Check project access and anon JWT availability.'})}
   }
   // All destination changes are explicitly authorized by the master role in this RPC.
-  const { data: reservation, error: reserveError } = await caller.rpc('platform_provision_begin', {
-    p_client: body.client_id, p_request: body.request_id, p_action: body.action, p_params: params,
+  const managed=['managed-setup','rotate-turnstile'].includes(body.action),invocation=crypto.randomUUID();
+  const { data: reservation, error: reserveError } = await caller.rpc(managed?'platform_managed_begin':'platform_provision_begin', {
+    p_client: body.client_id, p_request: body.request_id, p_action: body.action, p_params: params,...(managed?{p_token:invocation}:{}),
   })
   if (reserveError) return reply(409,{ error: reserveError.code === '42501' ? 'Master administrator access required' : reserveError.message })
-  if (reservation.complete) return reply(200,{ state:'complete' })
-  const admin = createClient(url,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{ auth:{ persistSession:false } })
+  if (reservation.complete) return reply(200,{ state:'complete',support:managed?{state:'waiting'}:await optionalSupport() })
+  const rawAdmin=createClient(url,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false},...(managed?{global:{fetch:budget.fetch.bind(budget)}}:{})});
+  const admin:any=managed?ownedManagedClient(rawAdmin,body.request_id,invocation):rawAdmin
   let stage = 'initializing'
   async function step(name: string, data: unknown = {}) {
     const { data: result, error } = await admin.rpc('platform_provision_step',{ p_request:body.request_id,p_step:name,p_data:data })
@@ -147,10 +163,10 @@ Deno.serve(async req => {
   try {
     if (['managed-setup','rotate-turnstile'].includes(body.action)) {
       stage='managed-setup'
-      const result=await runManagedSetup(admin,body,url,body.turnstile_secret,caller,auth.user.id)
+      const result=await runManagedSetup(admin,body,url,body.turnstile_secret,caller,auth.user.id,budget)
       delete body.turnstile_secret
       await step('complete')
-      return reply(200,result)
+      return reply(200,{...result,support:{state:'waiting',reason:'owner_onboarding'}})
     }
     if (['pair-shop','bootstrap-shop','onboarding-status','invite-owner'].includes(body.action)) {
       stage = 'onboarding'
@@ -158,7 +174,7 @@ Deno.serve(async req => {
       try { result = await runOnboarding(admin,body,url) }
       catch (error) { throw new OperatorError(error instanceof OnboardingError ? error.message : 'Onboarding unavailable; retry the same request.') }
       await step('complete')
-      return reply(200,{ ...result,request_id:body.request_id })
+      return reply(200,{ ...result,request_id:body.request_id,support:await optionalSupport() })
     }
     let context = await step('context')
     if (['provision-call','rotate-call'].includes(body.action)) {
@@ -247,6 +263,7 @@ Deno.serve(async req => {
     await step('complete')
     return reply(200,{ state:'complete',request_id:body.request_id })
   } catch (error) {
+    if(managed&&error instanceof ManagedPause){const paused=await admin.command('pause');delete body.turnstile_secret;if(paused.error)return reply(503,{error:'Pause acknowledgment unavailable; reconcile the original request.',request_id:body.request_id});return reply(200,{state:'paused',request_id:body.request_id,needs_secret:error.needsSecret});}
     // Only our own fixed errors are returned. Never forward remote bodies or exception payloads.
     const message = error instanceof OperatorError || error instanceof ManagedSetupError || error instanceof SupportAccessError ? error.message : 'Provisioning interrupted. Refresh status and resume the same operation.'
     try { await step('failure',{ error:message,stage }) } catch { /* Keep running lock for explicit administrator recovery. */ }

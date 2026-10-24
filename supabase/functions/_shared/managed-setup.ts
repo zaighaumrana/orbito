@@ -1,4 +1,6 @@
-import release from './shop-release.json' with { type: 'json' }
+import {installationPlan} from './backend-plan.js'
+import {ManagedPause,InvocationBudget} from './managed-invocation.ts'
+import {pinManagedRelease} from './shop-release-registry.ts'
 import { runOnboarding } from './onboarding.ts'
 import { configureSupportAuth } from './support-auth.ts'
 import { legacyPublicAnonKey } from './public-api-key.ts'
@@ -7,7 +9,7 @@ const literal=(s: string)=>"'"+s.replaceAll("'","''")+"'"
 const secretFingerprint=async(value: string)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))).map(b=>b.toString(16).padStart(2,'0')).join('')
 export function managedMigrationQuery(migration: any){
  const sql=migration.sql.replace(/^\s*(begin|commit);\s*$/gmi,'')
- return `begin; set local statement_timeout='25s'; select pg_advisory_xact_lock(71390461); create schema if not exists supabase_migrations; create table if not exists supabase_migrations.schema_migrations(version text primary key,statements text[],name text); do $install$ begin if not exists(select 1 from supabase_migrations.schema_migrations where version=${literal(migration.version)}) then execute ${literal(sql)}; insert into supabase_migrations.schema_migrations(version,name,statements) values(${literal(migration.version)},${literal(migration.name)},array[${literal(migration.sql)}]); end if; end $install$; commit;`
+ return `begin; set local statement_timeout='25s'; select pg_advisory_xact_lock(71390461); create schema if not exists supabase_migrations; create table if not exists supabase_migrations.schema_migrations(version text primary key,statements text[],name text); do $install$ begin if exists(select 1 from supabase_migrations.schema_migrations where version=${literal(migration.version)}) then if not exists(select 1 from supabase_migrations.schema_migrations where version=${literal(migration.version)} and name=${literal(migration.name)} and encode(extensions.digest(replace(array_to_string(statements,E'\\n'),E'\\r\\n',E'\\n'),'sha256'),'hex')=${literal(migration.sha256)}) then raise exception 'Migration source conflict'; end if; else execute ${literal(sql)}; insert into supabase_migrations.schema_migrations(version,name,statements) values(${literal(migration.version)},${literal(migration.name)},array[${literal(migration.sql)}]); end if; end $install$; commit;`
 }
 export async function managedPublicEnvironment(admin: any,clientId: number,platformUrl: string){
  const c=await admin.from('clients').select('supabase_url,pairing_mode,turnstile_site_key,lifecycle_state,infrastructure_state').eq('id',clientId).single()
@@ -24,7 +26,9 @@ export function publicShopKey(keys: any[],projectRef: string) {
   if (!anon) throw new ManagedSetupError('The existing Shop gateway contract requires its public anon JWT. Enable the legacy public key in Shop settings; no service key is accepted.')
   return anon
 }
-export async function runManagedSetup(admin: any,request: any,platformUrl: string,secret?: string,caller?: any,userId?: string) {
+export async function runManagedSetup(admin: any,request: any,platformUrl: string,secret?: string,caller?: any,userId?: string,budget=new InvocationBudget()) {
+ const release=request.action==='managed-setup'?await pinManagedRelease(admin,request.request_id):null
+ const plan=release?installationPlan(release,'managed'):null
  const token=Deno.env.get('PLATFORM_MANAGEMENT_TOKEN')
  if(!token)throw new ManagedSetupError('Configure PLATFORM_MANAGEMENT_TOKEN on Platform server before managed setup.')
  const client=await admin.from('clients').select('supabase_url,pairing_mode,onboarding_version,lifecycle_state,infrastructure_state').eq('id',request.client_id).single()
@@ -32,7 +36,7 @@ export async function runManagedSetup(admin: any,request: any,platformUrl: strin
  if(client.error || !ref || ref===new URL(platformUrl).hostname.split('.')[0] || client.data.pairing_mode!=='managed' || client.data.onboarding_version!==2 || client.data.lifecycle_state==='Archived' || ['destroyed','decommissioned'].includes(client.data.infrastructure_state))throw new ManagedSetupError('Exact managed Shop destination required; Platform and retired projects are rejected.')
  async function api(route: string,method='GET',body?: any,headers: Record<string,string>={}){
   let response: Response
-  try{response=await fetch(`https://api.supabase.com/v1/projects/${ref}${route}`,{method,redirect:'error',signal:AbortSignal.timeout(30000),headers:{Authorization:`Bearer ${token}`,...(body instanceof FormData?{}:{'Content-Type':'application/json'}),...headers},...(body===undefined?{}:{body:body instanceof FormData?body:JSON.stringify(body)})})}
+  try{response=await budget.fetch(`https://api.supabase.com/v1/projects/${ref}${route}`,{method,redirect:'error',signal:AbortSignal.timeout(30000),headers:{Authorization:`Bearer ${token}`,...(body instanceof FormData?{}:{'Content-Type':'application/json'}),...headers},...(body===undefined?{}:{body:body instanceof FormData?body:JSON.stringify(body)})})}
   catch{throw new ManagedSetupError('Management API outcome unknown. Recover and resume this same operation; successful stages are retained.')}
   if(!response.ok){await response.body?.cancel();throw new ManagedSetupError(`Management API rejected this stage (HTTP ${response.status}); check project permissions.`)}
   const text=await response.text();try{return text?JSON.parse(text):null}catch{throw new ManagedSetupError('Management API returned an invalid stage response.')}
@@ -40,19 +44,47 @@ export async function runManagedSetup(admin: any,request: any,platformUrl: strin
  async function record(name: string,state: string,checksum: string|null=null){const {data,error}=await admin.rpc('platform_managed_stage',{p_request:request.request_id,p_name:name,p_state:state,p_checksum:checksum});if(error)throw new ManagedSetupError('Stage state unavailable; refresh the recorded operation.');return data}
  async function stage(name: string,work: ()=>Promise<any>,checksum: string|null=null){
   const saved=await record(name,'running',checksum);if(saved.skip)return
-  try{await work();await record(name,'passed',checksum)}catch(error){await record(name,error instanceof ManagedSetupError && /Enter the Turnstile|Unapproved target|Existing schema/.test(error.message)?'manual':'failed',checksum);throw error}
+  if(!['migrations','functions','project-access'].includes(name))budget.beforeWork(name)
+  const leaf=!['migrations','functions','project-access'].includes(name);
+  if(name==='turnstile'&&!secret)throw new ManagedPause(true);
+  if(leaf){const dispatched=await admin.command('dispatch',{step:name});if(dispatched.error)throw new ManagedSetupError('Dispatch fence could not be recorded.');}
+  await work();
+  if(leaf){const verified=await admin.command('verified-stage',{p_name:name,p_state:'passed',p_checksum:checksum});if(verified.error)throw new ManagedSetupError('Stage acknowledgment uncertain. Review the original operation.');}
+  else await record(name,'passed',checksum);
+ }
+ const ownership=await admin.command?.('check');
+ if(ownership?.error)throw new ManagedSetupError('Invocation ownership unavailable.');
+ const unknown=ownership?.data?.unknown_step;
+ if(unknown){
+  if(!unknown.startsWith('migration:'))throw new ManagedSetupError('Provider write outcome requires authoritative manual reconciliation. No write repeated.');
+  const m=release?.migrations.find((m:any)=>'migration:'+m.version===unknown);
+  const rows=await api('/database/query','POST',{query:'select version,name,statements from supabase_migrations.schema_migrations order by version'});
+  const h=rows?.find((h:any)=>h.version===m?.version);
+  if(!m||h?.name!==m.name||!Array.isArray(h.statements)||await secretFingerprint(h.statements.join('\n').replaceAll('\r\n','\n'))!==m.sha256)throw new ManagedSetupError('Migration outcome is not verified. Review the original provider operation.');
+  const reconciled=await admin.command('reconciled');if(reconciled.error)throw new ManagedSetupError('Migration reconciliation unavailable.');
  }
  // Revalidate access every execution, even when this stage previously passed.
  const project=await api('');if(project?.id!==ref)throw new ManagedSetupError('Management API project identity mismatch.')
  await stage('project-access',async()=>{},ref)
  if(request.action==='managed-setup') {
+  // Revalidate even when the aggregate stage was previously marked passed.
+  const versions=await api('/database/migrations')
+  if(!Array.isArray(versions)||versions.length>release.migrations.length||versions.some((h:any)=>!release.migrations.some((m:any)=>m.version===h.version)))throw new ManagedSetupError('Unapproved target migration history. Review adoption; no reset is allowed.')
+  if(versions.length){
+   const history=await api('/database/query','POST',{query:'select version,name,statements from supabase_migrations.schema_migrations order by version'})
+   if(!Array.isArray(history)||history.length!==versions.length)throw new ManagedSetupError('Migration history cannot be verified.')
+   for(let i=0;i<history.length;i++){
+    const h=history[i],m=release.migrations[i]
+    if(h.version!==m.version||h.name!==m.name||!Array.isArray(h.statements)||await secretFingerprint(h.statements.join('\n').replaceAll('\r\n','\n'))!==m.sha256)throw new ManagedSetupError('Unapproved target migration source or prefix. Review adoption; no writes allowed.')
+   }
+  }
   await stage('migrations',async()=>{
    const history=await api('/database/migrations')
-   if(!Array.isArray(history) || history.some(h=>!release.migrations.some(m=>m.version===h.version)))throw new ManagedSetupError('Unapproved target migration history. Review/adopt it manually; no reset or replay is allowed.')
+   if(!Array.isArray(history) || history.some(h=>!release.migrations.some((m:any)=>m.version===h.version)))throw new ManagedSetupError('Unapproved target migration history. Review/adopt it manually; no reset or replay is allowed.')
    const installed=new Set(history.map(h=>h.version))
    // Never infer a blank project from a missing migration record on an existing business.
    if(!installed.size){const rows=await api('/database/query','POST',{query:"select count(*)::integer as count from pg_tables where schemaname='public'"});if(rows?.[0]?.count!==0)throw new ManagedSetupError('Existing schema without approved history requires manual adoption.')}
-   for(const migration of release.migrations) await stage('migration:'+migration.version,async()=>{
+   for(const migration of plan!.migrations) await stage('migration:'+migration.version,async()=>{
     if(installed.has(migration.version))return
     // One atomic commit includes the original CLI-compatible version. Transaction
     // advisory lock plus version read-back recovers a timeout-after-commit safely.
@@ -64,9 +96,9 @@ export async function runManagedSetup(admin: any,request: any,platformUrl: strin
  if(request.action==='managed-setup'){
   // Approved migrations leave a fresh Shop at version 0. Only canonical owner
   // bootstrap advances it to V2; validate before preparing pairing or writing secrets.
-  const rows=await api('/database/query','POST',{query:"select sc.onboarding_version,sc.platform_client_id,bc.client_binding,b.payload->>'request_id' as owner_request,exists(select 1 from public.app_users where role='Business Owner') as has_owner from public.shop_config sc cross join app_private.bridge_config bc left join app_private.owner_bootstrap b on b.singleton where sc.id=1 and bc.singleton"})
+  const rows=await api('/database/query','POST',{query:"select sc.onboarding_version,sc.onboarding_completed_at,sc.platform_client_id,bc.client_binding,b.payload->>'request_id' as owner_request,exists(select 1 from public.app_users where role='Business Owner') as has_owner from public.shop_config sc cross join app_private.bridge_config bc left join app_private.owner_bootstrap b on b.singleton where sc.id=1 and bc.singleton"})
   current=rows?.[0]
-  const fresh=current?.onboarding_version===0 && current.platform_client_id===null && current.client_binding===null && current.owner_request===null && current.has_owner===false
+  const fresh=current?.onboarding_version===0 && current.onboarding_completed_at===null && current.platform_client_id===null && current.client_binding===null && current.owner_request===null && current.has_owner===false
   const reserved=current?.onboarding_version===2 && typeof current.client_binding==='string' && typeof current.owner_request==='string' && current.platform_client_id===request.client_id
   if(!fresh && !reserved)throw new ManagedSetupError('Target is an initialized or differently bound Shop. Manual adoption is required; its secrets were not replaced.')
  }
@@ -81,20 +113,24 @@ export async function runManagedSetup(admin: any,request: any,platformUrl: strin
  // One-time secret goes directly to Shop secrets API. Never saved in RPC params,
  // stage state, public client fields, logs or the response. Retry resubmits it.
  await stage('turnstile',async()=>{
-  if(!secret || secret.length>512 || /\s/.test(secret))throw new ManagedSetupError('Enter the Turnstile secret once for installation; it is not retained. Re-enter on an uncertain retry.')
+  if(!secret)throw new ManagedPause(true)
+  if(secret.length>512 || /\s/.test(secret))throw new ManagedSetupError('Enter the original valid Turnstile secret.')
   await api('/secrets','POST',[{name:'TURNSTILE_SECRET',value:secret}])
  },secret?await secretFingerprint(secret):null)
  if(request.action==='managed-setup') {
   await stage('support-auth-config',async()=>{await configureSupportAuth(api,caller,userId!)})
-  await stage('functions',async()=>{for(const fn of release.functions)await stage('function:'+fn.name,async()=>{
+  // Optional customer Support is installed by the post-prerequisite lifecycle.
+  // Its provider/credential failures must never hold the base POS job open.
+  await stage('functions',async()=>{for(const fn of plan!.coreFunctions)await stage('function:'+fn.name,async()=>{
    const form=new FormData()
    for(const file of fn.files)form.append('file',new Blob([file.content],{type:'application/typescript'}),file.path)
    form.append('metadata',JSON.stringify({name:fn.name,entrypoint_path:fn.entrypoint,verify_jwt:fn.verify_jwt}))
    await api('/functions/deploy?slug='+fn.name,'POST',form)
+   const inventory=await api('/functions');if(!inventory?.some((f:any)=>(f.slug||f.name)===fn.name&&f.verify_jwt===fn.verify_jwt))throw new ManagedSetupError('Function gateway verification incomplete.')
   },fn.stage_sha256)},release.stage_checksums.functions)
-  await stage('bridge-owner',async()=>{await runOnboarding(admin,{...request,action:'bootstrap-shop'},platformUrl)})
+  await stage('bridge-owner',async()=>{await runOnboarding(admin,{...request,action:'bootstrap-shop'},platformUrl,budget.fetch.bind(budget))})
   await stage('preflight',async()=>{
-   await runOnboarding(admin,{...request,action:'onboarding-status'},platformUrl)
+   await runOnboarding(admin,{...request,action:'onboarding-status'},platformUrl,budget.fetch.bind(budget))
    const health=await admin.rpc('platform_provision_status_service',{p_client:request.client_id})
    if(health.error || health.data?.infrastructure!=='ready')throw new ManagedSetupError('Backend preflight is pending; inspect the individual runtime checks.')
   })

@@ -93,6 +93,8 @@ authorization; preserve these safeguards unless an explicit later decision chang
 - Legacy support-auth configuration is compatibility-only, not the current login architecture.
 - Keep bridge source and call credentials separate; do not change scheduler cadence.
 
+
+
 ## 6. Lifecycle and retention
 
 - Lifecycle: Provisioning → Active ↔ Suspended → Archived.
@@ -210,3 +212,113 @@ Branch:
 - Finish concisely: changed files, decision, validation, DB/deployment impact, remaining limits,
   history update, branch/status and suggested commit when useful.
 - Never imply the overhaul hosted smoke gate is complete while required stages remain pending.
+
+
+## Mandatory Rule: Managed and BYO Backend Provisioning Parity
+
+**Priority: CRITICAL | NON-NEGOTIABLE | RELEASE-BLOCKING**
+
+RetraSell supports two distinct Shop provisioning approaches:
+
+1. **Managed Provisioning:** The Platform installs and configures the Shop backend through its authorized provisioning infrastructure.
+2. **Bring Your Own (BYO) Provisioning:** The customer installs or authorizes installation of the Shop backend within their own Supabase project using the approved BYO workflow.
+
+These approaches may differ in execution, permissions, authentication, deployment procedures and infrastructure ownership. However, **both must deliver equivalent approved Shop backend capabilities, security guarantees and operational behavior.**
+
+### 1. Every Backend Change Must Address Both Approaches
+
+Whenever any developer or AI agent introduces, modifies or removes a Shop backend component, including:
+
+- SQL migrations, database tables, functions, triggers, policies and RLS rules.
+- Supabase Edge Functions and their dependencies.
+- Storage buckets, policies and permissions.
+- Authentication, secrets, gateway settings and runtime configuration.
+- Platform Bridge, billing, Support, security and operational dependencies.
+
+The change MUST be assessed and accounted for in **both Managed and BYO provisioning**.
+
+A backend change is not considered complete merely because it works in one provisioning mode.
+
+### 2. Functional Parity Takes Priority Over Numerical Parity
+
+**Matching migration counts, filenames or Edge Function counts is NOT sufficient proof of parity.**
+
+For every change, the implementation must establish:
+
+- **Purpose:** Why was the change introduced?
+- **Requirement:** What functionality, security protection or operational behavior does it provide?
+- **Managed implementation:** How is that requirement delivered through Managed provisioning?
+- **BYO implementation:** How is the equivalent requirement delivered through BYO provisioning?
+- **Verification:** How is the expected outcome established in both modes?
+
+The implementation methods MAY differ where necessary.
+
+For example, Managed provisioning may configure a component automatically using authorized Platform infrastructure, while BYO provisioning may require customer-controlled configuration and subsequent verification.
+
+These differences are acceptable only when the resulting functionality, authorization boundaries and security properties remain equivalent.
+
+**Different implementation methods are permitted. Missing requirements are not.**
+
+### 3. Mandatory Change-to-Provisioning Traceability
+
+Every backend change must have traceable coverage across both provisioning approaches.
+
+An implementation must not be approved unless the relevant release documentation, manifests and verification evidence establish:
+
+- Which backend requirement was introduced or changed.
+- Which artifact or installation operation fulfills it.
+- How Managed provisioning delivers it.
+- How BYO provisioning delivers it.
+- Why any implementation difference is necessary.
+- How both outcomes were verified.
+
+If a requirement genuinely applies only to one provisioning mode, its scope and exclusion rationale must be explicitly documented and reviewed. Such exceptions must never conceal a missing shared Shop capability.
+
+### 4. Release Integrity and Verification
+
+Both fresh provisioning paths MUST be validated against the **final approved Shop backend implementation**, not an intermediate build.
+
+The approved immutable release, manifests and installation selectors must remain consistent with the final committed backend source.
+
+Any change affecting the packaged backend after fingerprint generation invalidates the previous release candidate and requires regeneration and verification before approval.
+
+Older immutable releases and existing customer release pins must be preserved.
+
+No release may be approved when a required backend capability is missing from either provisioning path.
+
+### 5. Existing Shops and Future Upgrades
+
+Parity applies not only to fresh provisioning but also to upgrade eligibility and maintenance workflows.
+
+When a new approved backend requirement is introduced, both Managed and BYO Shops must have a supported way to:
+
+1. Detect whether the requirement is already satisfied.
+2. Identify missing or outdated components.
+3. Determine the appropriate authorized upgrade procedure.
+4. Apply or guide the required changes safely.
+5. Verify the resulting backend capabilities.
+
+Differences in customer ownership and installation permissions must be respected.
+
+**An available upgrade must never automatically suspend an otherwise healthy Shop, disable its Platform Bridge, interrupt billing or compromise Support delivery.**
+
+Upgrade execution must follow explicit authorization, compatibility and service-continuity safeguards.
+
+### 6. Mandatory Release Gate
+
+Before approving or merging any change that affects the Shop backend, the implementing agent MUST verify that:
+
+- Managed provisioning covers the change.
+- BYO provisioning covers the change.
+- The same underlying requirement is satisfied in both.
+- Any differences are documented and justified.
+- Relevant security and operational guarantees remain equivalent.
+- Required tests or verification evidence exist for both approaches.
+- Release manifests and fingerprints are correct.
+- Existing customer installations and release pins remain protected.
+
+**If parity cannot be demonstrated, the change is INCOMPLETE and MUST NOT be marked finished, approved or release-ready.**
+
+This rule applies to all future migrations, Edge Functions, security improvements, provisioning changes and backend releases.
+
+**No AI agent or developer may silently implement a shared Shop backend requirement in one provisioning approach while omitting it from the other.**

@@ -105,7 +105,7 @@ test('remote errors are sanitized and missing installed names cannot produce Ver
  for(const options of [{remoteError:true},{missingVerification:true}]){const f=fixture(options),result=await f.send();assert.equal(result.status,503);assert.equal(result.body.resumable,true);assert.doesNotMatch(JSON.stringify([result,f.rpc,f.logs]),/private-management|canonical-master|private-service/);assert.equal(f.rpc.at(-1).args.p_configured,false);}
 });
 test('Advanced repair action is master-only, managed-only and unavailable for retired clients; status is boolean only',()=>{
- const ui=vm.createContext({URL,esc:s=>String(s??'')});vm.runInContext(read('src/client-setup.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ui);
+ const ui=vm.createContext({URL,esc:s=>String(s??'')});vm.runInContext(read('src/support-setup.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ui);vm.runInContext(read('src/client-setup.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ui);
  const client={id:42,onboarding_version:2,pairing_mode:'managed',lifecycle_state:'Suspended',infrastructure_state:'ready',supabase_url:`https://${shopRef}.supabase.co`};
  const detail={provisioning:{connection:{bridge_call_configured:true,health:{checks:{owner_reservation:true},support_auth_configured:true}}}};
  const html=ui.renderClientSetup(client,detail,true);assert.match(html,/value="repair-support-access"/);assert.match(html,/Support access configuration: <strong>Verified/);assert.doesNotMatch(html,/PLATFORM_AUTH_EMAIL|PLATFORM_SUPABASE_ANON/);

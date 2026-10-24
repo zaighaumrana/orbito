@@ -26,7 +26,7 @@ test('authenticated canonical master issues a 256-bit opaque grant; server RPC r
  const second=await f.send({action:'issue',client_id:42});assert.notEqual(second.body.token,r.body.token);
 });
 test('support button is master-only for Active/Suspended managed pairing and absent for retired or BYO clients',()=>{
- const ctx=vm.createContext({URL,Date,esc:v=>String(v)});vm.runInContext(read('src/client-setup.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ctx);
+ const ctx=vm.createContext({URL,Date,esc:v=>String(v)});vm.runInContext(read('src/support-setup.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ctx);vm.runInContext(read('src/client-setup.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ctx);
  const client={id:42,onboarding_version:2,pairing_mode:'managed',lifecycle_state:'Active',infrastructure_state:'ready',shop_url:'https://shop.example.test',supabase_url:'https://dexzxxqkbwnpetbsuxxv.supabase.co'};
  const detail={provisioning:{connection:{bridge_call_configured:true,health:{}}},operations:{source:{source_id:source}}};
  for(const lifecycle_state of ['Active','Suspended'])assert.match(ctx.renderClientSetup({...client,lifecycle_state},detail,true),/data-p-action="open-shop-support"/);

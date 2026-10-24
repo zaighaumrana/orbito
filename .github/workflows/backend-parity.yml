@@ -1,0 +1,34 @@
+name: Backend release parity
+on:
+  pull_request:
+    branches: [development]
+    paths: ['supabase/**', 'scripts/**', '.github/workflows/backend-parity.yml', 'package.json', 'AGENTS.md']
+  push:
+    branches: [feature/verified-customer-support-platform]
+    paths: ['supabase/**', 'scripts/**', '.github/workflows/backend-parity.yml', 'package.json', 'AGENTS.md']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: orbito
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: zaighaumrana/Orbitoshopv2-v1
+          ref: feature/verified-customer-support-shop
+          path: Orbitoshopv2-v1
+          fetch-depth: 0
+          persist-credentials: false
+          token: ${{ secrets.RETRASELL_RELEASE_READ_TOKEN || github.token }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate committed backend and both installation plans
+        working-directory: orbito
+        run: node scripts/release-parity.mjs

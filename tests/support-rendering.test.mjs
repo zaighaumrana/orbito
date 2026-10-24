@@ -5,6 +5,7 @@ import {readFileSync} from 'node:fs';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 test('support text/attributes are escaped and external links allow only safe web URLs',()=>{
  const ctx={URL,pState:{filter:'',data:{clients:[{id:1,plan:'<img src=x onerror=alert(1)>',shop_url:'javascript:alert(1)'}],support:[{id:1,client_id:1,status:'Open',subject:'<img src=x onerror=alert(1)>',client_name:'<script>bad()</script>',message:'<svg onload=alert(1)>',created_at:'2026-10-12'}]}},tit:()=>''};
+ ctx.pState.supportView={rows:ctx.pState.data.support,ready:true,offset:0};
  vm.createContext(ctx);vm.runInContext(read('src/operations.js').split('\n').find(line=>line.startsWith('export const esc')).replace('export ',''),ctx);
  vm.runInContext(read('src/pages/support.js').replace(/^import .*$/gm,'').replace(/^export /gm,''),ctx);
  let html=ctx.pageSupport();assert.doesNotMatch(html,/<img|<svg|<script|href="javascript:/);assert.match(html,/&lt;img/);assert.match(html,/data-p-action="resolve-ticket"/);

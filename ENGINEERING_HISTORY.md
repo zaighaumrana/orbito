@@ -1582,3 +1582,697 @@ checks,without bypass or skip marker on merge;verify actual Pages revision/domai
 assets/staging backend before deleting merged feature branch. Preserve main,
 deployment and fallback tag. Exact commit/merge/deployment/cleanup outcomes are
 recorded in final verified report,not invented inside this precommit entry.
+
+
+## 2026-10-18 — Verified customer Support v1 source implementation
+
+Branch: feature/verified-customer-support-platform; base development
+23a157a5c2aa581eec6e0f02b97318c784296e79. Coordinated Shop branch:
+feature/verified-customer-support-shop, base f91f02819a9f2909062e36140f1775a870009115.
+
+### Purpose and changed
+
+Extend the existing Support Tickets administration and add independent verified
+customer intake/read operations. New forward migration adds private credentials,
+immutable requester provenance/events, atomic budgets, opaque ticket IDs, audited
+revision-based resolution and the legacy integer resolver wrapper. Dedicated
+platform-support-tickets revalidates a real Shop Auth token and actor-context RPC
+against the registered project on every call. platform-support-enrollment requires
+canonical live Master authority; managed preparation uses protected Vault recovery,
+BYO accepts a locally generated credential hash, installation dispatch/acknowledgment
+is audited and only an exact capability proof enables a key. Rotation/revocation
+and permanent re-pair invalidation are separate from bridge/handoff credentials.
+The existing page gains verified/legacy labels, category/history, customer-visible
+resolution and pagination, with session/view stale-response fencing. Resolution
+still refreshes existing dashboard data. No global redesign or existing Edge
+Function modification was needed.
+
+### Decisions and compatibility
+
+Anonymous closure is prepared under supabase/staged-migrations, outside automatic
+discovery, because all deployed historical senders are not inventoried. It is not
+claimed deployed or closed. The accepted _shared/shop-release.json remains
+unchanged; a separately generated, reproducible seven-function Support candidate
+is staged under supabase/releases and requires explicit future promotion. Completed
+Shop upgrades must not replay onboarding. Support capability is optional for
+existing POS/bridge readiness. The privileged Master handoff, financial bridge,
+canonical staff identity, existing migrations and unrelated worktrees are preserved.
+
+### Validation
+
+Final unit/handler/simulation set: 309/310 Platform and 99/100 Shop, retaining the
+two independently recorded baseline failures (config-recovery fixture and accepted
+release/runtime-preflight byte drift). New actual handler groups 8/8; Shop Support
+client/renderer/package/installer groups 7/7; actual native PG17/GoTrue-schema/Vault
+Support matrix across three databases 7/7, including concurrent duplicates, ACLs,
+quotas, atomic audit rollback, scope/tenant/role/session boundaries, rotation,
+managed recovery and staged closure. Existing PR4 security native groups 8/8.
+Actual Support browser integrations for both products pass at 320/768/1440px;
+existing login/Add Client six light/dark browser groups pass. Both builds pass;
+built JS scan finds no privileged JWT/Support secret variable. All browser network
+transports are synthetic/loopback, not hosted provider proof.
+
+The broad native team runner timed out; an old handoff native fixture fails its
+Master-approved-destination prerequisite identically on an archive of the unchanged
+development base. Neither is relabeled passed. Full evidence, baseline distinctions
+and pending provider/Deno/device gates are in docs/CUSTOMER_SUPPORT_VALIDATION.md.
+
+### Deployment / Git
+
+No hosted Supabase schema, secrets, functions, Auth, Shop pairing/provisioning,
+customer data or Cloudflare resources changed. Owner CLI-2.120.0 runbook is in
+docs/CUSTOMER_SUPPORT_DEPLOYMENT.md. Git delivery is authorized as a feature-only
+CF-Pages-Skip commit/push and coordinated Draft PRs targeting development, unmerged.
+Final SHAs and PR links are recorded by the delivery response/PR descriptions.
+Real hosted cross-project/different-account BYO acceptance, release promotion and
+legacy-sender compatibility remain before-use gates; no production-ready claim.
+
+
+## 2026-10-18 — Coordinated BYO portability follow-up evidence
+
+The paired Shop installer now supports a customer checkout without a sibling
+Platform repository while retaining private-path/symlink exclusions. Its actual
+copied-script regression passes; updated the shared validation ledger to 100/101
+Shop cases, eight new Support groups, with the same baseline artifact-byte gate.
+Platform source, SQL, functions and staged release bytes are unchanged by this
+ledger update. Draft Platform PR #5 / Shop PR #1 target development and remain
+unmerged. Both first feature pushes were independently confirmed skipped by
+Cloudflare's commit_message rule; no deployment/configuration or hosted Supabase
+mutation occurred. Final follow-up SHAs belong in the PR/delivery report.
+
+
+## 2026-10-19 — Verified customer Support stabilization and independent regression review
+
+Branch: feature/verified-customer-support-platform
+
+### Purpose and changes
+
+Correct confirmed Support compatibility/state defects and independently close the
+previous local validation gaps, updating the existing Draft PRs only. Both shared
+protocols remove the unsupported 3660-second remaining JWT ceiling, add exact
+issuer/authenticated-audience/UUID checks, and retain real Auth plus live canonical
+actor verification. Shop's final identity/generation check now follows asynchronous
+error parsing, preventing a late old HTTP 400 from erasing another account's retry.
+The new unshipped Platform read RPC uses client-first shared locks; all writer
+ordering, post-wait authorization and actor freshness checks remain.
+
+Corrected stale recovery/handoff fixtures through verified read-back and canonical
+Master protected-destination approval, preserving historical migration-cutoff
+contracts. Production recovery/handoff/POS/billing/provisioning sources and all old
+migrations remain unchanged. Bounded native subgroup runners stream progress,
+retain both output streams and avoid hidden test grandchildren. The accepted
+release remains frozen; only the separate Support candidate was regenerated.
+
+### Validation and decisions
+
+Platform broad suite 312/312; Shop 101/102, retaining the preexisting accepted
+artifact raw-byte equality gate. Exact drift is newline-only across three unchanged
+Git blobs; promotion/fingerprint changes need a separate owner decision. New
+handlers 10/10; Shop Support groups 9/9; native Support 10/10, including independent
+read/create/revoke/re-pair/rotation/config/pricing/provisioning/resolution backends,
+closure retention and real two-hour GoTrue/Auth/PostgREST verification. Existing
+native groups total 32 passes across bounded historical/current runs; focused
+privileged handoff passes. Both builds and actual Support browser integrations
+pass at 320/768/1440px with synthetic loopback SDK transport. A local restart
+interrupted some runs; only completed checks and targeted recoveries count.
+
+### Deployment and remaining gates
+
+No hosted Supabase/Cloudflare mutation or deployment. Same feature branches and
+Draft PRs target development, unmerged, with CF-Pages-Skip delivery. Both contracts,
+owner CLI-2.120.0 runbooks and validation ledgers describe runtime privilege trust,
+precise snapshot/network freshness, protected hash material, optional capability,
+manual baseline/pairing gates and staged anonymous closure. Local report:
+Support ticket/implementation-evidence/STABILIZATION_REPORT.md. Conditional GO for
+owner-controlled additive development deployment after exact dry-run/prerequisites;
+customer use and production remain blocked on real hosted managed/BYO/Auth/gateway,
+deployed-sender inventory and explicit release/closure/acceptance decisions.
+
+## 2026-10-19 — Final Support integration and staged automatic enrollment
+
+Preserved the accepted 32-migration/6-function package and prior Support-v1
+candidate. Added an inactive Support-v2 package (34/7; internal SHA-256
+144d918859db1007cccfbed724d1988a043ca1e5fef42ce694dee6df1a603414), explicit local
+promotion, per-job immutable release pins, and a post-base-job managed Support
+journal. Current live Master authority, completed base work, active pairing,
+confirmed active owner and completed onboarding precede enrollment. Automatic work
+uses a stable UUID/Vault secret and exact readiness/nonce proof. Existing enabled
+credentials are adopted without rotation. Optional failures cannot keep the base
+POS job open. Shared manual/automatic dispatch fences include historical unknown
+writes (even revoked keys); provider completion requires explicit audited Master
+review. No lease expiry assumes a remote write was cancelled.
+
+BYO now has full/additive customer-CLI migration/function installation and a
+customer-local secret/hash handoff. Master uses the signed-in Platform file flow;
+customer privileged authority and plaintext stay local. Support controls use
+existing branding, status badges, button/focus tokens and responsive layouts.
+Explicit-public-input builds and compiled target/asset verification address stale
+local Vite bundles. Owner reported successful manual Client 2 tickets/resolution;
+this is historical evidence, not proof of the new automatic or BYO path.
+
+Local validation: Platform 320/320, Shop 105/106 (frozen byte gate retained), 13
+native PG17/Auth/Vault Support groups, canonical bootstrap subgroup, actual
+entry/router/browser/visual checks, Deno checks and provider ESZIP bundles.
+Focused docs: docs/SUPPORT_AUTOMATION.md. Exact commands, final SHAs and evidence:
+Support ticket/implementation-evidence/SUPPORT_AUTOMATION_FINAL_HANDOFF.md.
+No hosted mutation/deploy/reset, release promotion, anonymous closure or merge.
+Existing coordinated feature branches/Draft PRs target development with CF skip.
+Owner must approve promotion/deployments, test a fresh managed Shop, then a
+separate-account BYO Shop, and decide legacy closure independently.
+
+## 2026-10-20 — Local BYO reliability and Paper Supply communication
+
+Continued on `feature/verified-customer-support-platform` at ba13837, with Draft
+PR5/head verified against GitHub. The owner's later Support-v2 promotion supersedes
+the preceding entry's inactive status; this pass leaves that pointer and all three
+earlier artifact byte checksums unchanged. No local commit, push, merge, hosted
+query/write, deployment or production cutover was authorized or performed.
+
+Managed setup now revalidates exact source/prefix even for passed aggregate stages,
+checks duplicate source under the migration lock, and rejects a fresh completion
+timestamp before pairing/secrets. Native full frozen 34-entry runs succeed; a
+pre-existing Auth identity reproduces the timestamp/reservation error locally.
+Client3's actual pre-correction trigger remains unproven. No automatic reset or
+applied SQL rewrite is justified. The Shop forward diagnostic does not mutate owners.
+
+Complete BYO Setup now points to the customer-local guided installer. CLI authority
+and private settings stay customer-side; Platform receives the existing public
+target/hash handoff. Provider unknown writes are fenced and require explicit review.
+Added independently reviewable Paper forward SQL, branded decision dialogs and
+customer-visible message/expectation/history sync, retaining live role/session,
+client/source/revision/terminal guards and existing billing/thermal/supply semantics.
+Support-v3 is a new inactive, unregistered 36/7 candidate. Managed promotion requires
+a separate registry/pin/automation review; no in-flight job is repinned.
+
+Validation: six new native PG17/Auth groups, 13 existing native Support groups,
+52 focused Platform groups, six guided groups, actual Paper/Support/Shop entry
+browsers, affected Deno checks and both explicit clean builds passed. Broad Platform
+was 320/321 followed by corrected real-SHA256 SQL subgroup 3/3; broad Shop 110/111
+retains the historical frozen-source equality failure. Evidence and seven reports:
+`Support ticket/implementation-evidence/stabilization-2026-10-20-byo-paper`.
+Client3 hosted checkpoints remain owner-reported; Client4 hosted BYO acceptance,
+candidate/target approval, Paper rollout and production cutover remain separate gates.
+
+## 2026-10-20 — Approved GitHub review checkpoint
+
+The owner explicitly authorized one stabilization commit and push to this existing
+feature branch and its existing Draft PR. This is source-control backup/review only.
+The staged scope is the completed implementation, forward migrations, scripts,
+tests and repository documentation; private settings, pairing files, local journals,
+temporary artifacts and the external evidence directory remain excluded.
+
+No tests, builds, simulations or migrations were rerun for this checkpoint. Earlier
+validation and its recorded limitations remain the evidence of execution. Commit
+messages retain the Cloudflare Pages skip marker. PRs remain Draft/open; no merge,
+hosted Supabase change, Cloudflare deployment, production change or Support-v3
+promotion is authorized. The preceding entry describes the local stabilization
+state before this later source-control authorization.
+
+## 2026-10-21 — BYO guide, enrollment CORS and fresh-acceptance hardening
+
+Branch: feature/verified-customer-support-platform.
+
+The owner reported successful separate-account Client #4 hosted installation,
+Support and Paper acceptance. That supersedes the earlier pending checkpoint;
+this pass makes no independent new hosted claim. Preserved the owner's uncommitted
+enrollment CORS hotfix and exact production/preview origins. Added early origin,
+preflight method/header denial while retaining JWT, Auth and canonical Master/
+session authorization, originless internal calls and allowed-origin error headers.
+
+Expanded the on-screen BYO workflow to twelve complete stages, with context-bound
+copyable commands, native customer CLI login, separate public/private inputs,
+verified frontend build, Cloudflare routing/hostname/Auth redirects, confirmed
+owner/six steps, Support hash handoff and ticket/paper acceptance. The guide remains
+available after onboarding. Readiness labels use existing backend observations;
+backend preflight and private-setting presence explicitly do not prove CAPTCHA.
+
+Validation: Platform regression 324/324; native PG17/Auth six groups including real
+paper RPC identity/active/terminal/revision/client guards; actual guide and Shop
+paper browser recovery/role isolation; exact copied-command walkthrough; affected
+Deno check and both explicit public builds/compiled target digest checks passed.
+Shop's inherited frozen-source gate was corrected to preserve frozen integrity
+and verify the unchanged separate candidate; its five-group subset passed.
+
+Evidence/reports are in the preserved Oct 20 folder's new hardening-2026-10-21
+subfolder. No new migrations, Shop release rewrite, managed promotion, customer
+credential/journal modification, hosted mutation, deployment, commit or push.
+Fresh hosted acceptance and any deployment remain separate owner gates.
+
+## 2026-10-21 — Coordinated client and BYO wizards review checkpoint
+
+Branch: feature/verified-customer-support-platform; starting HEAD 974d011b0501.
+
+Replaced the long BYO modal with twelve navigable stages, explicit installation
+mode review, retained commands/templates, blocked recovery, recorded observations
+and Resume BYO Setup. A new forward migration adds private client/project/binding
+progress with live Master/session authorization, revisions, row locks and audit.
+Operator acknowledgments cannot manufacture verified customer infrastructure.
+The local installer journal remains separate; no private customer file is accepted.
+
+Converted the original five Add Client sections into a validated Back/Next/review
+wizard with session-scoped drafts. An idempotent canonical creation wrapper binds
+request UUID, operator and payload, so concurrent retries reconcile one client.
+Unknown outcomes lock original fields; editing reviewed fields requires review
+again. Existing plans, billing, Inventory, Paper and owner/provisioning rules remain.
+Platform-only file-picker, lifecycle and technical/public-environment spacing use
+existing design tokens. Shop visuals and frozen release artifacts remain unchanged.
+
+Validation: complete local Platform unit/in-process suite 326/326 and Shop 122/122;
+focused native PG17/Auth eight groups and actual browser wizard walkthrough passed.
+Final-commit native/browser/build results and sanitized commands are recorded in
+the external coordinated-wizards-2026-10-21 evidence directory. Compatible public
+transitive patches applied; Vite5/esbuild findings remain pending a separately
+reviewed major upgrade. No hosted acceptance is inferred from fixtures.
+
+Final review additionally releases a departed in-flight client draft for original
+request reconciliation, preserves full form values, tests another authorized
+session and pairing changes, and repairs historical browser fixture pin/stub/popup
+races. The older onboarding harness now isolates financial projection fixtures
+from persisted owner-onboarding state. These are test harness corrections, not
+changes to the financial core. Earlier failed attempts remain in external evidence.
+The current Manager fixture uses canonical client RPCs and retains raw read/write,
+pricing and owner denial assertions, matching the existing role-isolation migration.
+It is separate from the historical bootstrap fixture, whose earlier migration
+cutoff deliberately tests the older contract.
+
+Owner authorizes commit/push to existing Draft PR5 against development only. Every
+new commit uses the historical, documented [CF-Pages-Skip] prefix. Current provider
+skip confirmation is pending unavailable connector/browser access. No deployment,
+hosted DB/Auth/Vault/DNS change, customer install, managed promotion or merge.
+The new Platform migration remains unapplied hosted; rollout order is documented
+in docs/COORDINATED_SETUP_WIZARDS.md. Previous evidence remains preserved.
+
+## 2026-10-22 — Practical BYO instructions and read-only Paper refresh
+
+Branch: feature/verified-customer-support-platform; starting HEAD 84c5e970ae34.
+
+Real onboarding exposed that sequential technical paragraphs still needed external
+interpretation. All twelve stages now use structured objectives, locations,
+prerequisites, numbered tasks, explained commands, expected results and specific
+recovery. New-terminal folder restoration is explicit; routine status is separate
+from provider continuation. Owner/core, optional Support/ticket UUID and Paper
+acceptance remain distinct from recorded backend observations and manual marks.
+Problem reporting is expandable with understandable fixed categories. Existing
+server authorization, revision, stage persistence and audit contracts are unchanged.
+
+Support enrollment fields align with field-local help and responsive stacking.
+Paper Requests / Deliveries gains Refresh paper status using the existing client
+loader with automatic managed Support reconciliation disabled. Context/generation
+guards reject departed responses; overlapping reads are blocked. The latest
+delivery draft survives refresh/failure, including an explicit review warning when
+its selected request is no longer active. Refresh never forces Shop sync or writes.
+
+Validation: one mocked on-screen CLI walkthrough, the focused --refinement-only
+browser path, visual inspection at desktop/light and mobile/dark, changed-JS syntax
+and scope/credential/whitespace review. No full suites, Shop tests or database tests.
+Local fixtures do not establish hosted acceptance. Owner-reported working Client1
+flows supersede earlier pending-hosted notes without being retested here.
+
+No migration, Edge, Shop, release, customer-private file or hosted configuration
+change. Commit/push to existing Draft PR5 is authorized with [CF-Pages-Skip]; exact
+SHA, push, PR and provider skip proof are recorded in the single external correction
+report. No deployment or merge; previous evidence remains preserved.
+
+## 2026-10-22 — PAPER-UX-009 confirmed delivery feedback
+
+Branch: feature/verified-customer-support-platform; starting HEAD 4decbd54dce8.
+
+Future delivery timestamps previously reached authoritative database validation,
+whose Error became a generic persistent toast. Success had no notification, so an
+earlier error could remain visible after a later successful write. This is a
+verified code path, not a conclusive attribution of the reported second notice.
+
+Added frontend local-time/calendar/future and quantity/reference validation,
+actionable inline feedback, submitting/overlap protection and explicit success.
+Acknowledged writes stay successful if their follow-up history read fails.
+Uncertain writes reconcile the exact original delivery ID/payload against authorized
+records; absent bounded history is not proof of failure. Check original delivery
+is read-only; unchanged retries retain UUID/payload across reload. Stale/fulfilled
+and conflicting records remain reviewable without creating another supply entry.
+Known transactional input rejections allow correction. Payment retry defaults are
+unchanged; only delivery opts into retaining rejected receipts for reconciliation.
+
+Validation: the existing browser fixture's delivery-only path covers invalid/future
+local time, success/read failure, overlap, lost response, reload/same-UUID retry,
+stale/already fulfilled and safe messages. Changed frontend syntax and diff/scope
+review complete this narrow check. No full suites or hosted mutation tests.
+
+No Shop, migration, Edge, metering or business-rule change; no backend deployment
+required. Authorized feature-only commit/push uses [CF-Pages-Skip]; final SHA and
+provider confirmation are recorded in the external PAPER_UX_009_2026-10-22 report.
+PR5 remains Draft for development; no merge or deployment is authorized.
+
+## 2026-10-22 — Final coordinated release parity, routes and support consent
+Branch: feature/verified-customer-support-platform
+
+### Purpose / changed
+Complete final Managed/BYO parity and remaining frontend/security corrections.
+Authorized client-detail and Historical URLs survive refresh/Back/Forward after
+canonical identity/data load; role/session/selection fences protect late responses.
+Public Shop export requires exact URL and matching unexpired anon JWT plus a valid
+public widget key. Guided fresh setup references 37 migrations; existing Shops use
+the dedicated additive upgrader rather than SQL-only installation.
+
+### Release / security decisions
+Built NEW immutable support-v4 only after completed Shop backend commit 089fd787.
+The package has 37 migrations/7 functions, SHA-256
+f5295937f06e45177190bedebf19a54c86fd067d03785365a393e3de269e062f.
+Updated active pointer, registry (retaining v1/v2/v3), promotion catalog, forward SQL
+allowlist and optional reconciler together. Existing job pins never silently move;
+missing packages fail closed. New forward SQL and platform-support gate require
+separate owner/case/purpose consent before Managed-only, single-use Master handoff.
+Shop binds one actual session, checks trusted expiry/revoke, and exposes owner
+history. It does not infer approval from a ticket or claim GoTrue sign-out/cached
+data erasure. Old unconsented grants are denied; BYO handoff remains prohibited.
+
+Prepared guarded anonymous-intake closure outside automatic migrations. Current
+authenticated sender is source-compatible, but installed historical sender
+compatibility is unverified: closure is unapplied and remains a release blocker.
+
+### Validation / deployment impact
+Two focused Platform tests, local route browser fixture, explicit synthetic-public
+build and changed Edge Deno typechecks passed. Targeted PG17 checks passed for both
+forward chains, existing-v2 owner/data/credential preservation, consent authority,
+idempotency/binding/expiry/revoke, issuance/exchange, final exact catalog and immutable
+pins, and guarded table/column/sequence closure. Final package/source parity checked
+against committed Shop blobs; prior packages unchanged. No broad suite or hosted
+mutation. Detailed scope/results: docs/Release-parity-acceptance.md.
+
+Owner must authorize forward Platform SQL, platform-provision/platform-support,
+Shop missing SQL/all seven functions, and both frontend deployments in documented
+order. Existing custom Data API hooks require reviewed composition. Fresh separate
+Managed/BYO acceptance, hosted revocation/provider recovery, installed-sender gate
+and final security review remain. No merge/production approval. Source commits use
+[CF-Pages-Skip]; actual post-push provider records belong in external evidence.
+See Release-parity.md, Existing-shop-upgrade.md, Release-rollout.md and the issue
+register. Previous evidence and history remain intact.
+
+## 2026-10-22 — Guarded empty-development anonymous Support closure
+Branch: feature/verified-customer-support-platform
+
+Owner confirmed development project ukbhyerxshteyetwomqy has no clients, Support
+tickets, provisioning jobs or Managed release pins and approved this narrow
+closure. Supabase CLI 2.120.0 generated
+20261022184736_close_empty_dev_anonymous_support.sql. It locks those four tables,
+rechecks emptiness before transaction-local compatibility approval, then preserves
+the staged table/column/sequence revocations, legacy policy removal and final
+privilege/policy verification guard. A changed precondition or remaining effective
+grant aborts the entire transaction. No data deletion or authenticated grant change.
+
+Focused in-memory PostgreSQL execution passed exact SQL/PLpgSQL syntax and commit,
+nonempty refusal, rollback on inherited residual permission, successful closure,
+authenticated-grant preservation and transaction-local approval expiry. SQL review
+followed PostgreSQL REVOKE and explicit-locking documentation. Diff/scope review
+only; no full suites, Docker, browser, hosted SQL or deployment. Previous migrations,
+Support-v4 artifacts/fingerprints, frontend, Edge Functions and Shop are untouched.
+Feature-only commit/push uses [CF-Pages-Skip]; PR5 remains Draft against development.
+The owner must review the one-migration dry-run and separately apply/verify it.
+
+## 2026-10-23 — Authoritative Support navigation and selective refreshes
+Branch: feature/verified-customer-support-platform
+
+### Changed / why
+Direct /support could render raw aggregate tickets without verified context or
+revision, while Resolve silently searched a different paginated list. All Support
+entry paths now share the authorized page loader; raw tickets never render.
+Revision-bearing actions reject missing/stale records, prevent overlap, retain
+attempted resolution text, and require refresh after conflicts/uncertain outcomes.
+Confirmed resolution refreshes only the current page and dashboard count. The
+aggregate uses a bounded count instead of loading the entire raw Support table.
+Client Refresh status reads the selected client/authorized client projection and
+four status RPCs without unrelated ledgers or automatic enrollment writes. Normal
+client opening and provisioning retain their existing optional Support lifecycle.
+
+### Evidence / validation
+Read relevant prior external reports and orchestration/browser logs before edits.
+New read-only hosted logs independently confirm HTTP546 at 150840ms and the
+migration/function checkpoints before later successful same-request recovery.
+The existing single-invocation chain has no cumulative deadline. A safe bounded
+continuation requires trusted pause/ownership semantics; the failure RPC invalidates
+health and cannot be reused as an ordinary pause. Concrete plan and remaining risk:
+docs/MANAGED_PROVISIONING_TIMEOUT.md. No orchestration workaround was introduced.
+
+Four focused Support/loading tests, three existing rendering/route checks, the
+single Support browser fixture (direct/reload/history/sidebar/pagination and both
+operator roles), syntax and explicit synthetic-public build passed. Controlled
+8ms upstream-delay comparison: resolution 15→3 requests (77.18→31.12ms), Master
+status refresh 17→5 (62.40→30.88ms). Fixture timings are not hosted speedup claims.
+Broader financial/team loading and session validation remain; no stale-permission
+or financial cache was introduced. External evidence holds concise measurements.
+
+### Deployment / Git
+Frontend deployment only. No SQL, Edge, Shop, installed customer data, immutable
+support-v4 package/fingerprint, selector or pinned job changed. Managed timeout
+remains open pending the separately reviewed orchestration change and acceptance.
+Commit/push to existing PR5 uses no skip marker so configured feature preview may
+build. No manual deployment or merge; PR remains Draft against development.
+
+
+## 2026-10-23 — On-demand resources and bounded Managed continuations
+Branch: feature/verified-customer-support-platform
+
+### Purpose / changed
+The broad loader fetched unused ledgers/team data and repeated identity checks.
+It now reads the current route through a canonical authorized RPC: bounded/searchable
+client cards, exact client details, deferred history/usage, complete explicit
+invoice reads and on-demand Team. Overview uses global SQL summaries; page estimates
+are labelled and latest invoice status is separate from bounded history. Authority,
+view/client generations and request counters reject departed responses. Resource
+failures retain a retry view. Existing Support resolution remains page/count-only;
+navigation adds no enrollment side effects. No permission/financial cache was added.
+
+The previous Managed 150840ms failure arose from cumulative work without a total
+deadline. A CLI-generated forward migration adds durable paused state, invocation/
+session fencing and dispatch uncertainty. Existing stage, onboarding, pin and
+operation checks sit behind the fence, including legacy v1 entry points. Only the
+current live Master invocation advances work. Pauses preserve connection health;
+completion requires its verified final stage. Unknown writes cannot pause or be
+closed away. Exceptional operator attestation keeps a ten-minute delay even after
+transport failure and is audited as operator-reported.
+
+The Edge handler budgets 85 seconds from entry, bounds requests by remaining time,
+limits leaf units and isolates owner/preflight. Browser continuation awaits each
+pause, preserves original UUID/params/pin, stops on uncertain/departed responses and
+offers reload-safe Continue. Turnstile stays in submit memory only; original-secret
+re-entry is needed if its stage remains pending. Lost migration replies require
+exact ledger/source read-back; other unknown writes require provider review. No
+automatic stealing, write replay or worker loop was introduced.
+
+### Validation / integrity
+Eleven focused source/Support checks passed: actual engine multi-pause completion,
+no replay, lost migration/secret replies and serial frontend submission. Owned PG17
+checks cover the forward chain, concurrent row ownership, stale/unfenced denial,
+health-preserving pause, recovery delay and scoped roles. Local Support/route
+browser, Edge typecheck, explicit synthetic-public build, syntax/diff and exact
+committed-source release parity passed. Controlled route fixture: 13→1 requests,
+400817→5947 JSON bytes, 52.85→13.45ms at 8ms upstream delay; not hosted latency claims.
+Prior evidence is preserved in the external workspace.
+
+Read-only hosted checks confirm protected Master binding and 20 Vault records.
+No hosted writes, resets, SQL/Edge rollout or production deployment occurred.
+SQL then platform-provision then frontend rollout/fresh hosted acceptance remain.
+Managed/BYO share unchanged support-v4 packages/gateways/selectors/fingerprint;
+new invocation state is Platform-only. Shop source, older releases and original
+pins are untouched. Existing feature PRs stay Draft/Open against development.
+The frontend commit allows automatic preview without CF skip. See
+ON_DEMAND_RESOURCES.md and MANAGED_PROVISIONING_TIMEOUT.md in docs/.
+
+## 2026-10-23 — Automated release parity, read-only fleet evidence and durable recovery
+Branch: feature/verified-customer-support-platform
+
+### Purpose / changes
+Shared backend approval now requires an executable requirement contract rather
+than matching counts. The canonical gate checks exact committed Shop SQL/function
+bytes, hashes/order, dependencies, gateways, selectors/catalogs and both real
+installer plans. Both repositories expose release:check and focused Actions checks;
+the complete mandatory parity policy was added to Shop without removing its rules.
+Accepted historical packages are anchored to starting commit c9bb36e, because
+legacy v1 had earlier revisions; new immutable artifacts are anchored to their
+first commit. No accepted artifact or original job pin was rewritten.
+
+The new Platform forward migration 20261023012318 adds scoped inventory snapshots,
+live Master/session/invocation/target fencing, policy metadata and authoritative
+financial receipt lookup. New platform-backend-inventory performs bounded read-only
+Managed provider/restricted paired Bridge inspection. The client-detail panel loads
+only on demand, distinguishes historical pins, evidence age, compliance and runtime
+health, and never upgrades or suspends. Partial structural/ledger evidence does not
+prove current deployed source; full-release status remains Unable to verify when
+those bytes cannot be established. BYO has restricted/customer-local diagnostics,
+without granting Platform administrative access.
+
+Existing usage outbox, billing revisions and config journals remain authoritative.
+Shop adds private durable Support submissions, original-actor recovery, lease-fenced
+ACK/backoff/review and explicit pending receipts; Platform receiver dedupe/consent
+is preserved. Legacy pages receive retryable errors for uncertain delivery to retain
+their original UUID. Financial retries read the authoritative original receipt first.
+
+### Final release / validation
+Corrected Shop backend source 95448d75b7c78fbe5e7cf0e9a02f87e7d919650d was committed before
+building NEW support-v6: 38 migrations / 7 functions, canonical SHA-256
+64fcec36fa7a5e2565db2a6d3aa6ddbd8e6c1170eefd4a07a57ae6ba0c066a31.
+Both fresh selectors reference it. The earlier local v5 candidate remains immutable
+and uninstalled, superseded after the final compatibility correction. V4 and older
+accepted releases/pins are preserved; no customer is automatically upgraded.
+
+Nine focused source/contract cases and four bounded Managed engine checks passed.
+The gate rejects seven deliberate divergence cases. Owned isolated PG17 databases
+verify both forward chains, final catalog, concurrent Support dedupe, durable queue
+ACL/actor/restart/lease/ACK recovery, usage replay, actual invoice/payment idempotency
+and receipt read-back, inventory ownership/rate fencing. Changed Edge entrypoints
+typecheck; both explicit synthetic-public frontend builds and syntax/diff checks
+pass. Full/manual hosted acceptance is intentionally deferred. Detailed results,
+final Git/CI/preview observations are in new external release-parity-fleet-continuity
+evidence; previous evidence remains untouched.
+
+### Hosted boundary / rollout
+Read-only inspection confirmed existing Platform migration 20261022235702 and
+platform-provision v25, protected Master binding and 20 Vault rows. Nothing was
+reinstalled. New Platform SQL → inventory function/coordinated provision registry →
+compatible frontend rollout is pending. Shop missing forward SQL must precede
+changed Bridge/Support packages and matching UI, under customer authorization.
+No hosted writes, customer upgrade, Auth/Vault change, manual Cloudflare deployment,
+production promotion or merge occurred. Original live authorization is needed to
+resume queued Support; offline-first and global exactly-once are not claimed.
+Both existing feature PRs remain Draft/Open against development.
+
+## 2026-10-23 — Controlled Managed/BYO upgrade execution and final acceptance boundaries
+Branch: feature/verified-customer-support-platform
+
+### Changes / decisions
+Added CLI-generated forward migration20261023141809 and platform-upgrade, with a
+private RLS upgrade journal, exact source/target/plan approval, canonical live Master
+and session checks, client-bound invocation fencing, ordered checkpoints and audited
+unknown-outcome reconciliation. Both modes now share the same Platform pending-job
+fence and executable plan/engine. Provisioning/unknown invocations, owner/bootstrap
+and pending config block execution; reverse-direction client-row guards prevent
+new reservations from racing an approved upgrade. No old job/pin is rewritten.
+The v4→v6 plan changes only one missing migration and Bridge/Support packages.
+
+Managed review uses bounded read-only provider evidence; execution permits two writes
+per bounded invocation and pauses serially. Source gaps need explicit operator review;
+maintenance requires a real window and separately recorded acknowledgment. No email
+delivery was invented. The on-demand UI adds plan/approval/progress/recovery and
+downloads no upgrade code until requested. Its9.69kB chunk is separate from the
+496.23kB main build. These are build sizes, not hosted performance measurements.
+
+BYO obtains a private expiring request/plan-scoped clearance after Master review and
+separate customer CLI approval. Customer admin authority stays local. Reports cannot
+be promoted to independent provider proof: final component reports remain
+verification_required, with customer-reported/provider-read-back strength separated.
+Explicit reviewed closure preserves full_source_verified=false. No fake full-source
+complete/Up-to-date state is written. Current SQL is rechecked against the original
+checkpoints before further writes; stale tokens/sessions or conflicting progress stop.
+
+Historical v4 operational documents are labelled as checkpoints with current v6
+guidance. Platform-only empty closure20261022184736 remains unchanged; a read-only
+target preflight blocks populated-target replay, and a separate staged, locked,
+owner-reviewed adoption template preserves tickets and all permission revocations.
+No closure SQL is added to Shop packages or automatically repaired into a ledger.
+
+### Verification / hosted boundary
+Five focused source/CLI/UI cases, three existing directly affected Support/financial/
+legacy-receipt cases, real isolated PG17 approval/ACL/pending/concurrent ownership/
+session/recovery checks, populated closure preservation and one v4→v6 SQL upgrade
+passed. The actual customer CLI fixture completes two serial invocations under its
+original UUID; it also proves a blocked Platform claim causes zero provider writes.
+Changed Edge typecheck, both explicit synthetic-public builds, syntax/diff and final
+committed-source parity pass; the new shared upgrade helpers are gate-checked.
+
+Read-only hosted checks confirm current migration20261023012318, provisionv26 and
+inventoryv1, protected Master binding1/Vault20, populated Platform2clients/3tickets,
+closed anonymous grants and no current pending provisioning/config. Managed test
+ledger matches v4 exactly (37); seven functions/gateways and SQL owner/runtime checks
+are present/ready, not full source/browser acceptance. Retrieved v26 has all20
+referenced files and v6 package. Original bundler warning provenance remains pending
+its exact deployment log; no missing dependency was observed or redeployed.
+
+New SQL→platform-upgrade→compatible UI/tooling rollout is pending. Owner explicitly
+kept independent fresh hosted Managed/BYO acceptance pending; BYO admin remains
+unavailable. No hosted write/reset/customer upgrade/Auth/Vault change/production
+promotion/merge. Support still needs the original user's live authorization. V6 and
+all historical packages/fingerprints are unchanged. Existing feature PRs remain
+Draft/Open/unmerged against development. External controlled-upgrades-stabilization
+REPORT.md/CURRENT.md record exact Git/CI/Pages and remaining owner gates.
+
+## 2026-10-24 — Platform UI consistency and truthful upgrade review presentation
+Branch: feature/verified-customer-support-platform
+
+### Purpose / changes
+Restored shared RetraSell control styling across dynamically rendered Client,
+Billing/invoice, Usage Logs, Support, Team and resource paging views. Retained the
+approved assets/Inter/palette and both themes. Added scoped field/check/action/
+pagination/metadata/evidence primitives and an original inline copy SVG with complete
+value copying, accessible labels, keyboard/touch focus and success/failure feedback.
+Managed/BYO upgrade views now lead with release/evidence/plan summaries, grouped
+maintenance/approval controls and distinct recovery states; full identities,
+fingerprints, provider diagnostics, conditions and checkpoints remain expandable.
+The workflow stays lazy and rendering makes no request. Draft fields survive theme
+changes within the existing authorized client view.
+
+Frontend assessment validation now explains empty/malformed/incomplete, unsupported,
+wrong-target/source/binding, stale/expired or conflicting BYO reports before network
+submission. A pending identity is separate from a server job; invalid JSON cannot
+create a phantom Review required state. Approval/install/clearance require a valid
+exact plan. Customer freshness confirmation for timestamp-free v1 reports remains
+customer-reported, never independent proof. Server reservation order and all backend
+security/authorization/request contracts are unchanged.
+
+### Verification / operational boundary
+Three assessment cases, selected approval and three Support/financial/inventory
+continuity cases, eleven existing UI source cases (minimal stale VM dependency
+repairs), isolated browser layout/interaction observations at1440/1024/768/390 in
+both themes, and existing small Support browser regression pass. Final synthetic-
+public build92modules/main499.86kB/gzip137.40, lazy upgrade23.23kB/gzip7.92;
+syntax/diff checks pass. No full suites, Docker/SQL tests or release rebuild.
+
+Read-only Platform review before/after is identical: original request2428e25d,
+Managed targetyqiefgcdvnfmdhuhitdq, v4→v6, three pending steps, no conditions or
+checkpoints, managed-provider-read-only with source unverified. BYO has no persisted
+job; latest restricted report remains partial/unknown. Earlier change audit and
+later saved check timestamp support a refreshed report, not reconstruction of both
+full responses. Existing installed migration20261023141809 is observed, not applied.
+No Shop change, hosted write, approval/cancel/upgrade, backend rollout, production
+deployment or merge. PR5 stays Draft/Open against development; push uses the verified
+[CF-Pages-Skip] convention. New external platform-ui-consistency-2026-10-24 evidence
+contains REPORT/CURRENT, route matrix, before/after captures and owner-only rollout.
+
+## 2026-10-24 — Two targeted frontend fixes: upgrade actions and sidebar visibility
+Branch: feature/verified-customer-support-platform
+
+### Cause / correction
+The upgrade renderer explicitly offered approval in the approved state. Although
+approval already performed a scoped status read, that predicate kept the previous
+action visible. Clearance download lacked a final status read; actions lacked
+success feedback and their late-response guard did not verify ownership of the
+current frontend state object. A local modal could also invalidate that guard and
+leave the same client action busy. Shared rendering/dispatch gates now remove approval
+after approval, require authorization before installation/clearance, publish matching
+authoritative responses, and refresh once when an action returns no job. Busy and
+view/object ownership checks fence duplicate or obsolete actions. Accepted actions
+with an unreadable status block further writes until status is loaded. Scoped
+feedback is dismissed on another action or client selection. Paused approval
+conditions retain their explicit existing renewal path; no backend gate changes.
+
+The sidebar close button used a toggle whose open class was mobile-only. The shared
+button styling exposed Close on desktop without desktop collapse logic; ordinary
+renders/resize also reset mobile visibility. Explicit close, a permanently available
+accessible menu control, per-width in-memory preferences and the existing grid now
+support close/reopen on desktop/mobile. Route renders retain preferences; choosing
+a mobile route closes its overlay. Focus/Escape/inert/ARIA remain synchronized.
+
+### Focused verification / boundary
+Five isolated browser groups pass: Managed and BYO authoritative transitions/final
+acknowledgment, duplicate/stale/failed-status recovery, and keyboard/navigation/layout
+at1440/390px including rerender and remembered resize state. Three existing assessment
+cases and one approval regression pass. Changed JS syntax, explicit synthetic-public
+build and diff checks pass. Main500.39kB/gzip137.59 triggers the500kB advisory; no bundle
+restructure was added to this narrow patch. No full suites, Docker or backend tests.
+
+Read-only before/after selected projection of original request2428e25d-ab5e-4589-aa36-
+fb0ca3f9c5b5 is identical: completed_reviewed, three passed checkpoints, reviewed
+source limitation/full_source_verified=false, original target/pins/history untouched.
+No Shop change, customer action, hosted mutation, release rebuild, backend deploy or
+production deployment. Existing PR5 stays Open/Draft/unmerged against development;
+commit/push uses [CF-Pages-Skip]. Concise external targeted-upgrade-navigation evidence
+contains REPORT/CURRENT, focused logs and preservation result. Owner frontend rollout
+and live smoke remain separate.

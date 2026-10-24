@@ -1,5 +1,6 @@
 import { pb } from './supabase.js';
 import { captureView, viewCurrent } from './async-context.js';
+import {inputDialog} from './dialogs.js';
 export async function openShopSupport(client) {
  const context=captureView();
  if(!viewCurrent(context) || context.client!==client?.id)return;
@@ -8,6 +9,8 @@ export async function openShopSupport(client) {
  if(!tab)throw new Error('Allow pop-ups to open this support session.');
  tab.opener=null;
  try {
+  const consent=await inputDialog({title:'Owner approval required',label:'Public approval UUID from the Shop owner',message:'The Business Owner must separately authorize this verified case in Shop → Help & Support. Ticket submission grants no privileged access. Enter the unused, unexpired approval ID.',validate:value=>/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)?'':'Enter the owner’s public approval UUID.'});
+  if(!consent||!viewCurrent(context)){tab.close();return;}
   // Read the protected Master approval independently of the editable business URL.
   const approved=await pb.rpc('platform_support_destination',{p_client:client.id});
   if(!viewCurrent(context)){tab.close();return;}
@@ -18,7 +21,7 @@ export async function openShopSupport(client) {
   if(origin.protocol!=='https:' || origin.origin!==expected.origin || origin.pathname!=='/' || origin.search || origin.hash || origin.username || origin.password
     || !/^[a-z]{20}$/.test(expected.project_ref||'') || typeof expected.client_binding!=='string' || !expected.client_binding
     || !uuid.test(expected.source_id||'') || !uuid.test(expected.revision||''))throw new Error('A valid current Master-approved Shop support destination is required.');
-  const {data,error}=await pb.functions.invoke('platform-support',{body:{action:'issue',client_id:client.id}});
+  const {data,error}=await pb.functions.invoke('platform-support',{body:{action:'issue',client_id:client.id,consent_id:consent}});
   if(!viewCurrent(context)){tab.close();return;}
   if(error || !/^[a-f0-9]{64}$/.test(data?.token||''))throw new Error('Support authorization could not be issued. Check your master session and Shop pairing.');
   const destination=new URL(data.shop_url);

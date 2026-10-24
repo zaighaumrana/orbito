@@ -15,13 +15,24 @@ function fixture(){
   notify:Object.fromEntries(['error','success','info','warning'].map(k=>[k,v=>messages.push([k,v])])),render(){calls.push(['render']);},cancelDialogs(){},
   FormData:class{constructor(form){this.form=form;}entries(){return Object.entries(this.form.values||{});}},validateOwner:(name,email)=>({owner_name:name,owner_email:email}),
   serverConfigOperation:async(_id,_changes,readStatus,send)=>{await readStatus();return send('synthetic-request',_changes);},
-  window:{addEventListener(){}},document:{getElementById:()=>null,addEventListener:(name,fn)=>{if(name==='click')click=fn;}},setInterval(){},validateSession(){},rpc:async(...args)=>{calls.push(args);return{};}};
- vm.createContext(ctx);for(const p of ['src/state.js','src/async-context.js','src/team.js','src/team-errors.js','src/supabase.js','src/forms.js','src/events.js','src/provisioning.js'])vm.runInContext(strip(read(p))+(p==='src/state.js'?'\nglobalThis.pState=pState;':''),ctx);
+  sessionStorage:{getItem(){},setItem(){},removeItem(){}},window:{addEventListener(){}},document:{querySelector:()=>null,getElementById:()=>null,addEventListener:(name,fn)=>{if(name==='click')click=fn;}},setInterval(){},validateSession(){},rpc:async(...args)=>{calls.push(args);return{};}};
+ vm.createContext(ctx);for(const p of ['src/state.js','src/async-context.js','src/wizard-controller.js','src/team.js','src/team-errors.js','src/supabase.js','src/forms.js','src/events.js','src/provisioning.js'])vm.runInContext(strip(read(p))+(p==='src/state.js'?'\nglobalThis.pState=pState;':''),ctx);
  ctx.initEvents();ctx.pState.authenticated=true;ctx.pState.dataReady=true;ctx.pState.currentUser={auth_user_id:'master',role:'master_admin',session_id:'session-one'};ctx.pState.page='clients';
- return {ctx,calls,messages,pending,submit:(type,values={})=>ctx.handleFormSubmit({preventDefault(){},target:{dataset:{pForm:type},values}}),
+ return {ctx,calls,messages,pending,submit:(type,values={})=>{if(type==='add-client'){values={plan:'Basic',ems_track_breaks:'false',...values};ctx.pState.clientWizard={step:4,fields:{...values},requestId:'99000000-0000-4000-8000-000000000042',reviewed:true}}return ctx.handleFormSubmit({preventDefault(){},target:{dataset:{pForm:type},values,elements:Object.fromEntries(Object.entries(values).map(([k,v])=>[k,{value:v}])),querySelectorAll:()=>[],querySelector:()=>null}})},
   click:async dataset=>{click({target:{closest:s=>s.includes('data-auth-form')?null:{dataset,disabled:false}},preventDefault(){}});await tick();}};
 }
-function clientWrite(f,result){const original=f.ctx.transport.rpc;f.ctx.transport.rpc=(name,args)=>name==='platform_save_client'?result:original(name,args);}
+function clientWrite(f,result){const original=f.ctx.transport.rpc;f.ctx.transport.rpc=(name,args)=>['platform_create_client_once','platform_save_client'].includes(name)?result:original(name,args);}
+
+test('late BYO progress cannot cross a client, modal or canonical session boundary; unauthorized roles cannot write',async()=>{
+ for(const change of ['session','client','modal','logout']){
+  const f=fixture(),gate=deferred();f.ctx.pState.page='client-detail';f.ctx.pState.selectedClient={id:1};f.ctx.pState.modal={type:'byo-setup'};
+  const ui={clientId:1,projectRef:'abcdefghijklmnopqrst',step:1};f.ctx.pState.byoWizard=ui;f.ctx.transport.rpc=()=>gate.promise;
+  const work=f.ctx.refreshByoWizard(f.ctx.transport,f.ctx.render);const count=f.calls.length;
+  if(change==='session')f.ctx.pState.currentUser.session_id='different';else if(change==='client')f.ctx.selectClient({id:2});else if(change==='modal')f.ctx.pState.modal=null;else f.ctx.clearSensitiveState();
+  gate.resolve({data:{client_id:1,project_ref:'abcdefghijklmnopqrst',current_step:8,revision:2}});await work;assert.equal(ui.snapshot,undefined);assert.equal(f.calls.length,count);
+ }
+ const f=fixture();f.ctx.pState.currentUser.role='portfolio_manager';f.ctx.pState.byoWizard={clientId:1,step:5,snapshot:{revision:0}};await f.ctx.updateByoWizard(f.ctx.transport,f.ctx.render,'byo-ack');assert.equal(f.calls.length,0);
+});
 test('targeted retirement approval and Pending popup dispatch only explicit Master-owned invitations',async()=>{
  const f=fixture();f.ctx.pState.page='settings';f.ctx.pState.data.teamArchive=[{id:'old-employee',email:'again@example.test',deleted_at:'2026-10-13'}];
  f.ctx.pState.modal={type:'add-platform-user',data:{requestId:'fresh-request'}};let approved=false;const sent=[],dialogs=[];
@@ -50,9 +61,16 @@ test('successful or failed late Add Client after logout never restores private s
  for(const failure of [false,true]){
   const f=fixture(),gate=deferred();clientWrite(f,gate.promise);
   const submit=f.submit('add-client',{name:'Fixture',owner_name:'Owner',owner_email:'private@example.test',plan:'Basic'});
-  f.ctx.clearSensitiveState();f.ctx.pState.page='login';gate.resolve(failure?{error:{message:'fixture failure'}}:{data:{id:42,owner_email:'private@example.test'}});await submit;
-  assert.equal(f.ctx.pState.authenticated,false);assert.equal(f.ctx.pState.selectedClient,null);assert.equal(f.ctx.pState.page,'login');assert.equal(f.calls.length,0);assert.equal(f.messages.length,0);
+  const beforeLogout=f.calls.length;f.ctx.clearSensitiveState();f.ctx.pState.page='login';gate.resolve(failure?{error:{message:'fixture failure'}}:{data:{id:42,owner_email:'private@example.test'}});await submit;
+  assert.equal(f.ctx.pState.authenticated,false);assert.equal(f.ctx.pState.selectedClient,null);assert.equal(f.ctx.pState.page,'login');assert.equal(f.calls.length,beforeLogout);assert.equal(f.messages.length,0);
  }
+});
+
+test('closing and reopening an in-flight client draft releases its busy state for the original safe retry without selecting a late result',async()=>{
+ const f=fixture(),gate=deferred();clientWrite(f,gate.promise);f.ctx.pState.modal={type:'add-client'};
+ const work=f.submit('add-client',{name:'Fixture',owner_name:'Owner',owner_email:'owner@example.test'});const draft=f.ctx.pState.clientWizard;
+ assert.equal(draft.submitting,true);f.ctx.pState.modal={type:'add-client'};gate.resolve({data:{id:42}});await work;
+ assert.equal(draft.submitting,false);assert.equal(draft.pending,true);assert.match(draft.error,/Retry the original/);assert.equal(f.ctx.pState.selectedClient,null);
 });
 test('module toggles deny mismatched detail/config identity before any backend call',async()=>{
  const f=fixture();f.ctx.pState.page='client-detail';f.ctx.pState.selectedClient={id:2};f.ctx.pState.clientData={clientId:1,config:{id:1,ems_enabled:true}};
