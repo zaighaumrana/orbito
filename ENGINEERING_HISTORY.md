@@ -2276,3 +2276,30 @@ production deployment. Existing PR5 stays Open/Draft/unmerged against developmen
 commit/push uses [CF-Pages-Skip]. Concise external targeted-upgrade-navigation evidence
 contains REPORT/CURRENT, focused logs and preservation result. Owner frontend rollout
 and live smoke remain separate.
+
+## 2026-10-24 — BYO controlled upgrade unknown-infrastructure eligibility
+Branch: feature/verified-customer-support-platform
+
+Both upgrade preparation and the shared private fence incorrectly required provider
+infrastructure visibility (`present`) for customer-controlled BYO upgrades. Forward
+migration20261024014319 changes only those two predicates: Active Managed requires
+present; Active BYO permits unknown/present. Unsafe/inactive targets still fail
+closed. Applied migration20261023141809 is unchanged. Canonical authority/session,
+pairing, original identity/destination/releases, plan digest, pending operations,
+approval, customer clearance and checkpoint/final-review gates remain intact.
+Customer evidence/compatibility remain required; unknown is not source attestation.
+
+The focused isolated Postgres regression reproduces both original guards, checks
+Managed/BYO boundaries and authorization failures, and completes a synthetic BYO
+unknown review through clearance, three checkpoints and explicit final review.
+It retains full_source_verified=false/customer-reported evidence, original pins and
+unknown infrastructure. Function metadata/ACLs and fixture client/job/pin/Vault/audit
+data are unchanged by migration application. Syntax and diff checks pass. No broad
+suite, frontend build or Shop release regeneration is needed for this SQL-only fix.
+
+Added read-only owner verification and exact single-migration CLI instructions,
+including dry-run inspection and --skip-vault. No hosted mutation/deployment/customer
+upgrade occurs in this pass. Owner applies to Platform development, verifies, then
+retries the original assessment once. PR5 remains Draft/Open/unmerged to development;
+commit/push preserves [CF-Pages-Skip]. External byo-upgrade-409 evidence records the
+focused results and exact push/skip outcome; hosted acceptance remains owner-run.
