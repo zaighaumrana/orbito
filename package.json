@@ -3,9 +3,12 @@
   "version": "3.0.0",
   "private": true,
   "scripts": {
-    "dev":   "vite --port 4180",
+    "dev": "vite --port 4180",
     "build": "vite build",
-    "preview": "vite preview --port 4180"
+    "preview": "vite preview --port 4180",
+    "test:support": "node --test tests/customer-support.test.mjs",
+    "test:support:native": "node tests/run-customer-support-local.mjs",
+    "release:check": "node scripts/release-parity.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0"

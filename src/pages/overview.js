@@ -7,31 +7,24 @@ import { tit } from "../helpers.js";
 export function pageOverview() {
   const role    = pState.currentUser.role;
   const clients = pState.data.clients;
-  const active  = clients.filter(c => lifecycleState(c) === 'Active').length;
-  const suspended = clients.filter(c => lifecycleState(c) === 'Suspended').length;
-  const openTickets = role==='billing_person'?pState.data.openTickets:pState.data.support.filter(s => s.status === "Open").length;
+  const active  = pState.data.overview?.active ?? 0;
+  const suspended = pState.data.overview?.suspended ?? 0;
+  const openTickets = pState.data.openTickets ?? 'Unavailable';
 
   const showFinancials = role === "master_admin" || role === "billing_person";
   const showAddClient  = role === "master_admin" || role === "portfolio_manager";
 
-  const outstandingByCurrency = new Map();
-  for (const invoice of pState.data.invoices) {
-    const client = clients.find(c => c.id === invoice.client_id);
-    const currency = client?.currency || 'Unconfigured';
-    const paid = pState.data.payments.filter(p => p.invoice_id === invoice.id).reduce((n,p) => n + Number(p.amount),0);
-    outstandingByCurrency.set(currency,(outstandingByCurrency.get(currency)||0)+Math.max(Number(invoice.total_due)-paid,0));
-  }
-  const outstandingText = [...outstandingByCurrency].map(([code,amount]) => `${esc(code)} ${amount.toLocaleString()}`).join(' · ') || 'No invoices';
+  const outstandingText=(pState.data.overview?.revenue||[]).map(v=>esc(v.currency)+' '+Number(v.amount).toLocaleString()).join(' · ')||'No invoices';
   const kpis = [
-    ["Total Clients",    clients.length,   ""],
+    ["Total Clients",    pState.data.overview?.clients ?? clients.length,   ""],
     ["Active",           active,           "good"],
     ["Suspended",        suspended,        suspended ? "bad" : ""],
-    ['Provisioning',clients.filter(c=>lifecycleState(c)==='Provisioning').length,''],
-    ['Historical',clients.filter(c=>lifecycleState(c)==='Archived').length,''],
+    ['Provisioning',pState.data.overview?.provisioning ?? 0,''],
+    ['Historical',pState.data.overview?.historical ?? 0,''],
     ["Open Tickets",     openTickets,      openTickets ? "warn" : ""],
     ...(showFinancials ? [
       ["Revenue Due",      outstandingText,          "good"],
-      ["Uninvoiced BILL events", clients.reduce((n,c) => n + computeClientBilling(c.id).billCount,0), ""],
+      ["Uninvoiced BILL events", pState.data.overview?.bill_count ?? 0, ""],
     ] : []),
   ];
 

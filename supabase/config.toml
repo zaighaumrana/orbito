@@ -451,3 +451,18 @@ verify_jwt = true
 
 [functions.clear-failed-platform-invitation]
 verify_jwt = true
+
+[functions.platform-support-tickets]
+# Opaque dedicated credential; handler independently verifies Shop Auth and actor.
+verify_jwt = false
+
+[functions.platform-support-enrollment]
+# Master user JWT plus live canonical Master/session checks in handler and SQL.
+verify_jwt = true
+
+[functions.platform-backend-inventory]
+verify_jwt = true
+
+# Customer clearance is scoped and checked by the handler/DB; Managed callers use live Auth.
+[functions.platform-upgrade]
+verify_jwt = false

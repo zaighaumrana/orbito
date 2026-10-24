@@ -1,11 +1,12 @@
 import { esc } from "../operations.js";
 import { pState } from "../state.js";
+import {renderClientWizard} from '../wizard-views.js';
 
 export function clientModals(type, md) {
   const c = pState.selectedClient || {};
 
   if (type === "add-client") {
-    return `
+    const markup=`
       <div class="modal-backdrop">
         <div class="modal add-client-modal">
           <div class="client-form-header">
@@ -57,7 +58,7 @@ export function clientModals(type, md) {
                 </label></div><p class="muted client-form-note">Rates agreed with client. Decimals supported (e.g. 4.50, 0.75, 12).</p></fieldset>
 
               <fieldset class="client-form-section client-form-wide"><legend>Shop configuration</legend><div class="client-section-fields">
-                  <label class="field"><span>Shop ownership</span><select name="pairing_mode"><option value="managed">Managed Shop</option><option value="byo">Client-owned Supabase — one-time manual pairing</option></select></label>
+                  <label class="field"><span>Shop ownership</span><select name="pairing_mode"><option value="managed">Managed Shop</option><option value="byo">Client-owned Supabase (BYO) — guided customer setup</option></select><small>BYO: after saving, open Complete BYO Setup. Customer CLI authority and private runtime settings stay customer-side; the guide covers installation, independent frontend, owner activation and optional Support enrollment.</small></label>
                   <label class="field"><span>Shop URL</span>
                 <input name="shop_url" type="url" required placeholder="https://…"></label>
                   <label class="field"><span>Shop Supabase Project Ref</span>
@@ -71,6 +72,7 @@ export function clientModals(type, md) {
           </form>
         </div>
       </div>`;
+    return renderClientWizard(markup,pState.clientWizard||{});
   }
 
   if (type === "edit-client") {
@@ -79,7 +81,7 @@ export function clientModals(type, md) {
         <div class="modal" style="max-width:520px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
             <h2>Edit — ${esc(c.name)}</h2>
-            <button class="icon-button" data-p-close>✕</button>
+            <button class="icon-button" aria-label="Close dialog" data-p-close>✕</button>
           </div>
           <form data-p-form="edit-client">
             ${c.onboarding_version === 2 ? `<p>Shop ownership: ${c.pairing_mode==='byo'?'Client-owned / BYO':'Managed'} · immutable to preserve bindings and history.</p><input type="hidden" name="pairing_mode" value="${esc(c.pairing_mode)}">` : ''}

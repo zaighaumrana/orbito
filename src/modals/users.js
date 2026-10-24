@@ -29,7 +29,7 @@ export function userModals(type, md) {
         <div class="modal" style="max-width:460px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
             <h2>Add Team Member</h2>
-            <button class="icon-button" data-p-close>✕</button>
+            <button class="icon-button" aria-label="Close dialog" data-p-close>✕</button>
           </div>
           <form data-p-form="add-platform-user">
             <div class="form-grid">
@@ -61,7 +61,7 @@ export function userModals(type, md) {
         <div class="modal" style="max-width:460px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
             <h2>Edit Team Member</h2>
-            <button class="icon-button" data-p-close>✕</button>
+            <button class="icon-button" aria-label="Close dialog" data-p-close>✕</button>
           </div>
           <form data-p-form="edit-platform-user" method="post">
             <input type="hidden" name="id"        value="${esc(md.id)}">

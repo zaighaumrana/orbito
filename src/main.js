@@ -1,3 +1,5 @@
+import './ui-consistency.css';
+import {restoreRoute} from './client-routes.js';
 import { captureView, viewCurrent, selectClient } from './async-context.js';
 import { createSetupRouter } from './auth-setup.js';
 import { notify, cancelDialogs } from './dialogs.js';
@@ -27,22 +29,7 @@ pState.onRoleChange=()=>{cancelDialogs();render();};
 pState.onDataError=render;
 
 /* ── Browser back/forward navigation ── */
-window.addEventListener("popstate", () => {
-  if (!pState.authenticated) return;
-  const pathMap = {
-    "/":         "overview",
-    "/clients":  "clients",
-    "/billing":  "billing",
-    "/support":  "support",
-    "/settings": "settings",
-    "/team":     "team",
-  };
-  const page = pathMap[window.location.pathname] || "overview";
-  pState.page   = page;
-  pState.filter = "";
-  selectClient();
-  render();
-});
+window.addEventListener("popstate",()=>{if(pState.authenticated)void restoreRoute(render)});
 
 /* Resolve both invitation and recovery callbacks through verified server state. */
 const setupRouter = createSetupRouter({pb,state:pState,render,notify});
@@ -53,7 +40,7 @@ pb.auth.onAuthStateChange((event,session)=>{
   if(event==='TOKEN_REFRESHED' || event==='SIGNED_IN')setTimeout(()=>void validateSession(render),0);
 });
 pState.authRouting=true;render();
-const bootGeneration=pState.authorityGeneration;
+const bootGeneration=pState.authorityGeneration,requestedRoute=location.href;
 (async()=>{
   const {data,error}=await pb.auth.getSession();if(error)throw error;
   if(bootGeneration!==pState.authorityGeneration)return;
@@ -65,6 +52,5 @@ const bootGeneration=pState.authorityGeneration;
   pState.currentUser=identity;pState.authenticated=true;await loadConfig();
   if(bootGeneration!==pState.authorityGeneration || !pState.authenticated)return;
   pState.page=({'/':'overview','/clients':'clients','/billing':'billing','/support':'support','/settings':'settings','/team':'team'})[window.location.pathname] || 'overview';
-  await loadPlatform();if(bootGeneration!==pState.authorityGeneration || !pState.authenticated)return;
-  await validateSession(render);if(bootGeneration===pState.authorityGeneration)render();
+  pState.dataReady=true;await restoreRoute(render,requestedRoute);
 })().catch(()=>{if(bootGeneration!==pState.authorityGeneration)return;pState.authRouting=false;cancelDialogs();clearSensitiveState();pState.page='login';render();notify.error('Account verification is unavailable. Sign in again or retry when your connection is restored.');});

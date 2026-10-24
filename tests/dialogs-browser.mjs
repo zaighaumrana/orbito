@@ -16,7 +16,7 @@ import {confirmDialog,inputDialog,cancelDialogs,notify} from '/dialogs.js';
  Object.assign(pState,{authenticated:true,currentUser:{role:'master_admin',username:'Synthetic'},data:{}});
  const pb={auth:{signOut:async()=>{window.signouts++;}}};
  const render=()=>{document.getElementById('platform-app').innerHTML='<button id="open">New opener</button><button id="logout" data-p-action="logout">Logout</button>';};
- const validateSession=async()=>{};
+ const validateSession=async()=>{};const syncSidebar=()=>{};
  window.results=[];window.signouts=0;window.ui={confirmDialog,inputDialog,cancelDialogs,render,pState};
  window.openDecision=()=>{document.getElementById('open').focus();confirmDialog({title:'Synthetic confirmation',message:'No remote operation.',danger:true}).then(value=>window.results.push(value));};
  `+read('src/events.js').replace(/^import[\s\S]*?;\s*/gm,'')+'\ninitEvents(); window.ready=true;';

@@ -2,7 +2,7 @@ import { captureView, viewCurrent, authorityCurrent, selectClient, clientDataMat
 import { submitProvisioning } from './provisioning.js';
 import { publicEnvironment } from './lifecycle.js';
 import { validateOwner } from './onboarding.js';
-import { rpc, recordPayment, retryOperation } from "./operations.js";
+import { rpc, recordPayment } from "./operations.js";
 import { pState, PCFG, clearSensitiveState } from "./state.js";
 import { pb, reauthenticateMaster, diagnoseMasterSession, loadPlatform, loadClientData, updateClientConfig } from "./supabase.js";
 import { resetTurnstile, captchaBusy } from './turnstile.js';
@@ -10,6 +10,9 @@ import { notify, showMessage, confirmDialog, cancelDialogs } from './dialogs.js'
 import { teamErrorMessage } from './team-errors.js';
 import { render } from "./render.js";
 import { validateSession } from './helpers.js';
+import {submitByoSupport} from './byo-support.js';
+import {submitPaperDelivery} from './paper-delivery.js';
+import {ensureClientDraft,rememberClientDraft,persistClientDraft,clearClientDraft,validateClientStage} from './wizard-controller.js';
 
 function validatePassword(pw) {
   if (pw.length < 8)              return "Password must be at least 8 characters.";
@@ -72,7 +75,38 @@ export async function handleFormSubmit(event) {
     return;
   }
   if (type === 'client-provisioning') { await submitProvisioning(form, event.submitter?.value); return; }
-  const data = Object.fromEntries(new FormData(form).entries());
+  if(type==='support-byo-enrollment'){
+    if(pState.currentUser.role!=='master_admin'||!clientDataMatches(selected))return;
+    try{await submitByoSupport(form,selected,pb,current);if(current())await refresh(true);}
+    catch(error){if(current())notify.error(error);}
+    finally{if(form.elements.enrollment)form.elements.enrollment.value='';}
+    return;
+  }
+  if(type==='support-provider-completion'){
+    if(pState.currentUser.role!=='master_admin'||!clientDataMatches(selected)||!form.elements.confirmed.checked)return;
+    try{
+      const result=await pb.functions.invoke('platform-support-enrollment',{body:{action:'acknowledge-provider-completion',client_id:selected.id,request_id:form.elements.request_id.value,data:{confirmed:true,reason:form.elements.reason.value.trim(),provider_reference:form.elements.provider_reference.value.trim()}}});
+      if(result.error||result.data?.error)throw Error('Provider completion was not recorded. Preserve the original enrollment and review the evidence.');
+      if(current())await refresh(true);
+    }catch(error){if(current())notify.error(error);}
+    return;
+  }
+  let data = Object.fromEntries(new FormData(form).entries());
+  if(type==='paper-decision'){
+    if(!clientDataMatches(selected)||!['master_admin','portfolio_manager'].includes(pState.currentUser?.role))return;
+    const modal=pState.modal,decision=modal?.type==='paper-decision'?modal.data:null;
+    if(!decision||decision.client!==selected.id)return;
+    const message=String(data.message||'').trim(),expectation=String(data.expectation||'').trim();
+    if(!message||message.length>2000||expectation.length>200){notify.error('Enter a customer message within the displayed limits.');return;}
+    form.querySelectorAll('button,input,textarea').forEach(e=>e.disabled=true);
+    form.querySelector('[data-paper-progress]').textContent='Saving customer update…';
+    try{
+      await rpc('platform_paper_decision',{p_client:decision.client,p_request:decision.request,p_version:decision.version,p_status:decision.status,p_message:message,p_expectation:expectation,p_delivery:null});
+      if(current()&&pState.modal===modal){pState.modal=null;if(await loadClientData(selected)){render();notify.success('Paper supply decision saved.');}}
+    }catch(error){if(current()&&pState.modal===modal){form.querySelector('[data-paper-progress]').textContent=error.definiteFailure?'Decision was not saved. Refresh the request before trying a different decision.':'Outcome unconfirmed. Retry these same values or refresh to reconcile the saved revision.';if(!error.definiteFailure)form.querySelectorAll('input,textarea').forEach(e=>e.readOnly=true);}}
+    finally{form.querySelectorAll('button,input,textarea').forEach(e=>e.disabled=false);}
+    return;
+  }
   if(type==='master-continuity'){
     if(pState.currentUser.role!=='master_admin' || pState.reauthLoading)return;
     const attempt={};pState.diagnosticAttempt=attempt;
@@ -86,21 +120,24 @@ export async function handleFormSubmit(event) {
   }
 
   if (type === 'paper-delivery') {
-    if(!clientDataMatches(selected))return;
-    const clientId = selected.id;
-    const request = (pState.clientData.operations?.requests || []).find(r => r.request_id === data.request_id);
-    const delivery = { reference: data.reference, roll_count: Number(data.roll_count), usable_length_mm: Number(data.usable_length_mm), paper_width_mm: Number(data.paper_width_mm), delivered_at: new Date(data.delivered_at).toISOString() };
-    const payload = { p_client: clientId, p_request: request?.request_id || null, p_version: request?.sync_version || null, p_status: 'fulfilled', delivery };
-    await retryOperation(`supply:${clientId}`, payload, id => rpc('platform_paper_action', { p_client: payload.p_client, p_request: payload.p_request, p_version: payload.p_version, p_status: payload.p_status, p_delivery: { ...delivery, delivery_id: id } }));
-    if(current() && await loadClientData(selected))render(); return;
+    await submitPaperDelivery(form);return;
   }
 
   /* ── Add Client ── */
   if (type === "add-client") {
+    if(!['master_admin','portfolio_manager'].includes(pState.currentUser.role))return;
+    const draft=ensureClientDraft();if(draft.submitting||!draft.reviewed||draft.step!==4)return;
+    if(!draft.pending){
+      for(let step=0;step<5;step++)if(!validateClientStage(form,step)){draft.step=step;persistClientDraft();render();return;}
+      rememberClientDraft(form);draft.reviewed=true;
+    }
+    data={...draft.fields};
     let owner;
     try { owner = validateOwner(data.owner_name, data.owner_email); } catch (error) { notify.error(error.message); return; }
     if (data.ems_track_breaks === 'true' && data.plan !== 'Pro Plus') { notify.error('Break Tracking requires Pro Plus / EMS.'); return; }
-    const { data: savedClient, error } = await pb.rpc('platform_save_client',{p_client:null,p_data:{
+    draft.submitting=true;draft.error=null;draft.pending=true;persistClientDraft();render();
+    let response;
+    try{response=await pb.rpc('platform_create_client_once',{p_request:draft.requestId,p_data:{
       ...owner,
       pairing_mode: data.pairing_mode,
       ems_track_breaks: data.ems_track_breaks === 'true',
@@ -115,9 +152,22 @@ export async function handleFormSubmit(event) {
       inventory_billable: data.inventory_addon === "true",
       supabase_url:       `https://${data.project_ref}.supabase.co`,
       shop_url:           data.shop_url || "",
-    }});
-    if(!current())return;
-    if (error) { notify.error(error); return; }
+    }})}catch{response={error:{code:'transport'}}}
+    if(!current()){
+      if(authorityCurrent(context)&&pState.clientWizard===draft){
+        draft.submitting=false;draft.error='Creation response arrived after leaving this form. Retry the original creation to reconcile the unconfirmed outcome.';persistClientDraft();
+        if(pState.modal?.type==='add-client')render();
+      }
+      return;
+    }
+    draft.submitting=false;
+    const {data:savedClient,error}=response;
+    if(error||!savedClient?.id){
+      if(['22023','23514','23502','P0001'].includes(error?.code))draft.pending=false;
+      draft.error=error?.code==='PGRST202'?'Creation service is unavailable. The reviewed migration must be approved and applied before client creation; no fallback write was attempted.':draft.pending?'Creation is unconfirmed. Retry the original creation with the same locked details.':'Client validation failed. Review the entered fields; no client was created by this rejected transaction.';
+      persistClientDraft();render();return;
+    }
+    clearClientDraft();
 
     selectClient(savedClient);
     pState.page = 'client-detail';

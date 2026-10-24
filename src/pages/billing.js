@@ -12,7 +12,7 @@ export function pageBilling() {
 
   const rows = clients.filter(c => lifecycleState(c) === 'Active').map(c => {
     const b           = computeClientBilling(c.id);
-    const lastInvoice = invoices
+    const lastInvoice = (pState.data.latestInvoices || invoices)
       .filter(i => i.client_id === c.id)
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
     return { c, b, lastInvoice, hasInventory: !!c.inventory_billable || b.inventoryCount > 0 };
@@ -25,7 +25,7 @@ export function pageBilling() {
 
   return `
     ${tit("Billing", `${monthLabel} — Usage-Based Invoicing · policy activation required`, "")}
-    <p>${invoices.length?'Showing up to the latest 25 issued invoices. Outstanding total includes all issued invoices.':'No issued invoices yet.'}</p>
+    <p>Client page ${Math.floor((pState.resourceOffset||0)/50)+1}. Estimates below cover this page; invoice summaries show the latest 25 for these clients. Open an invoice for its complete payments and receipt details.</p>
 
     <p class="muted">Amounts below are rate-snapshot estimates. Clients without an agreed policy/currency, or with flagged carry history, cannot generate invoices. Mixed currencies are not consolidated.</p>
     <div class="grid kpi-grid" style="margin-bottom:4px">
@@ -84,24 +84,24 @@ export function pageBilling() {
                     ${esc(payStatus)}
                   </span>
                 </td>
-                <td style="display:flex;gap:6px;flex-wrap:wrap">
+                <td class="table-actions">
                   ${(b.billCount + b.inventoryCount) > 0 && c.billing_policy === "usage-v1" && c.currency && !c.accounting_review_required ? `
-                    <button class="primary-button" style="font-size:12px;padding:5px 10px"
+                    <button class="primary-button"
                       data-p-action="generate-invoice" data-p-id="${c.id}">
                       Gen Invoice
                     </button>` : ""}
                   ${(payStatus === "Unpaid" || payStatus === "Partial") && lastInvoice ? `
-                    <button class="secondary-button" style="font-size:12px;padding:5px 10px"
+                    <button class="secondary-button"
                       data-p-action="mark-paid"
                       data-p-id="${lastInvoice.id}"
                       data-p-client-id="${c.id}">
                       Record Payment
                     </button>` : ""}
-                  <button class="secondary-button" style="font-size:12px;padding:5px 10px"
+                  <button class="secondary-button"
                     data-p-action="edit-client-rates" data-p-id="${c.id}">
                     Edit Rates
                   </button>
-                  <button class="secondary-button" style="font-size:12px;padding:5px 10px"
+                  <button class="secondary-button"
                     data-p-action="view-logs" data-p-id="${c.id}">
                     Logs
                   </button>
@@ -138,8 +138,8 @@ export function pageBilling() {
                   ${inv.payment_status||"Unpaid"}
                 </span>
               </td>
-              <td style="display:flex;gap:4px">
-                <button class="secondary-button" style="font-size:12px;padding:4px 8px"
+              <td class="table-actions">
+                <button class="secondary-button"
                   data-p-action="view-invoice" data-p-id="${inv.id}">View</button>
               </td>
             </tr>`;

@@ -65,7 +65,8 @@ if(chromium){
      const button=document.createElement('button');button.textContent='Print synthetic invoice';button.onclick=()=>printClientInvoices(pState.data.clients[0],pState.data.invoices);document.body.append(button);
     },mode);
     await page.getByRole('button',{name:'Print synthetic invoice',exact:true}).click();
-    await context.pages().find(child=>child!==page)?.bringToFront();
+    const popup=context.pages().find(child=>child!==page);
+    if(popup&&!popup.isClosed())await popup.bringToFront().catch(error=>{if(!popup.isClosed())throw error});
     assert.equal(await page.evaluate(()=>window.fixturePrintActivation),true,'Popup remains inside the real user gesture');
     if(['fonts-first','image-first'].includes(mode)){
      await page.waitForFunction(mode=>mode==='fonts-first'?[...window.fixturePrintPopup.document.fonts].length===4 && [...window.fixturePrintPopup.document.fonts].every(f=>f.status==='loaded'):[...window.fixturePrintPopup.document.images].every(i=>i.complete && i.naturalWidth>0),mode);

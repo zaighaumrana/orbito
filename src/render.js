@@ -1,3 +1,4 @@
+import {routePath} from './client-routes.js';
 import { cleanupTurnstile, mountTurnstile } from './turnstile.js';
 import { pState, PCFG, getNav } from "./state.js";
 import { pModal }        from "./modals/index.js";
@@ -11,15 +12,22 @@ import { teamRoles } from './team.js';
 import { esc } from './operations.js';
 import { captureView, viewCurrent } from './async-context.js';
 import { syncModalFocus, resetModalFocus } from './modal-focus.js';
+import {hydratePaperDelivery} from './paper-delivery.js';
 
 let editView;
-export function syncSidebar(open=false) {
+export function syncSidebar(open) {
   const sidebar=document.getElementById('p-sidebar'),menu=document.getElementById('p-menu-btn');
   if(!sidebar?.classList)return;
   const mobile=window.innerWidth<=1180;
-  sidebar.classList.toggle('open',mobile && open);sidebar.inert=mobile && !open;
-  if(mobile && !open)sidebar.setAttribute('aria-hidden','true');else sidebar.removeAttribute('aria-hidden');
-  menu?.setAttribute('aria-expanded',String(mobile && open));
+  const preference=pState.sidebarOpen||={desktop:true,mobile:false},mode=mobile?'mobile':'desktop';
+  if(typeof open==='boolean')preference[mode]=open;
+  open=preference[mode];
+  sidebar.classList.toggle('open',open);sidebar.inert=!open;
+  sidebar.closest('.platform-shell')?.classList.toggle('navigation-collapsed',!mobile&&!open);
+  if(!open)sidebar.setAttribute('aria-hidden','true');else sidebar.removeAttribute('aria-hidden');
+  menu?.setAttribute('aria-expanded',String(open));
+  menu?.setAttribute('aria-label',open?'Close navigation':'Open navigation');
+  if(!open&&sidebar.contains(document.activeElement))menu?.focus();
 }
 
 const verification = () => `<div class="auth-verification"><div id="verification-widget"></div><p id="verification-status" class="muted" role="status" aria-live="polite"></p><button type="button" class="secondary-button" data-p-action="retry-verification">Retry verification</button></div>`;
@@ -87,17 +95,8 @@ export function render() {
   document.documentElement.dataset.theme = pState.theme;
   /* Sync URL with current page state */
   if (pState.authenticated) {
-    const urlMap = {
-      "overview":      "/",
-      "clients":       "/clients",
-      "client-detail": "/clients",
-      "billing":       "/billing",
-      "support":       "/support",
-      "settings":      "/settings",
-      "team":          "/team",
-    };
-    const target = urlMap[pState.page] || "/";
-    if (window.location.pathname !== target) {
+    const target = routePath();
+    if (window.location.pathname+window.location.search !== target) {
       history.pushState({ page: pState.page }, "", target);
     }
   }
@@ -133,7 +132,7 @@ export function render() {
     <a class="skip-link" href="#main-content">Skip to content</a><div class="platform-shell">
       <aside class="platform-sidebar" id="p-sidebar">
         <div class="sidebar-brand"><img src="/brand/logos/retrasell-horizontal-reversed.svg" alt="RetraSell" width="1340" height="470"><span>Platform Console</span></div>
-        <button class="secondary-button sidebar-close" data-p-action="toggle-sidebar">Close navigation</button>
+        <button class="secondary-button sidebar-close" data-p-action="close-sidebar" aria-controls="p-sidebar">Close navigation</button>
         <nav class="platform-nav" aria-label="Platform navigation">
           ${nav.map(n => `
             <button class="platform-nav-btn ${
@@ -149,8 +148,8 @@ export function render() {
       <div class="platform-main">
         <header class="platform-topbar">
           <div style="display:flex;align-items:center;gap:10px">
-            <button class="icon-button" id="p-menu-btn" aria-label="Toggle navigation" aria-controls="p-sidebar"
-              style="display:none" data-p-action="toggle-sidebar">☰</button>
+            <button class="icon-button" id="p-menu-btn" aria-label="Open navigation" aria-controls="p-sidebar"
+              data-p-action="toggle-sidebar">☰</button>
             <span class="compact-brand"><img class="brand-light" src="/brand/logos/retrasell-icon-primary.svg" alt="RetraSell" width="36" height="36"><img class="brand-dark" src="/brand/logos/retrasell-icon-reversed.svg" alt="RetraSell" width="36" height="36"></span>
             <h2 style="font-size:16px;color:var(--muted)">
               ${pState.page === "client-detail" && pState.selectedClient
@@ -169,7 +168,7 @@ export function render() {
             </button>
           </div>
         </header>
-        <main class="content" id="main-content">${platformPage()}</main>
+        <main class="content" id="main-content">${pState.routeError?`<p role="alert">${esc(pState.routeError)}</p>`:""}${platformPage()}${["overview","clients","billing","team"].includes(pState.page)&&pState.dataReady?`<nav class="pagination" aria-label="Resource pages"><span>Showing this page of records</span><button class="secondary-button" data-p-action="resource-page" data-offset="${Math.max(0,(pState.resourceOffset||0)-(pState.page==='team'?100:50))}" ${pState.resourceOffset?'':'disabled'}>Previous</button><button class="secondary-button" data-p-action="resource-page" data-offset="${(pState.resourceOffset||0)+(pState.page==='team'?100:50)}" ${pState.resourcePage?.has_more?'':'disabled'}>Next</button></nav>`:""}</main>
       </div>
     </div>
     ${pModal()}
@@ -181,11 +180,12 @@ export function render() {
     if(selection)active.setSelectionRange(...selection);
   }
   editView=pState.modal?.type==='edit-client'?captureView():null;
+  hydrateClientDraft();
+  hydratePaperDelivery();
   syncModalFocus(app,()=>{pState.modal=null;render();},previousFocus);
 
   if(pState.modal?.type==='master-continuity')void mountTurnstile({containerId:'diagnostic-verification',statusId:'diagnostic-status',buttonSelector:'[data-diagnostic-submit]'});
   else if (document.getElementById("verification-widget")) void mountTurnstile();
-  const menuBtn = document.getElementById("p-menu-btn");
-  if (menuBtn && window.innerWidth <= 1180) menuBtn.style.display = "inline-flex";
   syncSidebar();
 }
+import {hydrateClientDraft} from './wizard-controller.js';
