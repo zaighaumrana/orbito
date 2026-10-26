@@ -2368,3 +2368,36 @@ Permanent evidence: Shop-Modernization-2026/Milestone-2-Performance, including
 identities accompany the owner review report. No database, provider or deployment
 operation occurred. Promotion, remote publication and hosted verification remain
 separate owner decisions.
+
+## 2026-10-27 — PR6 backend release reporting and read-only verification
+Branch: feature/shop-modernization-m2-release
+
+Corrected the status RPC through forward migration
+20261026220335_backend_release_reporting_verification.sql. It projects exact-scope
+completed upgrade receipts and latest separate operations from shop_upgrade_jobs,
+while retaining original installation pins and audit history. Checkpoint hashes,
+terminal state, identity, plan and mode-specific evidence must agree. Saved
+inventory from another mode is excluded; BYO cannot inherit Managed verification.
+
+The existing inventory collector now independently reads declared live SQL routine,
+ACL, private RLS/policy evidence and decoded provider function source, comparing
+actual returned files and JWT gateways with immutable manifests. Bundle hashes
+remain separate. Scoped SQL checks are partial because immutable releases lack a
+canonical complete catalog baseline; provider-omitted packaged files remain missing.
+Full source verification is not asserted. BYO keeps customer/restricted evidence.
+Optional bounded-operational-reads is retained and required only for releases
+declaring it, preserving v6 behavior.
+
+Frontend separates the last recorded upgrade/date/strength, independent current
+release, verification limitations, runtime health and fresh-approved target.
+Five focused JavaScript groups pass. One small isolated PG17 fixture passes seven
+groups, including real status-RPC responses consumed by the actual frontend,
+identity/incomplete/later-operation cases, historical pin and ACL/audit continuity.
+Initial infrastructure/quoting/fixture failures are retained in external evidence.
+No browser automation, broad suite, benchmark or large dataset was run.
+
+Owner authorizes commit/push to existing PR6 only, without another approval or new
+enforcement. Commits retain [CF-Pages-Skip]; exact post-push result is recorded in
+external evidence. No hosted SQL, Edge deployment, Shop change, release/package
+modification, promotion or merge occurs. Full details and precise verification
+limits are in docs/PR6_RELEASE_REPORTING_FIX.md.
