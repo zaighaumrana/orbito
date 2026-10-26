@@ -1,3 +1,4 @@
+import {assessBackend as assessM2Backend} from '../supabase/functions/_shared/backend-inventory.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -32,4 +33,24 @@ test('empty BYO assessment makes zero network calls and creates no phantom job o
  let calls=0,message;const ctx={pState:state,upgradeActionAllowed,hasUpgradePlan,validateAssessment,document:{querySelectorAll:()=>[]},pb:{rpc:async()=>{calls++;},functions:{invoke:async()=>{calls++;}}},notify:{error:m=>message=m}};vm.createContext(ctx);
  const strip=s=>s.replace(/^import .*$/gm,'').replace(/^export /gm,'');vm.runInContext(strip(read('src/async-context.js')),ctx);vm.runInContext(strip(read('src/backend-upgrade.js')),ctx);
  await ctx.handleUpgrade('upgrade-review',()=>{});assert.equal(calls,0);assert.match(message,/empty/);assert.equal(state.backendUpgrade.job,undefined);assert.equal(state.backendUpgrade.requestId,undefined);
+});
+
+
+test('staged v7 keeps existing v4/v6 health and optional upgrades separate from missing new capabilities',()=>{
+ const readM2=p=>JSON.parse(readFileSync(new URL('../'+p,import.meta.url),'utf8'));
+ const actual=readM2('supabase/releases/approved-shop-releases.json');
+ const packages=Object.fromEntries(actual.map(c=>[c.release_id,readM2(c.release_id==='accepted-v1'?'supabase/functions/_shared/shop-release.json':'supabase/releases/shop-release-'+c.release_id+'.json')]));
+ const evidence=release=>({origin:'synthetic exact-source fixture',database_source_match:true,migrations:release.migrations.map(({version,name,sha256})=>({version,name,sha256})),functions:release.functions.map(f=>({name:f.name,present:true,verify_jwt:f.verify_jwt,source_sha256:f.sha256})),capabilities:Object.fromEntries((release.requirements?.requirements||[]).filter(q=>q.id!=='core-runtime').map(q=>[q.id,true])),runtime:{database_reachable:true,edge_functions:true,authentication:true}});
+ for(const version of ['support-v4','support-v6']){
+  const observed=evidence(packages[version]),before=structuredClone(observed);
+  assert.equal(observed.capabilities['bounded-operational-reads'],undefined);
+  const staged=assessM2Backend(actual,packages,observed);assert.equal(staged.runtime_health,'healthy');assert.equal(staged.verified_release.release_id,version);
+  assert.equal(staged.upgrade.available,version==='support-v4');
+  // Only simulate future approval in memory. Current selectors/catalog stay v6.
+  const reviewed=actual.map(c=>({...c,approved_for_new:c.release_id==='support-v7',supported:c.release_id==='support-v7'?true:c.supported}));
+  const future=assessM2Backend(reviewed,packages,observed);assert.equal(future.runtime_health,'healthy');assert.equal(future.compliance,'upgrade_available');assert.equal(future.upgrade.policy,'optional');assert.equal(future.verified_release.release_id,version);
+  assert.deepEqual(observed,before,'Detection cannot mutate existing-shop health or schedule a write');
+ }
+ const newEvidence=evidence(packages['support-v7']);delete newEvidence.capabilities['bounded-operational-reads'];
+ assert.equal(assessM2Backend(actual,packages,newEvidence).verified_release,null,'Missing new requirement is never reported verified');
 });

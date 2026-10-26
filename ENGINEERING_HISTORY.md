@@ -2327,3 +2327,44 @@ authorized. The owner separately authorized normal production deployment from th
 Shop feature branch to its two existing Pages projects. Settings and PR bases stay
 unchanged; both PRs remain Open/Draft/unmerged. New external clearance-compatibility
 evidence records final parity, push, deployment observations and owner acceptance.
+
+## 2026-10-26 — Local M2 support-v7 review integration (not promoted)
+Branch: feature/shop-modernization-m2-release
+
+The owner explicitly authorized this local branch, source changes, commits and
+focused tests, excluding every Platform remote operation, PR, merge, deployment
+and hosted Supabase change. Added an immutable candidate package for the committed
+Shop bounded-read source 50b94931ecf743166136b2c562cbb6d2fbaebdc7. Its fingerprint
+is c4d210d009de9c57acf0c9af7fc41053632a95439ea24a68aa6e22f724d6bada
+(39 migrations, seven unchanged Edge Functions, nine traceable requirements).
+
+The existing registry/catalog and validator now support explicit local candidate
+review, without making the candidate supported or approved for new installs.
+Managed's active selector and Shop's actual BYO manifest remain support-v6.
+Historical immutable releases and pins are preserved. Requirement validation is
+version-aware: historical v6 retains its original eight requirements; v7 carries
+the additional bounded-operational-reads requirement. Workflow source pairing uses
+exact committed Shop source, runs candidate review, and retains the ordinary
+approved-active release gate; it is intentionally blocked pending a separately
+reviewed promotion. Neither workflow has run remotely.
+
+Fifteen parity, health and pin checks pass, and three targeted controlled-upgrade
+checks pass. They prove candidate denial, unchanged old-shop health, historical
+v4 pin continuity, and hypothetical future-approved upgrade planning without
+changing actual approval state. Four isolated local PostgreSQL fixtures pass for
+fresh Managed/BYO and populated v4-to-v6-to-v7 paths, including rollback, hash
+conflict, replay, RLS/Support denial and bounded history behavior. These are local
+fixtures, not hosted provisioning evidence. The prior CLI-success fixture remains
+blocked by the real unpromoted active manifest; it was not weakened to pass.
+
+An earlier uncommitted, unsupported v7 draft (6f817827...) was superseded only after
+an independent null-date oracle exposed a legacy receipt mismatch. The old draft
+and failed evidence are archived; corrected SQL passed all four lifecycle fixtures
+before this final candidate was generated. No historical release was replaced.
+
+Permanent evidence: Shop-Modernization-2026/Milestone-2-Performance, including
+20261026T154850Z-M2-012-6776983-v7-integration and
+20261026T171054Z-M2-012-941cf69-corrected-date-source. Final exact diffs and source
+identities accompany the owner review report. No database, provider or deployment
+operation occurred. Promotion, remote publication and hosted verification remain
+separate owner decisions.

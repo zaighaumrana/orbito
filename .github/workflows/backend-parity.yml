@@ -4,7 +4,7 @@ on:
     branches: [development]
     paths: ['supabase/**', 'scripts/**', '.github/workflows/backend-parity.yml', 'package.json', 'AGENTS.md']
   push:
-    branches: [feature/verified-customer-support-platform]
+    branches: [feature/shop-modernization-m2-release]
     paths: ['supabase/**', 'scripts/**', '.github/workflows/backend-parity.yml', 'package.json', 'AGENTS.md']
   workflow_dispatch:
 permissions:
@@ -21,7 +21,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: zaighaumrana/Orbitoshopv2-v1
-          ref: feature/verified-customer-support-shop
+          # Local review source; publication requires separate owner approval.
+          ref: 00fe5ac9cdad32a91c1a5ffc06ea6664980e0c98
           path: Orbitoshopv2-v1
           fetch-depth: 0
           persist-credentials: false
@@ -29,6 +30,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Validate committed backend and both installation plans
+      - name: Review unpromoted support-v7 candidate and both installation plans
+        working-directory: orbito
+        run: node scripts/release-parity.mjs --candidate support-v7
+      - name: Enforce approved active release gate (promotion remains required)
         working-directory: orbito
         run: node scripts/release-parity.mjs

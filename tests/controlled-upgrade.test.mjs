@@ -66,3 +66,30 @@ test('upgrade frontend captures approval fields before submitting render and den
  await ctx.handleUpgrade('upgrade-approve',()=>{fields=[];});assert.equal(args.p_conditions.source_review_reference,'real-source-review');
  state.currentUser.role='billing_person';args=null;await ctx.handleUpgrade('upgrade-approve',()=>{});assert.equal(args,null);
 });
+
+
+test('v7 is denied before review; prospective existing-version plans are additive and require current exact evidence',()=>{
+ const v7=JSON.parse(read('supabase/releases/shop-release-support-v7.json')),candidate=policy(v7);
+ assert.equal(candidate.approved_for_new,false);assert.equal(candidate.supported,false);
+ assert.deepEqual(v7.functions,target.functions,'The SQL read release changes no Edge function bytes or gateway');
+ assert.deepEqual(v7.migrations.slice(0,-1),target.migrations,'All old migration bytes/hashes are immutable');
+ assert.equal(v7.migrations.at(-1).sha256,'ab1f175ab24b4590fa7523ec906aa018c625b628c51f4dcc6a579a4dcb8d2c00');
+ for(const [version,missing] of [['support-v2',5],['support-v3',3],['support-v4',2],['support-v6',1]]){
+  const older=JSON.parse(read('supabase/releases/shop-release-'+version+'.json'));
+  assert.throws(()=>makeUpgradePlan(older,v7,policy(older),candidate,observation(older),identity),/approved supported/);
+  // Explicit hypothetical owner-approved target fixture; never modify real policy.
+  const reviewed={...candidate,supported:true,approved_for_new:true};
+  const proposed=makeUpgradePlan(older,v7,policy(older),reviewed,observation(older),identity);
+  assert.equal(proposed.steps.filter(s=>s.type==='migration').length,missing);
+  if(version==='support-v6')assert.equal(proposed.steps.filter(s=>s.type==='function').length,0);
+  assert.equal(proposed.source_fully_verified,false);
+  console.log('PROSPECTIVE '+version+' to v7 '+JSON.stringify(proposed.steps.map(s=>s.name)));
+ }
+ const reviewed={...candidate,supported:true,approved_for_new:true};
+ const p=makeUpgradePlan(target,v7,policy(target),reviewed,observation(target),identity);
+ assert.throws(()=>requireUpgradeProgress(v7,p,observation(v7).migrations,{}),/checkpoints/);
+ requireUpgradeProgress(v7,p,observation(v7).migrations,{[p.steps[0].name]:{state:'passed'}});
+ assert.equal(verifyUpgradeResult(v7,observation(v7),identity).full_source_verified,false);
+ const wrong=observation(target);wrong.functions[0].verify_jwt=false;
+ assert.throws(()=>makeUpgradePlan(target,v7,policy(target),reviewed,wrong,identity),/gateway/);
+});

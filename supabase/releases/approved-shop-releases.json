@@ -151,5 +151,29 @@
       "gateway",
       "current-database-capabilities"
     ]
+  },
+  {
+    "release_id": "support-v7",
+    "sha256": "c4d210d009de9c57acf0c9af7fc41053632a95439ea24a68aa6e22f724d6bada",
+    "migrations": 39,
+    "functions": 7,
+    "approved_for_new": false,
+    "supported": false,
+    "successor": null,
+    "upgrade_policy": "optional",
+    "compatibility": {
+      "bridge": 1,
+      "billing": 1,
+      "support": 1,
+      "config": 1
+    },
+    "required_evidence": [
+      "migration-provenance",
+      "deployed-source",
+      "gateway",
+      "current-database-capabilities"
+    ],
+    "review_status": "candidate-local",
+    "backend_source_commit": "50b94931ecf743166136b2c562cbb6d2fbaebdc7"
   }
 ]
