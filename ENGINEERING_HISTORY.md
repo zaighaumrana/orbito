@@ -2401,3 +2401,30 @@ enforcement. Commits retain [CF-Pages-Skip]; exact post-push result is recorded 
 external evidence. No hosted SQL, Edge deployment, Shop change, release/package
 modification, promotion or merge occurs. Full details and precise verification
 limits are in docs/PR6_RELEASE_REPORTING_FIX.md.
+
+## 2026-10-27 — Owner-authorized support-v7 source promotion
+Branch: feature/shop-modernization-m2-release
+
+Promoted the existing immutable c4d210d0... v7 package in source only, using backend
+50b94931ecf743166136b2c562cbb6d2fbaebdc7 (39 SQL/seven unchanged Edge packages/nine
+requirements). Catalog and active Managed selector agree with Shop's BYO selector.
+V6 stays supported with optional v7 successor; v5 stays unsupported. The guarded,
+transactional forward migration 20261027152811_promote_support_v7.sql checks historical
+fingerprints before catalog-only changes; pins/jobs/plans/checkpoints/audit stay intact.
+Shop receives the existing PR6 classifier fixes without provider authority. CI retains
+the ordinary parity gate, replacing candidate-only invocation and stale paired refs.
+
+Normal parity and integrity checks pass; 15 upgrade/clearance, six selected release,
+five PR6 reporting/capability checks pass. One small isolated PG17 catalog fixture
+passes promotion/history preservation, replay and fingerprint-conflict denial; owned
+container removed. Supporting syntax/imports and seven guide PowerShell blocks pass.
+Initial stale fixtures were corrected without weakening source/authorization gates.
+No browser, performance or broad suite ran. Details/manual owner commands are in
+docs/SUPPORT_V7_SOURCE_PROMOTION.md and the timestamped M2 evidence folder.
+
+Owner authorizes both existing branch pushes and automatic Pages rebuilds, explicitly
+superseding the skip convention for these commits. Final empty build-trigger commits
+are planned; exact SHAs/provider results are recorded externally. PRs remain Draft,
+Open and unmerged. No hosted Supabase SQL/Edge function, customer upgrade or provisioning
+operation is performed. Hosted activation/installation, complete source-verification
+limits, independent audit and remaining M2 acceptance are separate obligations.

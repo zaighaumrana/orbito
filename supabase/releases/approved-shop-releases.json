@@ -6,7 +6,7 @@
     "functions": 6,
     "approved_for_new": false,
     "supported": true,
-    "successor": "support-v6",
+    "successor": "support-v7",
     "upgrade_policy": "optional",
     "compatibility": {
       "bridge": 1,
@@ -28,7 +28,7 @@
     "functions": 7,
     "approved_for_new": false,
     "supported": true,
-    "successor": "support-v6",
+    "successor": "support-v7",
     "upgrade_policy": "optional",
     "compatibility": {
       "bridge": 1,
@@ -50,7 +50,7 @@
     "functions": 7,
     "approved_for_new": false,
     "supported": true,
-    "successor": "support-v6",
+    "successor": "support-v7",
     "upgrade_policy": "optional",
     "compatibility": {
       "bridge": 1,
@@ -72,7 +72,7 @@
     "functions": 7,
     "approved_for_new": false,
     "supported": true,
-    "successor": "support-v6",
+    "successor": "support-v7",
     "upgrade_policy": "optional",
     "compatibility": {
       "bridge": 1,
@@ -94,7 +94,7 @@
     "functions": 7,
     "supported": false,
     "approved_for_new": false,
-    "successor": "support-v6",
+    "successor": "support-v7",
     "upgrade_policy": "optional",
     "compatibility": {
       "bridge": 1,
@@ -126,8 +126,8 @@
     "migrations": 38,
     "functions": 7,
     "supported": true,
-    "approved_for_new": true,
-    "successor": null,
+    "approved_for_new": false,
+    "successor": "support-v7",
     "upgrade_policy": "optional",
     "compatibility": {
       "bridge": 1,
@@ -157,8 +157,8 @@
     "sha256": "c4d210d009de9c57acf0c9af7fc41053632a95439ea24a68aa6e22f724d6bada",
     "migrations": 39,
     "functions": 7,
-    "approved_for_new": false,
-    "supported": false,
+    "approved_for_new": true,
+    "supported": true,
     "successor": null,
     "upgrade_policy": "optional",
     "compatibility": {
@@ -173,7 +173,18 @@
       "gateway",
       "current-database-capabilities"
     ],
-    "review_status": "candidate-local",
-    "backend_source_commit": "50b94931ecf743166136b2c562cbb6d2fbaebdc7"
+    "review_status": "approved-shared",
+    "backend_source_commit": "50b94931ecf743166136b2c562cbb6d2fbaebdc7",
+    "requirements": [
+      "core-runtime",
+      "usage-outbox",
+      "billing-projection",
+      "config-journal",
+      "support-identity",
+      "support-consent",
+      "owner-bootstrap",
+      "support-durable-submissions",
+      "bounded-operational-reads"
+    ]
   }
 ]

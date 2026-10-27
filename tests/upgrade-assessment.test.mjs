@@ -36,7 +36,7 @@ test('empty BYO assessment makes zero network calls and creates no phantom job o
 });
 
 
-test('staged v7 keeps existing v4/v6 health and optional upgrades separate from missing new capabilities',()=>{
+test('approved v7 keeps existing v4/v6 health and optional upgrades separate from missing new capabilities',()=>{
  const readM2=p=>JSON.parse(readFileSync(new URL('../'+p,import.meta.url),'utf8'));
  const actual=readM2('supabase/releases/approved-shop-releases.json');
  const packages=Object.fromEntries(actual.map(c=>[c.release_id,readM2(c.release_id==='accepted-v1'?'supabase/functions/_shared/shop-release.json':'supabase/releases/shop-release-'+c.release_id+'.json')]));
@@ -45,8 +45,8 @@ test('staged v7 keeps existing v4/v6 health and optional upgrades separate from 
   const observed=evidence(packages[version]),before=structuredClone(observed);
   assert.equal(observed.capabilities['bounded-operational-reads'],undefined);
   const staged=assessM2Backend(actual,packages,observed);assert.equal(staged.runtime_health,'healthy');assert.equal(staged.verified_release.release_id,version);
-  assert.equal(staged.upgrade.available,version==='support-v4');
-  // Only simulate future approval in memory. Current selectors/catalog stay v6.
+  assert.equal(staged.upgrade.available,true);
+  // Source promotion offers an optional upgrade without changing existing-shop health.
   const reviewed=actual.map(c=>({...c,approved_for_new:c.release_id==='support-v7',supported:c.release_id==='support-v7'?true:c.supported}));
   const future=assessM2Backend(reviewed,packages,observed);assert.equal(future.runtime_health,'healthy');assert.equal(future.compliance,'upgrade_available');assert.equal(future.upgrade.policy,'optional');assert.equal(future.verified_release.release_id,version);
   assert.deepEqual(observed,before,'Detection cannot mutate existing-shop health or schedule a write');
