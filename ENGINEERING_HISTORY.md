@@ -2478,3 +2478,29 @@ Owner authorizes normal existing-branch commits/pushes and automatic Pages build
 PRs remain Draft/Open. No SQL, Edge, immutable artifact, provider setting, customer
 record or actual Shop upgrade changes. Managed v7 completion is owner-reported
 context, not independently revalidated by this implementation.
+
+## 2026-10-28 — Repair BYO guide against the original fresh wizard
+Branch: feature/shop-modernization-m2-release
+
+Used all twelve fresh BYO stages, renderer/controller and coordinated-wizard design
+as the UX reference, retaining current v7 commands. The inline upgrade guide now
+has ten individually navigable stages with objectives, Where/prerequisites, numbered
+tasks, complete copy blocks, success/failure checks, When to continue and recovery.
+Local browsing never advances backend progress; no persistence/RPC was added.
+
+Copied operational blocks restore identity/source/target and folder/journal context
+in new PowerShell sessions, check exit/report/schema/binding before PASS, and throw
+STOP for failure. Clean-M2 script recovery uses guarded fetch/--ff-only; private
+folders have sensible user-profile defaults and explicit original-file recovery.
+Unique report names preserve old evidence; assessment never creates/replaces a
+journal. Customer instructions exclude internal paired parity. Scoped aligned copy
+controls use inline accessible feedback without floating overlaps. New guide
+commands never inherit an old completed receipt’s source. Existing authorization,
+approval, request/clearance/journal and unknown-outcome fences remain unchanged.
+
+Focused command, new-terminal read-only assessment, invalid-input/nonzero-exit and
+copy rendering checks pass; the initial stdin harness issue was fixed locally.
+No browser, broad suite, benchmark or Docker/SQL tests. Exact results/files/commits
+are in the compact M2 correction report. The separate actual trial checkout and
+private files remain untouched. Owner authorizes normal existing-branch pushes and
+Pages builds; no Supabase write, real upgrade, release regeneration or merge occurs.

@@ -79,7 +79,7 @@ export function initEvents() {
       if(action==='client-review')draft.reviewed=true;else draft.step=Math.max(0,Math.min(4,draft.step+(action==='client-next'?1:-1)));
       persistClientDraft();render();return;
     }
-    if(action?.startsWith('upgrade-')){const workflow=await loadUpgradeUI();if(!current())return;if(action==='upgrade-open')render();else await workflow.handleUpgrade(action,render);return;}
+    if(action?.startsWith('upgrade-')){if(action.startsWith('upgrade-guide-')&&el.closest('.byo-upgrade-guide')?.dataset.clientId!==String(pState.selectedClient?.id))return;const workflow=await loadUpgradeUI();if(!current())return;if(action==='upgrade-open')render();else await workflow.handleUpgrade(action,render);return;}
     if(action==='backend-inventory'||action==='backend-inventory-refresh'){const pending=loadBackendInventory(action==='backend-inventory-refresh');render();if(await pending&&current())render();return;}
     if(action==='resource-page'){pState.resourceOffset=Number(el.dataset.offset)||0;await loadPlatform();if(current())render();return;}
     if(action==='usage-page'){if(await loadUsageResource(pState.modal?.data?.clientId,Number(el.dataset.offset)||0))render();return;}
@@ -572,10 +572,15 @@ export function initEvents() {
 
   /* ── Input (filter + dynamic form) ── */
   const rememberUpgrade=event=>{
-    const el=event.target,v=pState.backendUpgrade;
-    if(!el.matches?.('.upgrade-panel [id^="upgrade-"]')||pState.page!=='client-detail'||pState.currentUser.role!=='master_admin'||v?.clientId!==pState.selectedClient?.id||v.busy)return;
+    const el=event.target;let v=pState.backendUpgrade;
+    if(!el.matches?.('.upgrade-panel [id^="upgrade-"]')||!pState.authenticated||pState.page!=='client-detail'||pState.currentUser.role!=='master_admin'||!pState.selectedClient)return;
+    if(el.id.startsWith('upgrade-guide-')){
+      if(el.closest?.('.byo-upgrade-guide')?.dataset.clientId!==String(pState.selectedClient.id))return;
+      if(!v)pState.backendUpgrade=v={clientId:pState.selectedClient.id,draft:{}};
+    }
+    if(v?.clientId!==pState.selectedClient.id||v.busy)return;
     v.draft={...v.draft,[el.id]:{value:el.value,checked:el.checked}};
-    if(event.type==='change'&&el.id==='upgrade-source')render();
+    if(event.type==='change'&&(el.id==='upgrade-source'||el.id.startsWith('upgrade-guide-')))render();
   };
   document.addEventListener('input',rememberUpgrade);
   document.addEventListener('change',rememberUpgrade);

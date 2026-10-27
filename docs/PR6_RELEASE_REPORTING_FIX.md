@@ -182,3 +182,32 @@ optional M2-branch reference. Exact implementation files/results/source referenc
 and owner acceptance are in the small M2 BYO-guide evidence folder. Local focused
 checks pass; no SQL, Supabase function/provider operation or customer upgrade ran.
 Normal commits/pushes and automatic Pages builds are owner-authorized; PRs stay Draft.
+
+## Original-wizard-based BYO upgrade repair — 28 October 2026
+
+Reworked the ten-stage inline guide using the original twelve-stage fresh wizard’s
+objectives, work location, prerequisites, ordered tasks, explained commands, success/
+failure checks, When to continue and concrete recovery. The fresh wizard itself is
+unchanged. Local stage selection/Back/Next is navigation only, with no new persisted
+progress or backend acknowledgment. Missing prerequisites keep commands blocked.
+
+Every operational copy block independently restores known client/project/source/
+target and local folder/journal context in its own PowerShell scope. Inventory and
+assessment check native exit status, generated report existence and actual report
+contract/identity/binding/plan before a final PASS; failures throw STOP. Old completed
+receipt source cannot leak into a new guide assessment. Optional local path fields
+remove prompts and are retained only in client-scoped ephemeral draft state. The
+user-profile private default and original-folder/custom-journal recovery are explicit;
+reports have unique names and assessment never creates/replaces an execution journal.
+
+Stage 3 provides guarded clean-M2 fetch/--ff-only recovery for missing scripts,
+stopping on dirty/wrong/divergent source. Customer stages no longer show private
+Platform parity instructions. Command headers/copy buttons now align consistently,
+clipboard values remain complete and selectable, and scoped inline accessible copy
+feedback replaces overlapping floating green labels throughout this guide.
+
+The Shop change only improves input diagnostics; no upgrade engine, release/package,
+SQL/Edge, approval or provider-write fence changes. The owner’s separate trial
+checkout/private files are untouched. Focused local checks and exact files/commits
+are recorded in the single M2 correction report. Normal existing-branch pushes and
+automatic Pages builds are authorized; no empty trigger or hosted Supabase change.
