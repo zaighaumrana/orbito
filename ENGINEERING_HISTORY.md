@@ -2449,3 +2449,32 @@ Implementation note: docs/PR6_RELEASE_REPORTING_FIX.md. Owner authorizes one nor
 non-skipped commit/push to existing Draft/Open PR6 and automatic Pages build. Exact
 publication outcome is reported with the task. No SQL, Edge, release artifact,
 Shop repository, hosted Supabase state, customer upgrade or merge is changed.
+
+## 2026-10-28 — Guided in-app BYO upgrades and customer preflight
+Branch: feature/shop-modernization-m2-release
+
+Replaced the old link-only upgrade instructions with ten inline expandable stages,
+using existing presentation/copy controls. Client, Shop/Platform projects, receipt,
+approved target and source candidate come from the selected authorized client's
+loaded identity/binding. Missing or mismatched context blocks commands. Changing a
+source refreshes the generated review command without rerendering assessment typing.
+Apply appears only for the exact approved BYO request; live CLI/server safeguards
+remain authoritative. History never establishes independent installed-source proof.
+Previous/next/current navigation and original-request recovery remain intact.
+
+The guide covers official Scoop/native PATH tooling, reviewed Shop source, separate
+customer versus internal paired preflight, correct account/project access, private
+reports, assessment submission, Master approval/separate clearance, apply and same-
+request/journal recovery. Optional documentation now targets the M2 Shop branch;
+customer instructions are complete without leaving Platform or obtaining private
+Platform source. No browser claims to verify customer-local progress.
+
+Three guide groups, three Shop preflight/native groups, four relevant navigation
+groups and one existing clearance transport group PASS; 15 generated PowerShell
+blocks parse, accepted flags/import/syntax checks and ordinary release parity PASS.
+No broad suite, browser, benchmark or Docker/SQL checks ran. Evidence is one small
+M2 BYO-guide folder with exact files, commits, checks and owner acceptance steps.
+Owner authorizes normal existing-branch commits/pushes and automatic Pages builds;
+PRs remain Draft/Open. No SQL, Edge, immutable artifact, provider setting, customer
+record or actual Shop upgrade changes. Managed v7 completion is owner-reported
+context, not independently revalidated by this implementation.

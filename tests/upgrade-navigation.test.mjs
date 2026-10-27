@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
+import {renderByoUpgradeGuide} from '../src/byo-upgrade-guide.js';
 import {hasUpgradePlan,upgradeActionAllowed,validateAssessment} from '../src/upgrade-assessment.js';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const catalog=JSON.parse(read('supabase/releases/approved-shop-releases.json'));
@@ -19,12 +20,12 @@ function fixture(mode='managed'){
  const calls={rpc:[],edge:[]},client={id:2,pairing_mode:mode,supabase_url:`https://${identity.project_ref}.supabase.co`};
  const state={authenticated:true,page:'client-detail',authorityGeneration:1,currentUser:{auth_user_id:uuid(8),session_id:uuid(9),role:'master_admin'},selectedClient:client,clientSelectionGeneration:1,
   backendInventory:{clientId:2,catalog,report:{runtime_health:'healthy'}},clientData:{operations:{source:{source_id:identity.source_id}},provisioning:{connection:{client_binding:identity.client_binding}}}};
- const ctx={pState:state,hasUpgradePlan,upgradeActionAllowed,validateAssessment,crypto:{randomUUID:()=>uuid(100+ ++uuids)},document:{querySelectorAll:()=>inputs},esc:x=>String(x??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;'),notify:{error:()=>{},success:()=>{}},
+ const ctx={renderByoUpgradeGuide,pState:state,hasUpgradePlan,upgradeActionAllowed,validateAssessment,crypto:{randomUUID:()=>uuid(100+ ++uuids)},document:{querySelectorAll:()=>inputs},esc:x=>String(x??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;'),notify:{error:()=>{},success:()=>{}},
   pb:{rpc:async(name,args)=>{calls.rpc.push({name,args});return {data:structuredClone(saved)};},functions:{invoke:async(_,{body})=>{calls.edge.push(structuredClone(body));return {data:{job:job(mode,body.request_id,v6,v7,'review')}};}}}};
  vm.createContext(ctx);
  const load=(path,names)=>vm.runInContext(`(function(){${read(path).replace(/^import .*$/gm,'').replace(/^export /gm,'')}\nObject.assign(globalThis,{${names.join(',')}});})()`,ctx);
  load('src/async-context.js',['captureView','viewCurrent','selectClient']);
- load('src/ui-primitives.js',['technicalRows','evidenceDetails','releaseName']);
+ load('src/ui-primitives.js',['technicalRows','evidenceDetails','releaseName','copyValue']);
  load('src/upgrade-view.js',['renderUpgradePanel']);
  load('src/backend-upgrade.js',['handleUpgrade','upgradePanel']);
  const render=()=>{html=ctx.upgradePanel(state.selectedClient,true);};

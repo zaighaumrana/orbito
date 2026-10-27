@@ -163,3 +163,22 @@ superseding the prior skip convention for this correction. No extra trigger comm
 Shop change, backend migration/function/catalog change, hosted Supabase operation
 or actual Shop upgrade is part of this task. Final Git/Pages results are recorded
 in the PR and task completion report.
+
+## Guided BYO customer instructions — 28 October 2026
+
+Customer CLI instructions now contains the complete ten-stage in-app procedure,
+with copyable client-specific PowerShell, expectations and recovery. It remains
+available in historical/current/approved BYO views. Identity/binding checks block
+unknown context; an evidenced source selection refreshes its command immediately.
+Only an exact approved request exposes apply. No credentials or clearance contents
+enter the guide. The existing upgrade and original-request recovery engine remains
+unchanged; the browser never claims a local command passed.
+
+Shop adds customer-available immutable-source preflight without private Platform
+access, while retaining the unchanged internal paired release gate and friendlier
+stale-workspace diagnostics. Native PATH/Scoop discovery and prerequisite messages
+are aligned. The obsolete verified-customer-support-shop link is replaced by an
+optional M2-branch reference. Exact implementation files/results/source references
+and owner acceptance are in the small M2 BYO-guide evidence folder. Local focused
+checks pass; no SQL, Supabase function/provider operation or customer upgrade ran.
+Normal commits/pushes and automatic Pages builds are owner-authorized; PRs stay Draft.

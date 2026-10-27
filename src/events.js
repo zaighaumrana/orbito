@@ -575,6 +575,7 @@ export function initEvents() {
     const el=event.target,v=pState.backendUpgrade;
     if(!el.matches?.('.upgrade-panel [id^="upgrade-"]')||pState.page!=='client-detail'||pState.currentUser.role!=='master_admin'||v?.clientId!==pState.selectedClient?.id||v.busy)return;
     v.draft={...v.draft,[el.id]:{value:el.value,checked:el.checked}};
+    if(event.type==='change'&&el.id==='upgrade-source')render();
   };
   document.addEventListener('input',rememberUpgrade);
   document.addEventListener('change',rememberUpgrade);
