@@ -134,3 +134,32 @@ and provider skip observation are recorded in the external evidence and PR updat
 No hosted migration, Edge deployment, merge, support-v7 promotion or Shop change
 is authorized or performed. Existing independent-audit/milestone acceptance gates
 are not claimed complete by these targeted tests.
+
+## Sequential upgrade navigation correction — 27 October 2026
+
+Completed/cancelled plans previously occupied the active presentation and blocked
+next preparation; review also preferred their original source SHA. The frontend
+now separates previous, next-preparation and current-active views. Load upgrade
+status retains the historical receipt and exposes Prepare next upgrade. View
+previous upgrade restores its source/target, date, checkpoints and verification
+limits; after a new review, Return to current upgrade restores the active workflow.
+
+Separate preparation clears old form/approval/request state, requires explicit
+supported source selection, and creates a new request only on review submission.
+Unfinished/uncertain/verification-required jobs block competing preparation. Lost
+submissions retain their exact request/projected payload through status recovery.
+Managed live source review and fresh BYO evidence/clearance rules remain unchanged.
+A previous receipt is not independent installed-source proof.
+
+Changed: src/backend-upgrade.js, src/upgrade-view.js, src/upgrade-assessment.js,
+tests/upgrade-navigation.test.mjs, this document and ENGINEERING_HISTORY.md.
+Four small fixture groups PASS: Managed/BYO navigation, unfinished fences, exact
+request retries and departed client/role responses. Changed JS syntax, local import
+resolution and assessment module import PASS. No browser, Docker, database,
+performance or broad regression checks were run. No large evidence archive added.
+
+Owner authorizes one normal commit/push to Draft PR6 and its automatic Pages build,
+superseding the prior skip convention for this correction. No extra trigger commit,
+Shop change, backend migration/function/catalog change, hosted Supabase operation
+or actual Shop upgrade is part of this task. Final Git/Pages results are recorded
+in the PR and task completion report.

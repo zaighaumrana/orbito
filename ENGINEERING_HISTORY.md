@@ -2428,3 +2428,24 @@ are planned; exact SHAs/provider results are recorded externally. PRs remain Dra
 Open and unmerged. No hosted Supabase SQL/Edge function, customer upgrade or provisioning
 operation is performed. Hosted activation/installation, complete source-verification
 limits, independent audit and remaining M2 acceptance are separate obligations.
+
+## 2026-10-27 — Sequential backend upgrade navigation
+Branch: feature/shop-modernization-m2-release
+
+A valid completed plan incorrectly replaced next-upgrade preparation, and review
+preferred its old source SHA. Added explicit previous/next/current presentation
+within the existing frontend. Completed/cancelled receipts remain viewable; next
+preparation selects a supported actual source, clears historical approval/form/ID
+state, and creates its own request at submission. Active/uncertain/unfinished jobs
+retain their original workflow and block competing preparation. Lost replies keep
+the same request and exact projected payload; stale client/session/role responses
+remain denied. Managed server provenance/compatibility and BYO fresh assessment,
+clearance and customer installation remain authoritative. No backend control changed.
+
+Four focused fixture groups PASS for both modes, unfinished fences, original-request
+retry and departed client/role responses. JS syntax/local import resolution and
+assessment module import PASS. No browser, Docker, broad suite or benchmark ran.
+Implementation note: docs/PR6_RELEASE_REPORTING_FIX.md. Owner authorizes one normal
+non-skipped commit/push to existing Draft/Open PR6 and automatic Pages build. Exact
+publication outcome is reported with the task. No SQL, Edge, release artifact,
+Shop repository, hosted Supabase state, customer upgrade or merge is changed.
