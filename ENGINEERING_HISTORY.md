@@ -2504,3 +2504,21 @@ No browser, broad suite, benchmark or Docker/SQL tests. Exact results/files/comm
 are in the compact M2 correction report. The separate actual trial checkout and
 private files remain untouched. Owner authorizes normal existing-branch pushes and
 Pages builds; no Supabase write, real upgrade, release regeneration or merge occurs.
+
+## 2026-10-28 — Fix BYO guide tool installation and project access
+Branch: feature/shop-modernization-m2-release
+
+Corrected only stages 2 and 5 of the customer command generator and their guide
+text. Stage 2 checks native versions, skips working tools, checks installed Scoop
+packages before installation, reuses the official bucket and never removes one.
+Fresh Scoop empty-list exit statuses are recognized; existing broken PATH/version
+requires repair rather than reinstallation. Final native Supabase version must pass.
+Stage 5 assigns parsed JSON directly before exact-ID filtering, checks current
+access before optional login, and distinguishes command, login, parsing and absent
+project failures. Explicit account-switch recovery preserves the selected binding.
+
+Two focused real Windows PowerShell 5.1 fixture groups and the existing generated
+client-command group pass, plus changed-file syntax checks. Installer/provider calls
+are substitutes with no installation or hosted side effects. No Shop, immutable
+release, customer record or approved upgrade mechanism changes. Owner authorizes
+normal PR #6 branch commit/push and automatic Pages redeployment; Draft/Open remains.

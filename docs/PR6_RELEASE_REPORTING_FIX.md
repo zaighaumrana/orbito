@@ -211,3 +211,26 @@ SQL/Edge, approval or provider-write fence changes. The owner’s separate trial
 checkout/private files are untouched. Focused local checks and exact files/commits
 are recorded in the single M2 correction report. Normal existing-branch pushes and
 automatic Pages builds are authorized; no empty trigger or hosted Supabase change.
+
+## BYO stages 2 and 5 correction — 28 October 2026
+
+Stage 2 probes native Git/Node 24+/Supabase versions before installation. Working
+tools print SKIPPED; Scoop itself is unnecessary when all tools work. Missing
+commands first check Scoop's installed-package list, stopping for PATH repair if
+already installed. Supabase reuses a bucket whose source is the official HTTPS
+repository (including an alternate registered name); an unverified conflicting
+bucket stops for review. Only missing packages/buckets are installed; none are
+removed. Final native `supabase --version` must pass.
+
+Stage 5 checks existing project access before offering login. Windows PowerShell
+5.1 assigns `ConvertFrom-Json` directly, then filters with an explicit exact-ID
+script block; no outer array wrapper. Command/login failure, malformed JSON and
+an absent exact project have distinct STOP results. Account recovery is explicit
+`supabase logout`, `supabase login`, then the whole check; local token overrides
+must be reconciled privately. No project substitution or backend bypass.
+
+Two focused Windows PowerShell 5.1 fixture groups and the existing generated-client
+command group pass; tools/provider/installer calls are substitutes. Syntax checks
+pass. No real installs, Supabase operations, Shop/package/upgrade-engine changes,
+browser suites, performance tests or broad regressions. Normal PR #6 branch push
+and automatic Pages deployment are authorized; the PR remains Draft/Open.

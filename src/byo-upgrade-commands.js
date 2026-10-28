@@ -2,6 +2,17 @@
 export const powershellValue=value=>"'"+String(value).replaceAll("'","''")+"'";
 const block=body=>`& {\n$ErrorActionPreference = 'Stop'\n${body.trim()}\n}`;
 const checked=(command,message)=>`${command}\nif ($LASTEXITCODE -ne 0) { throw ${powershellValue('STOP: '+message)} }`;
+const toolVersion=`function Get-GuideToolVersion([string] $Tool) {
+ if (-not (Get-Command $Tool -ErrorAction SilentlyContinue)) { return $null }
+ $Version = (& $Tool --version) -join [Environment]::NewLine
+ if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($Version)) { throw "STOP: installed $Tool failed its version check. Repair its native PATH/installation; do not reinstall blindly." }
+ if ($Tool -eq 'git' -and $Version -notmatch '^git version \\d+\\.') { throw 'STOP: Git version output is not recognized. Repair the existing Git installation.' }
+ if ($Tool -eq 'node') {
+  if ($Version -notmatch '^v(\\d+)\\.' -or [int]$Matches[1] -lt 24) { throw 'STOP: installed Node must be v24 or later. Update it through its original installer, reopen PowerShell and retry.' }
+ }
+ if ($Tool -eq 'supabase' -and $Version -notmatch '^v?\\d+\\.\\d+\\.\\d+') { throw 'STOP: native Supabase version output is not recognized. Repair its installation/PATH.' }
+ return $Version.Trim()
+}`;
 export function upgradeGuideCommands(c){
  const q=powershellValue;
  const identity=`$ShopRef = ${q(c.ref)}\n$ClientId = ${c.clientId}\n$PlatformRef = ${q(c.platform)}\n$TargetSha = ${q(c.target)}\n$ExpectedSourceId = ${q(c.sourceId)}\n$ExpectedBinding = ${q(c.binding)}`;
@@ -104,29 +115,60 @@ if ($Final.request_id -ne $ExpectedRequest -or $Final.project -ne $ShopRef -or $
 Write-Output 'PASS: original installation reached verification_required. Independent source review and final owner acceptance are still pending.'`):null;
  return {identity,update,inspect:inventory('before'),assessment,openAssessment,apply,verify:inventory('after'),
   identify:block(`${identity}\nWrite-Output "Client #$ClientId; Shop $ShopRef; Platform $PlatformRef; target $TargetSha. Compare these with the customer Dashboard."`),
-  tools:block(`foreach ($Tool in @('git','node','supabase')) {
- if (-not (Get-Command $Tool -ErrorAction SilentlyContinue)) { throw "STOP: $Tool is missing from PATH. Install only the missing tool, reopen PowerShell and retry." }
- $Version = & $Tool --version
- if ($LASTEXITCODE -ne 0) { throw "STOP: $Tool version check failed." }
- if ($Tool -eq 'node' -and $Version -notmatch '^v(?:2[4-9]|[3-9]\\d)\\.') { throw 'STOP: this workflow requires Node 24 or later. Install the reviewed Node version and reopen PowerShell.' }
- Write-Output "$($Tool): $Version"
+  tools:block(`${toolVersion}
+foreach ($Tool in @('git','node','supabase')) {
+ $Version = Get-GuideToolVersion $Tool
+ if (-not $Version) { throw "STOP: $Tool is missing from PATH. Use the missing-tool block, reopen PowerShell and retry." }
+ Write-Output "PASS: $($Tool): $Version"
 }
-Write-Output 'PASS: required commands are available. Check that Node reports v24 or later; CLI capabilities are checked by preflight/inspection.'`),
-  scoop:block(`# Only if Scoop is missing and organizational policy allows this in non-admin PowerShell:
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
-if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) { throw 'STOP: Scoop installation did not establish its command. Reopen PowerShell and repair PATH.' }`),
-  install:block(`# Run only missing packages; do not reinstall tools that already work.
-scoop install git
-if ($LASTEXITCODE -ne 0) { throw 'STOP: Git installation failed.' }
-scoop install nodejs-lts
-if ($LASTEXITCODE -ne 0) { throw 'STOP: Node installation failed.' }
-scoop bucket add supabase https://github.com/supabase/scoop-bucket.git
-if ($LASTEXITCODE -ne 0) { throw 'STOP: Supabase bucket setup failed. Check existing buckets; do not blindly repeat setup.' }
-scoop install supabase
-if ($LASTEXITCODE -ne 0) { throw 'STOP: Supabase installation failed.' }
+Write-Output 'PASS: required native commands and Node 24+ are available; capabilities are checked by preflight/inspection.'`),
+  scoop:block(`${toolVersion}
+$MissingTools = @('git','node','supabase') | Where-Object { -not (Get-GuideToolVersion $_) }
+if (-not $MissingTools) {
+ Write-Output 'SKIPPED: all required tools already work; Scoop installation is unnecessary.'
+} elseif (Get-Command scoop -ErrorAction SilentlyContinue) {
+ Write-Output 'SKIPPED: Scoop is already available; no installer or policy change is needed.'
+} else {
+ # Only under approved organizational policy in non-admin PowerShell:
+ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+ Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
+ if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) { throw 'STOP: Scoop installation did not establish its command. Reopen PowerShell and repair PATH.' }
+ Write-Output 'PASS: Scoop is available.'
+}`),
+  install:block(`${toolVersion}
+foreach ($Package in @(@{Tool='git'; Name='git'}, @{Tool='node'; Name='nodejs-lts'}, @{Tool='supabase'; Name='supabase'})) {
+ $Tool = $Package.Tool
+ $Version = Get-GuideToolVersion $Tool
+ if ($Version) { Write-Output "SKIPPED: $Tool already works ($Version)."; continue }
+ if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) { throw 'STOP: a required tool is missing and Scoop is unavailable. Complete the Scoop step, reopen PowerShell and retry.' }
+ $InstalledPackages = scoop list
+ # Scoop returns 1 with no package objects on a fresh installation.
+ if ($LASTEXITCODE -ne 0 -and ($LASTEXITCODE -ne 1 -or $InstalledPackages)) { throw 'STOP: Scoop could not list installed packages. Repair Scoop before installing anything.' }
+ if ($InstalledPackages | Where-Object { $_.Name -eq $Package.Name }) { throw "STOP: Scoop package $($Package.Name) is already installed but $Tool is missing from PATH. Reopen PowerShell or repair its shim; do not reinstall it." }
+ $InstallName = $Package.Name
+ if ($Tool -eq 'supabase') {
+  $Buckets = scoop bucket list
+  if ($LASTEXITCODE -notin @(0,2)) { throw 'STOP: Scoop could not list buckets. Repair Scoop before retrying; no bucket was removed.' }
+  $OfficialBucket = $Buckets | Where-Object { $_.Source -match '^https://github\\.com/supabase/scoop-bucket(?:\\.git)?/?$' } | Select-Object -First 1
+  if ($OfficialBucket) {
+   $InstallName = "$($OfficialBucket.Name)/supabase"
+   Write-Output "SKIPPED: official Supabase bucket already registered as $($OfficialBucket.Name)."
+  } else {
+   if ($Buckets | Where-Object { $_.Name -eq 'supabase' }) { throw 'STOP: the existing supabase bucket has an unverified source. Ask for review; do not remove or recreate it.' }
+   scoop bucket add supabase https://github.com/supabase/scoop-bucket.git
+   if ($LASTEXITCODE -ne 0) { throw 'STOP: official Supabase bucket setup failed. Inspect Scoop output; do not remove an existing bucket.' }
+   $InstallName = 'supabase/supabase'
+  }
+ }
+ scoop install $InstallName
+ if ($LASTEXITCODE -ne 0) { throw "STOP: $Tool installation failed. Inspect Scoop output and repair PATH; preserve existing installations." }
+ $Version = Get-GuideToolVersion $Tool
+ if (-not $Version) { throw "STOP: $Tool is still missing from PATH. Reopen PowerShell and retry the complete tool check." }
+ Write-Output "PASS: $Tool installed ($Version)."
+}
 supabase --version
-if ($LASTEXITCODE -ne 0) { throw 'STOP: reopen PowerShell and repair native Supabase PATH.' }`),
+if ($LASTEXITCODE -ne 0) { throw 'STOP: reopen PowerShell and repair native Supabase PATH.' }
+Write-Output 'PASS: required tools work and final native supabase --version succeeded.'`),
   checkout:block(`${repo}
 ${checked('git remote -v','not a readable Git checkout.')}
 ${checked('git branch --show-current','branch could not be read.')}
@@ -136,10 +178,21 @@ ${files}
 Write-Output 'PASS: required scripts exist. Review remote/branch/revision and cleanliness before stage 4.'`),
   preflight:block(`${identity}\n${repo}\n${files}\n${preflight}\nWrite-Output 'PASS: customer release preflight matched the approved target. No private Platform checkout is required.'`),
   account:block(`${identity}
-${checked('supabase login','customer CLI login failed. Use the authorized customer account.')}
-$ProjectText = supabase projects list --output json
-if ($LASTEXITCODE -ne 0) { throw 'STOP: project access could not be listed. Fix customer authentication first.' }
-try { $Projects = @(($ProjectText -join [Environment]::NewLine) | ConvertFrom-Json) } catch { throw 'STOP: project list is not readable JSON. Check native CLI compatibility.' }
-if (-not ($Projects | Where-Object id -eq $ShopRef)) { throw 'STOP: this customer account cannot see the exact BYO Shop. Obtain access; never substitute another project.' }
+$ProjectList = supabase projects list --output json
+if ($LASTEXITCODE -ne 0) {
+ Write-Output 'Project-list command failed; access is not established. Check CLI authentication/network errors above. No project has been declared inaccessible.'
+ $LoginChoice = Read-Host 'If login is needed, type LOGIN to authenticate the authorized customer account; otherwise press Enter to stop and repair the reported error'
+ if ($LoginChoice -cne 'LOGIN') { throw 'STOP: project-list command failed. Resolve authentication/network/CLI errors and retry the whole block.' }
+ ${checked('supabase login','customer CLI login failed. Complete login with the authorized customer account, then retry the whole block.')}
+ $ProjectList = supabase projects list --output json
+ if ($LASTEXITCODE -ne 0) { throw 'STOP: project-list command still failed after login. Check authentication, account permissions and network; no project-access result is established.' }
+}
+try {
+ $ProjectJson = ($ProjectList -join [Environment]::NewLine).Trim()
+ if (-not $ProjectJson.StartsWith('[')) { throw 'Expected a JSON array.' }
+ $Projects = $ProjectJson | ConvertFrom-Json -ErrorAction Stop
+} catch { throw 'STOP: project-list JSON parsing failed. Check native CLI output/compatibility; this is not evidence of an inaccessible project. Retry the whole block after repair.' }
+$MatchedProject = $Projects | Where-Object { $_.id -ceq $ShopRef }
+if (-not $MatchedProject) { throw "STOP: the project list was read successfully, but exact Shop $ShopRef is absent. Obtain customer project access. To change accounts, run supabase logout, then supabase login, then rerun this whole block. If SUPABASE_ACCESS_TOKEN overrides login, correct it privately in this terminal. Never substitute another project or paste credentials into Platform." }
 Write-Output "PASS: authenticated account lists exact customer Shop $ShopRef."`)};
 }

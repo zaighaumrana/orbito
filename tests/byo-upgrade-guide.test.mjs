@@ -1,4 +1,5 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import vm from 'node:vm';
+import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync,mkdtempSync,writeFileSync,rmSync} from 'node:fs';import vm from 'node:vm';
+import {spawnSync} from 'node:child_process';import {tmpdir} from 'node:os';import {join,resolve,sep} from 'node:path';
 import {createByoUpgradeGuide,renderByoUpgradeGuide,powershellValue} from '../src/byo-upgrade-guide.js';
 import {hasUpgradePlan,upgradeActionAllowed} from '../src/upgrade-assessment.js';
 const catalog=JSON.parse(readFileSync(new URL('../supabase/releases/approved-shop-releases.json',import.meta.url))),v6=catalog.find(c=>c.release_id==='support-v6'),v7=catalog.find(c=>c.release_id==='support-v7');
@@ -12,6 +13,110 @@ function approved(c){
  return c;
 }
 export function guideCommands(){return createByoUpgradeGuide(client,approved(context())).stages.flatMap(s=>s.commands);}
+function runPowerShell51(script){
+ const dir=mkdtempSync(join(tmpdir(),'retrasell-guide-stages-2-5-')),file=join(dir,'fixture.ps1');
+ try{
+  writeFileSync(file,'\uFEFF'+`$ErrorActionPreference = 'Stop'
+if ($PSVersionTable.PSVersion.Major -ne 5 -or $PSVersionTable.PSVersion.Minor -ne 1) { throw 'Windows PowerShell 5.1 required' }
+function Expect($Condition, [string] $Message) { if (-not $Condition) { throw $Message } }
+try {\n${script}\n} catch { [Console]::Error.WriteLine($_.Exception.Message); exit 1 }`);
+  const result=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',file],{encoding:'utf8',timeout:20000});
+  assert.equal(result.status,0,result.error?.message||result.stderr||result.stdout);return result.stdout;
+ }finally{
+  assert.ok(resolve(dir).startsWith(resolve(tmpdir())+sep));rmSync(dir,{recursive:true,force:true});
+ }
+}
+
+test('Windows PowerShell 5.1 stage 2 skips existing tools/bucket and installs only missing tools through stubs',()=>{
+ const commands=createByoUpgradeGuide(client,context()).stages[1].commands;
+ const output=runPowerShell51(`
+$script:Available = @{git=$true; node=$true; supabase=$true; scoop=$true}
+$script:Calls = @(); $script:NodeVersion = 'v24.1.0'; $script:InstalledPackages=@()
+$script:Buckets = @([pscustomobject]@{Name='supabase'; Source='https://github.com/supabase/scoop-bucket.git'})
+function Get-Command { param($Name,$ErrorAction) if ($script:Available[$Name]) { [pscustomobject]@{Name=$Name} } }
+function Set-ExecutionPolicy { throw 'No policy changes permitted in fixture' }
+function Invoke-RestMethod { throw 'No downloads permitted in fixture' }
+function Invoke-Expression { throw 'No installers permitted in fixture' }
+function git { $global:LASTEXITCODE=0; 'git version 2.50.0.windows.1' }
+function node { $global:LASTEXITCODE=0; $script:NodeVersion }
+function supabase { $global:LASTEXITCODE=0; '2.50.0' }
+function scoop {
+ $Call = $args -join ' '; $script:Calls += $Call; $global:LASTEXITCODE=0
+ if ($Call -eq 'list') { if (-not $script:InstalledPackages.Count) { $global:LASTEXITCODE=1 }; return ,$script:InstalledPackages }
+ if ($Call -eq 'bucket list') { if (-not $script:Buckets.Count) { $global:LASTEXITCODE=2 }; return ,$script:Buckets }
+ if ($Call -eq 'bucket add supabase https://github.com/supabase/scoop-bucket.git') {
+  Expect (-not $script:Buckets.Count) 'Existing bucket must never be re-added'
+  $script:Buckets = @([pscustomobject]@{Name='supabase'; Source='https://github.com/supabase/scoop-bucket.git'}); return
+ }
+ switch ($Call) {
+  'install git' { $script:Available.git=$true }
+  'install nodejs-lts' { $script:Available.node=$true }
+  'install supabase/supabase' { $script:Available.supabase=$true }
+  default { throw "Unexpected Scoop command: $Call" }
+ }
+}
+# All tools already work: both installer blocks must be harmless.
+$Existing = @(${commands[1]}\n${commands[2]}) -join [Environment]::NewLine
+Expect ($script:Calls.Count -eq 0) 'Existing tools must cause zero Scoop calls'
+Expect ($Existing -match 'Scoop installation is unnecessary' -and $Existing -match 'SKIPPED: supabase' -and $Existing -match 'PASS:') 'Existing setup needs SKIPPED/PASS'
+$script:Available.scoop=$false
+${commands[1]}
+$script:Available.scoop=$true
+${commands[0]}
+# Native Supabase alone is missing; the existing official bucket must be reused.
+$script:Available.supabase=$false; $script:Calls=@()
+$Reuse = @(${commands[2]}) -join [Environment]::NewLine
+Expect (($script:Calls -join '|') -eq 'list|bucket list|install supabase/supabase') 'Reuse must not add/remove the existing bucket or reinstall other tools'
+Expect ($Reuse -match 'SKIPPED: official Supabase bucket') 'Existing bucket needs SKIPPED'
+# All three tools and the official bucket are missing. Scoop is a stub only.
+$script:Available.git=$false; $script:Available.node=$false; $script:Available.supabase=$false; $script:Buckets=@(); $script:Calls=@()
+${commands[2]}
+Expect (($script:Calls -join '|') -eq 'list|install git|list|install nodejs-lts|list|bucket list|bucket add supabase https://github.com/supabase/scoop-bucket.git|install supabase/supabase') 'Only missing packages/bucket may be installed'
+# A package installed in Scoop but absent from PATH needs repair, not another install.
+$script:Available.supabase=$false; $script:InstalledPackages=@([pscustomobject]@{Name='supabase'}); $script:Calls=@(); $Failure=''
+try { ${commands[2]} } catch { $Failure=$_.Exception.Message }
+Expect ($Failure -match 'already installed but supabase is missing from PATH' -and ($script:Calls -join '|') -eq 'list') 'Existing package with a broken PATH must not be reinstalled'
+$script:Available.supabase=$true
+# An existing old version is rejected, never silently reinstalled.
+$script:NodeVersion='v22.1.0'; $script:Calls=@(); $Failure=''
+try { ${commands[2]} } catch { $Failure=$_.Exception.Message }
+Expect ($Failure -match 'installed Node must be v24' -and $script:Calls.Count -eq 0) 'Old installed Node must stop for repair without installation'
+Write-Output 'PASS: focused installation scenarios; no actual installer executed.'`);
+ assert.match(output,/PASS: focused installation scenarios/);
+});
+
+test('Windows PowerShell 5.1 stage 5 matches exact JSON project IDs and separates access/login/parse failures',()=>{
+ const command=createByoUpgradeGuide(client,context()).stages[4].commands[0];
+ assert.match(command,new RegExp(`\\$ShopRef = '${ref}'`));assert.match(command,/\$ClientId = 1/);assert.doesNotMatch(command,/Where-Object id|\$Projects = @\(/);
+ const output=runPowerShell51(`
+$script:Calls=@(); $script:ListExit=0; $script:LoginExit=0; $script:PromptCount=0
+$script:Json='[\n {"id":"other-project"},\n {"id":"${ref}"}\n]'
+function supabase {
+ $Call=$args -join ' '; $script:Calls += $Call
+ if ($Call -eq 'projects list --output json') { $global:LASTEXITCODE=$script:ListExit; $script:Json -split [Environment]::NewLine; return }
+ if ($Call -eq 'login') { $global:LASTEXITCODE=$script:LoginExit; $script:ListExit=0; return }
+ throw "Unexpected Supabase command: $Call"
+}
+function Read-Host { param($Prompt) $script:PromptCount++; 'LOGIN' }
+$Result = @(${command}) -join [Environment]::NewLine
+Expect ($Result -match 'PASS: authenticated account lists exact customer Shop ${ref}') 'Multi-project array must match the exact approved project'
+Expect (($script:Calls -join '|') -eq 'projects list --output json' -and $script:PromptCount -eq 0) 'Existing access must skip interactive login'
+$script:Json='[{"id":"${ref}extra"},{"id":"other-project"}]'; $script:Calls=@(); $Failure=''
+try { ${command} } catch { $Failure=$_.Exception.Message }
+Expect ($Failure -match 'exact Shop ${ref} is absent' -and $Failure -match 'supabase logout') 'Absent project must fail with account recovery'
+Expect (($script:Calls -join '|') -eq 'projects list --output json') 'Absent project must not automatically log in'
+$script:Json='[invalid JSON]'; $Failure=''
+try { ${command} } catch { $Failure=$_.Exception.Message }
+Expect ($Failure -match 'JSON parsing failed') 'Malformed JSON needs a distinct parsing failure'
+$script:Json='[{"id":"${ref}"}]'; $script:ListExit=1; $script:Calls=@()
+${command}
+Expect (($script:Calls -join '|') -eq 'projects list --output json|login|projects list --output json') 'Login must follow a failed list and then recheck exact access'
+$script:ListExit=1; $script:LoginExit=1; $Failure=''
+try { ${command} } catch { $Failure=$_.Exception.Message }
+Expect ($Failure -match 'customer CLI login failed') 'Failed login needs a distinct STOP'
+Write-Output 'PASS: focused exact-project, parsing and login scenarios; no provider calls.'`);
+ assert.match(output,/PASS: focused exact-project, parsing and login scenarios/);
+});
 test('ten stages generate exact selected identity, native setup and approval-gated commands without secrets',()=>{
  const c=context(),guide=createByoUpgradeGuide(client,c),html=renderByoUpgradeGuide(client,c,helpers);assert.equal(guide.stages.length,10);assert.equal(guide.blockers.length,0);
  for(const s of guide.stages)for(const key of ['what','where','prerequisite','expected','recovery','complete'])assert.ok(s[key].length>20);
