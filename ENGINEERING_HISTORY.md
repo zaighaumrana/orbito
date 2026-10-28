@@ -2522,3 +2522,25 @@ client-command group pass, plus changed-file syntax checks. Installer/provider c
 are substitutes with no installation or hosted side effects. No Shop, immutable
 release, customer record or approved upgrade mechanism changes. Owner authorizes
 normal PR #6 branch commit/push and automatic Pages redeployment; Draft/Open remains.
+
+## 2026-10-28 — Locate BYO assessments and prepare private clearance
+Branch: feature/shop-modernization-m2-release
+
+Fixed file handling in guide stages 8–10 without changing installation/approval.
+Assessment discovery searches the configured private folder, validates identity,
+binding, compatible plan/evidence and available timestamps, and requires explicit
+selection for multiple reports. Untimestamped CLI reports require customer freshness
+acknowledgment. Only the chosen report opens; reports remain unchanged.
+
+Approved-request clearance preparation accepts the actual browser download path,
+validates exact context and canonical plan digest through the existing Shop helper,
+and copies without overwriting different contents. Stage 10 checks clearance before
+the original-journal prompt; locating a missing file prepares only and stops before
+installation. Original request/plan/journal and provider fences remain intact.
+
+Focused PowerShell 5.1 file fixtures, generated commands, actual-view fixture and
+syntax checks pass. An isolated-session Get-FileHash availability issue was fixed
+with .NET hashing; only the affected check reran. No Shop changes, hosted Supabase,
+real upgrade or release changes. Token expiry/revocation cannot be proven offline;
+loaded expiry is checked and final authorization stays in the existing executor.
+Owner authorizes normal PR #6 push and automatic Pages rebuild; keep Draft/Open.

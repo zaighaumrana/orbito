@@ -39,15 +39,21 @@ while ($Cursor) {
  if (Test-Path -LiteralPath (Join-Path $Cursor.FullName '.git')) { throw 'STOP: private files must stay outside Git repositories.' }
  $Cursor = $Cursor.Parent
 }
-New-Item -ItemType Directory -Path $Private -Force | Out-Null`;
+try { New-Item -ItemType Directory -Path $Private -Force | Out-Null } catch { throw 'STOP: private directory is inaccessible. Check its local path and permissions; preserve existing files.' }`;
  const readJson=`function Read-GuideJson($File,$Kind) {
- if (-not (Test-Path -LiteralPath $File -PathType Leaf)) { throw "STOP: $Kind file was not created or cannot be found. Keep original files; correct the path." }
- try { return Get-Content -Raw -LiteralPath $File | ConvertFrom-Json } catch { throw "STOP: $Kind JSON is unreadable. Inspect it privately; do not replace the journal or clearance." }
+ if (Test-Path -LiteralPath $File -PathType Container) { throw "STOP: $Kind path is a directory, not a JSON file. Select the complete filename using Explorer Copy as path." }
+ if (-not (Test-Path -LiteralPath $File -PathType Leaf)) { throw "STOP: $Kind file cannot be found at the selected full path. Keep original files; correct the path." }
+ if ((Get-Item -LiteralPath $File).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw "STOP: $Kind must be a regular local file, not a link." }
+ try {
+  $Text = Get-Content -Raw -LiteralPath $File
+  if (-not $Text.TrimStart().StartsWith('{')) { throw 'Expected a JSON object.' }
+  return $Text | ConvertFrom-Json -ErrorAction Stop
+ } catch { throw "STOP: $Kind JSON is unreadable or not an object. Inspect it privately; do not replace the journal or clearance." }
 }`;
  const source=c.source?`$FromSha = ${q(c.source)}`:'';
  const journal=`$Original = $null
 $Journal = Join-Path $Private 'upgrade-journal.json'
-$OriginalJournal = Read-Host 'Original journal path if different (Enter reuses upgrade-journal.json). For an attempted v7 upgrade, always restore its original journal'
+$OriginalJournal = Read-Host 'Original execution journal path: Enter uses upgrade-journal.json only if this exact upgrade never started with a different journal. If installation started, reuse its original journal. Downloaded clearance is NOT the journal; never replace a journal to bypass an interrupted/uncertain operation'
 if (-not [string]::IsNullOrWhiteSpace($OriginalJournal)) {
  $Journal = $OriginalJournal.Trim().Trim('"')
  if (-not (Test-Path -LiteralPath $Journal -PathType Leaf)) { throw 'STOP: original journal not found. Locate it; do not create a replacement.' }
@@ -97,23 +103,120 @@ $Sql = @($Plan.steps | Where-Object type -eq 'migration').Count
 $Functions = @($Plan.steps | Where-Object type -eq 'function').Count
 Write-Output "PASS: read-only assessment created and identity/source/target/plan checked: $Assessment"
 Write-Output "Planned migrations: $Sql; changed functions: $Functions. Review these before submitting; no Shop database writes occurred."`):null;
+ const assessmentFileCheck=`${assessmentCheck}
+if ($Plan.steps -isnot [array] -or $Report.observation.migrations -isnot [array] -or $Report.observation.functions -isnot [array]) { throw 'STOP: assessment plan/evidence lists are not arrays.' }
+if ($Report.observation.shop.owner_busy -ne $false -or $null -eq $Report.observation.shop.invalid_config_receipts -or [double]$Report.observation.shop.invalid_config_receipts -ne 0) { throw 'STOP: assessment reports pending owner/configuration work.' }
+foreach ($Migration in $Report.observation.migrations) { if ($Migration.version -isnot [string] -or $Migration.name -isnot [string] -or $Migration.sha256 -cnotmatch '^[a-f0-9]{64}$') { throw 'STOP: incomplete assessment migration evidence.' } }
+foreach ($Function in $Report.observation.functions) { if ($Function.name -isnot [string] -or $Function.present -isnot [bool] -or $Function.verify_jwt -isnot [bool]) { throw 'STOP: incomplete assessment function evidence.' } }
+$Stamp = $Report.generated_at
+if (-not $Stamp) { $Stamp = $Report.checked_at }
+if ($Stamp) {
+ try { $Collected = [DateTimeOffset]::Parse($Stamp) } catch { throw 'STOP: invalid assessment collection timestamp.' }
+ if ($Collected -gt [DateTimeOffset]::UtcNow.AddMinutes(5) -or $Collected -lt [DateTimeOffset]::UtcNow.AddHours(-24)) { throw 'STOP: assessment is stale or has a future collection time. Return to Stage 7 for current evidence.' }
+}
+if ($Report.expires_at) {
+ try { $Expiry = [DateTimeOffset]::Parse($Report.expires_at) } catch { throw 'STOP: invalid assessment expiry.' }
+ if ($Expiry -le [DateTimeOffset]::UtcNow) { throw 'STOP: assessment expired. Return to Stage 7.' }
+}
+${c.approvedSteps?`$ApprovedSteps = ${q(JSON.stringify(c.approvedSteps))} | ConvertFrom-Json
+if (@($Plan.steps).Count -ne @($ApprovedSteps).Count) { throw 'STOP: assessment steps differ from the original approved plan.' }
+for ($Index=0; $Index -lt @($ApprovedSteps).Count; $Index++) {
+ foreach ($Key in @('name','type','sha256')) { if (@($Plan.steps)[$Index].$Key -cne @($ApprovedSteps)[$Index].$Key) { throw 'STOP: assessment step differs from the original approved plan.' } }
+}`:''}`;
  const openAssessment=c.source?block(`${identity}\n${source}\n${privateFolder}\n${readJson}\n${reportIdentity}
-$Assessment = Read-Host 'Full path of the successful upgrade-assessment-*.json report (not a journal or clearance)'
-$Assessment = $Assessment.Trim().Trim('"')
-$Report = Read-GuideJson $Assessment 'Assessment'
-${assessmentCheck}
-Write-Output 'PASS: this assessment matches the selected Shop/source/target. Copy its complete JSON into Customer read-only assessment.'
+function Read-ValidAssessment($File) {
+ $Report = Read-GuideJson $File 'Assessment'
+ ${assessmentFileCheck}
+ return $Report
+}
+$Candidates = @()
+foreach ($File in (Get-ChildItem -LiteralPath $Private -Filter 'upgrade-assessment-*.json' -File | Sort-Object Name)) {
+ try {
+  $Candidate = Read-ValidAssessment $File.FullName
+  $Candidates += $File
+  Write-Output ("{0}. {1} | written UTC {2:o} | client {3}; project {4}; source {5}; target {6}; SQL {7}; functions {8}" -f $Candidates.Count,$File.Name,$File.LastWriteTimeUtc,$Candidate.client_id,$Candidate.project_ref,$Candidate.source_sha256,$Candidate.target_sha256,@($Candidate.plan.steps | Where-Object { $_.type -eq 'migration' }).Count,@($Candidate.plan.steps | Where-Object { $_.type -eq 'function' }).Count)
+ } catch { Write-Output ("REJECTED: {0}: {1}" -f $File.Name,$_.Exception.Message) }
+}
+if ($Candidates.Count -eq 0) { throw 'STOP: No valid assessment found in the selected private folder. Return to Stage 7 and generate a successful read-only assessment. Existing files were preserved.' }
+$Choice = 1
+if ($Candidates.Count -gt 1) {
+ $Answer = Read-Host 'Multiple valid assessments found. Enter the listed NUMBER of the report you intend to submit; never choose by newest timestamp alone'
+ if ($Answer -notmatch '^[1-9][0-9]*$' -or -not [int]::TryParse($Answer,[ref]$Choice) -or $Choice -gt $Candidates.Count) { throw 'STOP: explicit valid assessment selection required; no file was opened.' }
+}
+$Assessment = $Candidates[$Choice-1].FullName
+$Report = Read-ValidAssessment $Assessment
+if (-not ($Report.generated_at -or $Report.checked_at)) {
+ $Fresh = Read-Host 'This report format has no collection timestamp. Only if freshly generated for this unchanged Shop, type FRESH; otherwise return to Stage 7'
+ if ($Fresh -cne 'FRESH') { throw 'STOP: assessment freshness is not confirmed; no file was opened.' }
+}
+Write-Output 'PASS: Valid BYO assessment located; contract, identity, binding, compatible plan and required evidence checked.'
+Write-Output "Client: $ClientId; Project: $ShopRef"
+Write-Output ${q('Source: '+(c.sourceRelease||c.source)+'; Target: '+c.targetRelease)}
+Write-Output ("Planned migrations: {0}; Changed functions: {1}" -f @($Report.plan.steps | Where-Object { $_.type -eq 'migration' }).Count,@($Report.plan.steps | Where-Object { $_.type -eq 'function' }).Count)
+Write-Output "Assessment: $Assessment"
+Write-Output 'Opening verified assessment in Notepad. Copy its complete JSON into the Platform assessment field. Local checks do not replace Platform validation or prove current installed source.'
 notepad $Assessment`):null;
- const apply=c.request?block(`${identity}\n$FromSha = ${q(c.approvedSource)}\n$ExpectedRequest = ${q(c.request)}\n$ExpectedPlanSha = ${q(c.planSha)}\n${repo}\n${files}\n${privateFolder}\n${readJson}\n${journal}\n${preflight}
-if ($Original -and $Original.request_id -ne $ExpectedRequest) { throw 'STOP: original journal request differs from this approval. Reconcile it; never create a replacement.' }
+ const approvedContext=`${identity}\n$FromSha = ${q(c.approvedSource)}\n$ExpectedRequest = ${q(c.request)}\n$ExpectedPlanSha = ${q(c.planSha)}\n$KnownClearanceExpiry = ${q(c.clearanceExpiresAt||'')}`;
+ const hashPlan="import {readFileSync} from 'node:fs'; try {const {digest}=await import('./scripts/upgrade-contract.mjs'); const r=JSON.parse(readFileSync(process.argv[1],'utf8')); process.stdout.write(await digest(r.plan));} catch {process.exitCode=1;}";
+ const clearanceCheck=`function Get-GuideFileHash($File) {
+ $Stream = [IO.File]::OpenRead($File)
+ $Hash = [Security.Cryptography.SHA256]::Create()
+ try { return [Convert]::ToBase64String($Hash.ComputeHash($Stream)) } finally { $Hash.Dispose(); $Stream.Dispose() }
+}
+function Assert-GuideClearance($File) {
+ $Clearance = Read-GuideJson $File 'Private clearance'
+ if ($Clearance.contract -cne 'retrasell-byo-upgrade-clearance-v1') { throw 'STOP: wrong JSON file; expected private customer clearance, not assessment or journal.' }
+ if ($Clearance.request_id -cne $ExpectedRequest) { throw 'STOP: wrong clearance request ID. Locate the original approved request file; do not create a new request.' }
+ if ($Clearance.platform_url -cne "https://$PlatformRef.supabase.co") { throw 'STOP: clearance Platform URL differs from this approved request.' }
+ $Plan = $Clearance.plan
+ if ($Plan.project_ref -cne $ShopRef -or $Plan.client_id -ne $ClientId -or $Plan.source_id -cne $ExpectedSourceId -or $Plan.client_binding -cne $ExpectedBinding) { throw 'STOP: clearance project/client/binding differs from this exact Shop.' }
+ if ($Plan.source_sha256 -cne $FromSha -or $Plan.target_sha256 -cne $TargetSha) { throw 'STOP: clearance source/target differs from this approved upgrade.' }
+ if ($Plan.contract -cne 'retrasell-controlled-upgrade-v1' -or $Plan.compatibility -cne 'additive-protocol-1' -or $Clearance.token -cnotmatch '^[a-f0-9]{64}$' -or -not ($Clearance.platform_public_key -is [string]) -or [string]::IsNullOrWhiteSpace($Clearance.platform_public_key)) { throw 'STOP: invalid private authorization format or compatible plan.' }
+ if ($Clearance.plan_sha256 -cne $ExpectedPlanSha) { throw 'STOP: wrong clearance plan fingerprint.' }
+ $ActualPlanSha = node --input-type=module -e ${q(hashPlan)} $File
+ if ($LASTEXITCODE -ne 0) { throw 'STOP: clearance plan fingerprint could not be checked with the existing Shop contract. Check Node 24+ and the reviewed Shop checkout.' }
+ if (($ActualPlanSha -join '').Trim() -cne $ExpectedPlanSha) { throw 'STOP: clearance plan contents do not match the approved fingerprint.' }
+ foreach ($ExpiryText in @($KnownClearanceExpiry,$Clearance.expires_at)) {
+  if ($ExpiryText) {
+   try { $Expiry = [DateTimeOffset]::Parse($ExpiryText) } catch { throw 'STOP: invalid clearance expiry evidence. Load original upgrade status; preserve the file.' }
+   if ($Expiry -le [DateTimeOffset]::UtcNow) { throw 'STOP: clearance expiry evidence has elapsed. Load original request status and review its existing clearance; do not restart the upgrade.' }
+  }
+ }
+}
 $Approval = Join-Path $Private ${q('retrasell-upgrade-'+c.request+'.json')}
-$Clearance = Read-GuideJson $Approval 'Private clearance'
-if ($Clearance.contract -ne 'retrasell-byo-upgrade-clearance-v1' -or $Clearance.request_id -ne $ExpectedRequest -or $Clearance.platform_url -ne "https://$PlatformRef.supabase.co" -or $Clearance.plan_sha256 -ne $ExpectedPlanSha -or $Clearance.plan.project_ref -ne $ShopRef -or $Clearance.plan.client_id -ne $ClientId -or $Clearance.plan.source_sha256 -ne $FromSha -or $Clearance.plan.target_sha256 -ne $TargetSha) { throw 'STOP: clearance differs from this exact approved request/plan. Keep it private and request original-status review.' }
+function Prepare-GuideClearance {
+ Write-Output 'Downloaded clearance is separate from the assessment and original execution journal. Keep it private. In Explorer use Copy as path on the downloaded JSON; paste the FULL filename, not its folder. Downloads is not assumed.'
+ $Downloaded = Read-Host "Full path of the downloaded clearance (Enter reuses $Approval if it already exists)"
+ if ([string]::IsNullOrWhiteSpace($Downloaded)) { $Downloaded = $Approval } else { $Downloaded = $Downloaded.Trim().Trim('"') }
+ if (-not [IO.Path]::IsPathRooted($Downloaded) -or $Downloaded.StartsWith('\\\\')) { throw 'STOP: downloaded clearance needs an absolute local file path.' }
+ Assert-GuideClearance $Downloaded
+ if (Test-Path -LiteralPath $Approval) {
+  Assert-GuideClearance $Approval
+  if ((Get-GuideFileHash $Approval) -cne (Get-GuideFileHash $Downloaded)) { throw 'STOP: conflicting existing clearance file. Nothing was overwritten. Preserve both files and reconcile the SAME approved request.' }
+  Write-Output 'SKIPPED: existing matching valid clearance preserved.'
+ } else {
+  try { [IO.File]::Copy($Downloaded,$Approval,$false) } catch { throw 'STOP: private clearance could not be copied without overwrite. Check private directory permissions or a conflicting file; preserve originals.' }
+  Assert-GuideClearance $Approval
+ }
+ Write-Output 'PASS: Private customer clearance located and locally validated. Approved request matches this BYO Shop; clearance is available in the private client directory.'
+ Write-Output 'Expiry/revocation is not proven locally. Loaded expiry evidence is checked when available; the existing CLI/server verifies current authorization at explicit installation. No installation was started.'
+}`;
+ const prepareClearance=c.request?block(`${approvedContext}\n${repo}\n${files}\n${privateFolder}\n${readJson}\n${clearanceCheck}\nPrepare-GuideClearance\nWrite-Output 'You may continue to Stage 10 as a separate explicit installation action.'`):null;
+ const apply=c.request?block(`${approvedContext}\n${repo}\n${files}\n${privateFolder}\n${readJson}\n${clearanceCheck}
+if (-not (Test-Path -LiteralPath $Approval -PathType Leaf)) {
+ Write-Output 'Expected clearance is missing. Complete Stage 9 clearance preparation, or identify the original downloaded file below. This does not require a replacement journal or new approval.'
+ Prepare-GuideClearance
+ throw 'STOP: clearance prepared only; installation did not start. Review Stage 9 PASS, then run Stage 10 again to explicitly start installation.'
+}
+Assert-GuideClearance $Approval
+Write-Output 'PASS: exact clearance is present and locally checked. The original execution journal is checked separately next.'
+${journal}\n${preflight}
+if ($Original -and ($Original.request_id -cne $ExpectedRequest -or $Original.plan_sha256 -cne $ExpectedPlanSha)) { throw 'STOP: original journal request/plan differs from this approval. Reconcile it; never create a replacement.' }
 ${checked('node scripts/upgrade-backend.mjs --mode byo --project-ref $ShopRef --client-id $ClientId --from-sha $FromSha --journal $Journal --approval-file $Approval --platform-project-ref $PlatformRef --apply','installation did not complete successfully. Preserve original journal/request/clearance and reconcile status before retrying.')}
 $Final = Read-GuideJson $Journal 'Original journal'
 if ($Final.request_id -ne $ExpectedRequest -or $Final.project -ne $ShopRef -or $Final.client -ne $ClientId -or $Final.source -ne $FromSha -or $Final.target -ne $TargetSha -or $Final.state -ne 'verification_required') { throw 'STOP: final component receipt is not established. Review the original Platform job.' }
 Write-Output 'PASS: original installation reached verification_required. Independent source review and final owner acceptance are still pending.'`):null;
- return {identity,update,inspect:inventory('before'),assessment,openAssessment,apply,verify:inventory('after'),
+ return {identity,update,inspect:inventory('before'),assessment,openAssessment,prepareClearance,apply,verify:inventory('after'),
   identify:block(`${identity}\nWrite-Output "Client #$ClientId; Shop $ShopRef; Platform $PlatformRef; target $TargetSha. Compare these with the customer Dashboard."`),
   tools:block(`${toolVersion}
 foreach ($Tool in @('git','node','supabase')) {

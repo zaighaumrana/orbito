@@ -234,3 +234,42 @@ command group pass; tools/provider/installer calls are substitutes. Syntax check
 pass. No real installs, Supabase operations, Shop/package/upgrade-engine changes,
 browser suites, performance tests or broad regressions. Normal PR #6 branch push
 and automatic Pages deployment are authorized; the PR remains Draft/Open.
+
+## Assessment discovery and clearance placement — 28 October 2026
+
+Stage 8 searches only `upgrade-assessment-*.json` in the configured private folder.
+It rejects malformed/mismatched reports, validates the actual assessment/plan and
+observation evidence, checks available collection/expiry timestamps, and compares
+planned steps with the approved request when present. One valid report is selected;
+multiple reports require a numbered choice after displaying nonsecret metadata.
+Reports without a collection timestamp require the existing concept of explicit
+customer freshness acknowledgment; file modification time is only a display aid.
+The selected report is reread/validated before Notepad opens. No report is modified.
+The customer assessment and server-approved plan have different evidence origins;
+their whole-plan hashes are not falsely equated.
+
+Stage 9 explains browser download locations and the distinction between assessment,
+private clearance and original execution journal. Its approved-request-only block
+accepts the actual downloaded full path, rejects directories/links, checks exact
+request/Platform/project/client/binding/source/target and computes the clearance's
+actual plan hash through the existing Shop `upgrade-contract.mjs` digest. It copies
+without overwrite, preserving identical existing contents and the original download.
+Stage 10 validates clearance before asking about the journal; missing-file recovery
+only prepares the clearance and stops, requiring a separate explicit installation
+invocation. Existing journal/request/plan and executor guards remain authoritative.
+
+Local preparation checks loaded `customer_expires_at` and a file expiry if present.
+The current emitted clearance has no expiry field, and its token has no read-only
+status endpoint: the existing customer-claim changes state to running. Preparation
+therefore performs no live claim or authorization check and explicitly leaves
+current token authenticity/revocation/expiry to the unchanged CLI/server at explicit
+installation. A misplaced file alone requires no new request, approval or journal.
+
+Focused Windows PowerShell 5.1 fixtures cover single/multiple/mismatched assessment
+discovery, clearance copy/reuse/missing/wrong request or fingerprint/conflict/directory,
+and original-journal preservation; no actual executor/provider calls. An unavailable
+Get-FileHash in the isolated session was replaced with built-in .NET SHA-256; its
+affected check then passed. The view fixture's broad text assertion was narrowed
+to the actual guide element after adding a download instruction outside that element.
+Generated client commands, actual upgrade-view fixture
+and changed-file syntax checks pass. No Shop/backend/release changes or hosted writes.

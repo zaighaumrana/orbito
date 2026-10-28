@@ -1,5 +1,7 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync,mkdtempSync,writeFileSync,rmSync} from 'node:fs';import vm from 'node:vm';
+import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync,mkdtempSync,mkdirSync,writeFileSync,rmSync} from 'node:fs';import vm from 'node:vm';
 import {spawnSync} from 'node:child_process';import {tmpdir} from 'node:os';import {join,resolve,sep} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {digest} from '../../Orbitoshopv2-v1/scripts/upgrade-contract.mjs';
 import {createByoUpgradeGuide,renderByoUpgradeGuide,powershellValue} from '../src/byo-upgrade-guide.js';
 import {hasUpgradePlan,upgradeActionAllowed} from '../src/upgrade-assessment.js';
 const catalog=JSON.parse(readFileSync(new URL('../supabase/releases/approved-shop-releases.json',import.meta.url))),v6=catalog.find(c=>c.release_id==='support-v6'),v7=catalog.find(c=>c.release_id==='support-v7');
@@ -26,6 +28,100 @@ try {\n${script}\n} catch { [Console]::Error.WriteLine($_.Exception.Message); ex
   assert.ok(resolve(dir).startsWith(resolve(tmpdir())+sep));rmSync(dir,{recursive:true,force:true});
  }
 }
+
+async function guideFileFixture(t){
+ const root=mkdtempSync(join(tmpdir(),'retrasell-guide-files-'));
+ t.after(()=>{assert.ok(resolve(root).startsWith(resolve(tmpdir())+sep));rmSync(root,{recursive:true,force:true});});
+ const privateDir=join(root,'private client (1)'),emptyDir=join(root,'empty private'),downloads=join(root,'chosen download location');
+ for(const dir of [privateDir,emptyDir,downloads])mkdirSync(dir);
+ const c=approved(context()),j=c.workflow.job;
+ const binding={client_id:1,project_ref:ref,source_id:id,client_binding:'fixture-1'};
+ const observation={shop:{client_id:1,source_id:id,client_binding:'fixture-1',owner_ready:true,owner_busy:false,invalid_config_receipts:0},runtime_ready:true,migrations:[{version:'20261023000000',name:'fixture',sha256:'b'.repeat(64)}],functions:[{name:'platform-bridge',present:true,verify_jwt:true}]};
+ const plan={contract:'retrasell-controlled-upgrade-v1',...binding,source_sha256:v6.sha256,target_sha256:v7.sha256,compatibility:'additive-protocol-1',steps:j.plan.steps,source_evidence:{migrations:observation.migrations,functions:observation.functions}};
+ j.plan=plan;j.plan_sha256=await digest(plan);j.customer_expires_at=new Date(Date.now()+3600000).toISOString();
+ c.workflow.draft={'upgrade-guide-shop-path':{value:fileURLToPath(new URL('../../Orbitoshopv2-v1',import.meta.url))},'upgrade-guide-private-path':{value:privateDir}};
+ const report={contract:'retrasell-byo-upgrade-assessment-v1',...binding,source_sha256:v6.sha256,target_sha256:v7.sha256,observation,plan};
+ const clearance={contract:'retrasell-byo-upgrade-clearance-v1',request_id:j.request_id,platform_url:`https://${platform}.supabase.co`,platform_public_key:'synthetic-public-key',plan,plan_sha256:j.plan_sha256,token:'e'.repeat(64)};
+ const commands=()=>createByoUpgradeGuide(client,c).stages;
+ const q=powershellValue,write=(path,value)=>writeFileSync(path,JSON.stringify(value));
+ return {root,privateDir,emptyDir,downloads,c,j,report,clearance,commands,q,write};
+}
+
+test('Windows PowerShell 5.1 stage 8 discovers one assessment, requires explicit multiple selection and rejects invalid evidence',async t=>{
+ const f=await guideFileFixture(t),{q}=f,a=join(f.privateDir,'upgrade-assessment-a.json'),b=join(f.privateDir,'upgrade-assessment-b.json');
+ f.write(a,f.report);f.write(join(f.privateDir,'upgrade-assessment-mismatch.json'),{...f.report,client_id:2});
+ writeFileSync(join(f.privateDir,'upgrade-assessment-malformed.json'),'{bad JSON');f.write(join(f.privateDir,'unrelated-clearance.json'),f.clearance);
+ f.write(join(f.emptyDir,'upgrade-assessment-wrong.json'),{...f.report,project_ref:'wrong'});
+ const discover=f.commands()[7].commands[0];
+ f.c.workflow.draft['upgrade-guide-private-path'].value=f.emptyDir;const missing=f.commands()[7].commands[0];
+ const output=runPowerShell51(`
+$script:Opened=@(); $script:Prompts=@()
+function notepad { $script:Opened += $args[0] }
+function Read-Host { param($Prompt) $script:Prompts += $Prompt; if ($Prompt -match 'Multiple valid') { '2' } else { 'FRESH' } }
+${discover}
+Expect ($script:Opened.Count -eq 1 -and $script:Opened[0] -eq ${q(a)}) 'Exactly one valid report must open automatically'
+Expect ($script:Prompts.Count -eq 1 -and $script:Prompts[0] -match 'no collection timestamp') 'Untimestamped CLI contract needs explicit freshness acknowledgment'
+[IO.File]::Copy(${q(a)},${q(b)},$false)
+$script:Prompts=@()
+${discover}
+Expect ($script:Opened.Count -eq 2 -and $script:Opened[1] -eq ${q(b)}) 'Multiple valid reports must use explicit numbered choice'
+Expect ($script:Prompts[0] -match 'Multiple valid') 'Must not blindly select newest report'
+$Failure=''
+try { ${missing} } catch { $Failure=$_.Exception.Message }
+Expect ($Failure -match 'No valid assessment found') 'Mismatched-only folder must fail without opening a file'
+Expect ($script:Opened.Count -eq 2) 'Invalid/missing evidence must never open'
+Write-Output 'PASS: focused assessment discovery.'`);
+ assert.match(output,/REJECTED: upgrade-assessment-malformed/);assert.match(output,/REJECTED: upgrade-assessment-mismatch/);assert.doesNotMatch(output,new RegExp('e'.repeat(64)));
+});
+
+test('Windows PowerShell 5.1 stages 9-10 prepare exact clearance without overwrites or journal changes and stop before apply',async t=>{
+ const f=await guideFileFixture(t),{q}=f,download=join(f.downloads,'downloaded clearance.json'),dest=join(f.privateDir,`retrasell-upgrade-${f.j.request_id}.json`),journal=join(f.privateDir,'upgrade-journal.json');
+ f.write(download,f.clearance);
+ f.write(journal,{contract:'retrasell-backend-upgrade-v2',mode:'byo',project:ref,client:1,source:v6.sha256,target:v7.sha256,request_id:f.j.request_id,plan_sha256:f.j.plan_sha256,state:'paused',steps:{}});
+ const wrong=join(f.downloads,'wrong-request.json'),fingerprint=join(f.downloads,'wrong-fingerprint.json'),conflict=join(f.downloads,'conflicting-clearance.json');
+ f.write(wrong,{...f.clearance,request_id:id});f.write(fingerprint,{...f.clearance,plan_sha256:'a'.repeat(64)});f.write(conflict,{...f.clearance,token:'d'.repeat(64)});
+ const stage9=f.commands()[8].commands[0],stage10=f.commands()[9].commands[0];
+ f.c.workflow.draft['upgrade-guide-private-path'].value=f.emptyDir;const absent=f.commands()[9].commands[0];
+ const output=runPowerShell51(`
+$script:NodeExe = (Get-Command node).Source
+$script:Download=${q(download)}; $script:Prompts=@(); $script:ApplyCount=0
+function Read-Host { param($Prompt) $script:Prompts += $Prompt; if ($Prompt -match 'Full path of the downloaded') { return $script:Download }; return '' }
+function node {
+ if ($args[0] -eq '--input-type=module') { & $script:NodeExe @args; $global:LASTEXITCODE=$LASTEXITCODE; return }
+ if ($args[0] -eq 'scripts/release-preflight.mjs') { $global:LASTEXITCODE=0; return }
+ if ($args[0] -eq 'scripts/upgrade-backend.mjs' -and $args -contains '--apply') { $script:ApplyCount++; throw 'TEST: installation boundary intercepted; executor not run' }
+ throw 'Unexpected Node command in fixture'
+}
+$JournalBefore = [IO.File]::ReadAllText(${q(journal)})
+${stage9}
+Expect ((Test-Path -LiteralPath ${q(dest)}) -and (Test-Path -LiteralPath ${q(download)})) 'Valid clearance must be copied while original download remains'
+$DestinationBefore = [IO.File]::ReadAllText(${q(dest)})
+$WrittenBefore = (Get-Item -LiteralPath ${q(dest)}).LastWriteTimeUtc
+${stage9}
+Expect ((Get-Item -LiteralPath ${q(dest)}).LastWriteTimeUtc -eq $WrittenBefore) 'Matching destination must not be replaced'
+foreach ($Case in @(@{File=${q(wrong)};Error='wrong clearance request'},@{File=${q(fingerprint)};Error='wrong clearance plan fingerprint'},@{File=${q(conflict)};Error='conflicting existing clearance'},@{File=${q(f.downloads)};Error='directory, not a JSON file'})) {
+ $script:Download=$Case.File; $Failure=''
+ try { ${stage9} } catch { $Failure=$_.Exception.Message }
+ Expect ($Failure -match $Case.Error) ('Expected precise clearance failure: '+$Case.Error)
+ Expect ([IO.File]::ReadAllText(${q(dest)}) -ceq $DestinationBefore) 'Invalid/conflicting input must never overwrite destination'
+}
+$script:Download=''; $script:Prompts=@(); $Failure=''
+try { ${absent} } catch { $Failure=$_.Exception.Message }
+Expect ($Failure -match 'Private clearance file cannot be found') 'Missing clearance must stop'
+Expect ($script:Prompts.Count -eq 1 -and $script:Prompts[0] -match 'downloaded clearance') 'Missing clearance must stop before original-journal prompt'
+# A supplied original clearance may be prepared, but requires a separate install invocation.
+$script:Download=${q(download)}; $script:Prompts=@(); $Failure=''
+try { ${absent} } catch { $Failure=$_.Exception.Message }
+Expect ($Failure -match 'clearance prepared only; installation did not start') 'Recovery must never flow automatically into apply'
+Expect ($script:Prompts.Count -eq 1 -and $script:ApplyCount -eq 0) 'Preparation cannot ask for journal or invoke installation'
+$script:Prompts=@(); $Failure=''
+try { ${stage10} } catch { $Failure=$_.Exception.Message }
+Expect ($Failure -match 'installation boundary intercepted') 'Valid local prerequisites must reach unchanged explicit executor boundary'
+Expect ($script:ApplyCount -eq 1 -and $script:Prompts.Count -eq 1 -and $script:Prompts[0] -match 'Original execution journal') 'Only explicit stage 10 reaches executor after checking journal'
+Expect ([IO.File]::ReadAllText(${q(journal)}) -ceq $JournalBefore) 'Original journal must be byte-for-byte preserved'
+Write-Output 'PASS: focused private-clearance preparation and preflight; no executor/provider operations.'`);
+ assert.match(output,/existing matching valid clearance preserved/);assert.doesNotMatch(output,new RegExp('e'.repeat(64)));
+});
 
 test('Windows PowerShell 5.1 stage 2 skips existing tools/bucket and installs only missing tools through stubs',()=>{
  const commands=createByoUpgradeGuide(client,context()).stages[1].commands;
@@ -155,10 +251,10 @@ test('actual upgrade view embeds the guide for approved BYO while retaining curr
  const c=approved(context());c.workflow.draft={'upgrade-guide-stage':{value:'10'}};const state={authenticated:true,currentUser:{role:'master_admin'},selectedClient:client,clientData:c.detail,backendInventory:c.inventory,backendUpgrade:{clientId:1,...c.workflow}};
  const ctx={pState:state,pb:{supabaseUrl:c.platformUrl},renderByoUpgradeGuide,hasUpgradePlan,upgradeActionAllowed,...helpers,technicalRows:()=>'',evidenceDetails:()=>'',releaseName:s=>s||'Unknown'};vm.createContext(ctx);
  const src=readFileSync(new URL('../src/upgrade-view.js',import.meta.url),'utf8').replace(/^import .*$/gm,'').replace(/^export /gm,'');vm.runInContext(src,ctx);
- const html=ctx.renderUpgradePanel(client,true);assert.match(html,/Customer CLI instructions/);assert.match(html,/10\. Authorized installation/);assert.match(html,/Download private customer clearance/);assert.match(html,/--apply/);assert.equal(ctx.renderUpgradePanel(client,false),'');
+ const html=ctx.renderUpgradePanel(client,true);assert.match(html,/Customer CLI instructions/);assert.match(html,/10\. Authorized installation/);assert.match(html,/Download private customer clearance/);assert.match(html,/Stage 9, and run its clearance preparation block/);assert.match(html,/misplaced download needs no new request or journal/);assert.match(html,/--apply/);assert.equal(ctx.renderUpgradePanel(client,false),'');
  let guideSource;ctx.renderByoUpgradeGuide=(c,context,h)=>{guideSource=context.source;return renderByoUpgradeGuide(c,context,h);};
  state.backendUpgrade.job.state='completed_reviewed';ctx.renderUpgradePanel(client,true);assert.equal(guideSource,'','History must not become the next reviewed source');state.backendUpgrade.job.state='approved';
- state.selectedClient={...client,id:2};assert.doesNotMatch(ctx.renderUpgradePanel(client,true),/Customer CLI instructions/);
+ state.selectedClient={...client,id:2};assert.doesNotMatch(ctx.renderUpgradePanel(client,true),/class="evidence-details byo-upgrade-guide"/);
   // Exercise the existing input hook: selecting a source updates commands immediately,
   // while assessment typing does not rerender and disturb the customer's input.
   state.selectedClient=client;state.page='client-detail';let renders=0;ctx.render=()=>renders++;
