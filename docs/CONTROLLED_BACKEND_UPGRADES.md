@@ -1,3 +1,5 @@
+> Current handoff — 28 October 2026: use Controlled Backend Upgrade in Platform and the [customer upgrade procedure](https://github.com/zaighaumrana/Orbitoshopv2-v1/blob/development/docs/CONTROLLED_BACKEND_UPGRADES.md). Approved fresh source is support-v7 (39 migrations, 7 functions, 9 requirements), fingerprint c4d210d009de9c57acf0c9af7fc41053632a95439ea24a68aa6e22f724d6bada. Source and tooling come from reviewed development or an approved immutable revision. The dated v6 rollout/deployment record below is historical; do not replay it as a new rollout.
+
 # Controlled backend upgrades — current operational guidance, 2026-10-23
 
 Current approved **fresh-install source**: support-v6, 38 migrations / 7 functions,

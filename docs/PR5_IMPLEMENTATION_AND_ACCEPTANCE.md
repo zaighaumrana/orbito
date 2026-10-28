@@ -8,7 +8,7 @@ Implementation snapshot: `feature/verified-customer-support-platform` at `e74ffd
 
 The PR began with independently verified customer Support intake/enrollment/admin and grew through durable enrollment, BYO/client setup, Paper communication, consent, bounded provisioning, on-demand resources, immutable release governance, evidence inventory and controlled upgrades. Later frontend/eligibility fixes preserve the original jobs and contracts.
 
-Platform owns canonical operator authorization, client/pairing state, central tickets/credentials, orchestration, approvals, release selection and audit. Shop owns customer Auth/roles, local operations, the durable sender/owner consent and customer-admin CLI. See the [Shop PR #1 summary](https://github.com/zaighaumrana/Orbitoshopv2-v1/blob/feature/verified-customer-support-shop/docs/PR1_IMPLEMENTATION_AND_ACCEPTANCE.md) and [Shop register](https://github.com/zaighaumrana/Orbitoshopv2-v1/blob/feature/verified-customer-support-shop/docs/PR1_ACCEPTANCE_CASES.csv) for that side; its implementation is not duplicated here.
+Platform owns canonical operator authorization, client/pairing state, central tickets/credentials, orchestration, approvals, release selection and audit. Shop owns customer Auth/roles, local operations, the durable sender/owner consent and customer-admin CLI. See the [Shop PR #1 summary](https://github.com/zaighaumrana/Orbitoshopv2-v1/blob/ff57b628fb91421a4f803477dfdf520bd111ef2a/docs/PR1_IMPLEMENTATION_AND_ACCEPTANCE.md) and [Shop register](https://github.com/zaighaumrana/Orbitoshopv2-v1/blob/ff57b628fb91421a4f803477dfdf520bd111ef2a/docs/PR1_ACCEPTANCE_CASES.csv) for that side; its implementation is not duplicated here.
 
 The [PR5 register](PR5_ACCEPTANCE_CASES.csv) preserves the original 46 manual Platform scenarios plus distinct supported protocol/security/recovery/observation cases. A LOCAL_PASS is scoped local evidence, READ_PASS is a read-only observation, OWNER_PASS is owner-only, PARTIAL means the complete oracle is not established, and DEFERRED/UNTESTED never mean pass. The original 0/46 tracker is historical; neither CSV row totals nor overlapping suite totals are a hosted completion percentage.
 
@@ -113,7 +113,7 @@ The eight groups are core runtime, usage outbox, billing projection, configurati
 
 Release chronology: accepted-v1 remains frozen 32/6; Support-v1 staged 33/7; v2 added readiness at 34/7 and was owner-promoted; v3 was the 36/7 candidate; v4 added consent at 37/7 after Shop backend `089fd7870f9f0665e35674bf7b8db9fd190f1509`, fingerprint `f5295937f06e45177190bedebf19a54c86fd067d03785365a393e3de269e062f`. Durable delivery produced v5, but the final legacy-receipt correction `95448d75b7c78fbe5e7cf0e9a02f87e7d919650d` required NEW v6. V5 remains immutable, never installed and superseded (`7953927660473aeaafcc62b3b8d45e382f5189d1536f7e0100b890d938ff5fdd`). Older packages and original job pins are retained.
 
-Any later change affecting packaged SQL/functions/shared dependencies requires another immutable version and fingerprint **after** the backend implementation is complete. CLI/frontend/docs changes outside that package do not authorize rewriting v6. Full source/function/gateway inventory belongs in the [Shop installation inventory](https://github.com/zaighaumrana/Orbitoshopv2-v1/blob/feature/verified-customer-support-shop/docs/PR1_IMPLEMENTATION_AND_ACCEPTANCE.md#d-backend-release-and-deployment-order).
+Any later change affecting packaged SQL/functions/shared dependencies requires another immutable version and fingerprint **after** the backend implementation is complete. CLI/frontend/docs changes outside that package do not authorize rewriting v6. Full source/function/gateway inventory belongs in the [Shop installation inventory](https://github.com/zaighaumrana/Orbitoshopv2-v1/blob/ff57b628fb91421a4f803477dfdf520bd111ef2a/docs/PR1_IMPLEMENTATION_AND_ACCEPTANCE.md#d-backend-release-and-deployment-order).
 
 Rollout dependencies are separate from observed completion: Platform forward SQL must precede the matching trusted functions, then compatible frontend/customer tooling. For fresh Managed, the pinned package supplies all 38 SQL migrations/six core functions and the same seventh Support function through optional owner-ready enrollment. BYO's approved customer-local installer supplies the equivalent complete SQL/function/gateway/dependency set with its own administrative authority. Optional enrollment pending is not full Support readiness.
 
@@ -223,11 +223,11 @@ The current documentation commits must use `[CF-Pages-Skip]` in **both** reposit
 
 ### Sister repository responsibility and contract links
 
-- [PR1_IMPLEMENTATION_AND_ACCEPTANCE.md](https://github.com/zaighaumrana/Orbitoshopv2-v1/blob/feature/verified-customer-support-shop/docs/PR1_IMPLEMENTATION_AND_ACCEPTANCE.md)
-- [PR1_ACCEPTANCE_CASES.csv](https://github.com/zaighaumrana/Orbitoshopv2-v1/blob/feature/verified-customer-support-shop/docs/PR1_ACCEPTANCE_CASES.csv)
-- [BACKEND_DIAGNOSTICS_AND_DELIVERY.md](https://github.com/zaighaumrana/Orbitoshopv2-v1/blob/feature/verified-customer-support-shop/docs/BACKEND_DIAGNOSTICS_AND_DELIVERY.md)
-- [CONTROLLED_BACKEND_UPGRADES.md](https://github.com/zaighaumrana/Orbitoshopv2-v1/blob/feature/verified-customer-support-shop/docs/CONTROLLED_BACKEND_UPGRADES.md)
-- [BYO_GUIDED_SETUP.md](https://github.com/zaighaumrana/Orbitoshopv2-v1/blob/feature/verified-customer-support-shop/docs/BYO_GUIDED_SETUP.md)
+- [PR1_IMPLEMENTATION_AND_ACCEPTANCE.md](https://github.com/zaighaumrana/Orbitoshopv2-v1/blob/ff57b628fb91421a4f803477dfdf520bd111ef2a/docs/PR1_IMPLEMENTATION_AND_ACCEPTANCE.md)
+- [PR1_ACCEPTANCE_CASES.csv](https://github.com/zaighaumrana/Orbitoshopv2-v1/blob/ff57b628fb91421a4f803477dfdf520bd111ef2a/docs/PR1_ACCEPTANCE_CASES.csv)
+- [BACKEND_DIAGNOSTICS_AND_DELIVERY.md](https://github.com/zaighaumrana/Orbitoshopv2-v1/blob/ff57b628fb91421a4f803477dfdf520bd111ef2a/docs/BACKEND_DIAGNOSTICS_AND_DELIVERY.md)
+- [CONTROLLED_BACKEND_UPGRADES.md](https://github.com/zaighaumrana/Orbitoshopv2-v1/blob/ff57b628fb91421a4f803477dfdf520bd111ef2a/docs/CONTROLLED_BACKEND_UPGRADES.md)
+- [BYO_GUIDED_SETUP.md](https://github.com/zaighaumrana/Orbitoshopv2-v1/blob/ff57b628fb91421a4f803477dfdf520bd111ef2a/docs/BYO_GUIDED_SETUP.md)
 
 Historical documents are preserved unchanged. This summary reconciles their dated findings; an older developmentv2 label, inactive candidate, unapplied closure or pending upgrade sentence must not override the newer scoped observations above. Current operational procedures still require exact target/history/authority inspection before any separately authorized action.
 

@@ -2,7 +2,8 @@
 export function assessBackend(catalog:any[],packages:Record<string,any>,observation:any){
  const missing:string[]=[],limitations:string[]=[];
  const approved=catalog.find(x=>x.approved_for_new),target=approved&&packages[approved.release_id];
- let migrationRelease:any=null,conflict=false;
+ let migrationRelease:any=null,conflict=observation.database_verification?.status==='drift'||observation.functions?.some((f:any)=>f.source_status==='drift');
+ if(conflict)missing.push('independent-source-comparison');
  const history=observation.migrations;
  if(Array.isArray(history)){
   const matches=catalog.filter(c=>{const r=packages[c.release_id];return r&&history.length===r.migrations.length&&history.every((m:any,i:number)=>m.version===r.migrations[i].version&&m.name===r.migrations[i].name&&m.sha256===r.migrations[i].sha256)});
@@ -22,12 +23,12 @@ export function assessBackend(catalog:any[],packages:Record<string,any>,observat
   if(observed.source_sha256!==f.sha256){exact=false;limitations.push('deployed source not independently verified: '+f.name);}
  }
  if(!base)exact=false;
- for(const [name,value]of Object.entries(observation.capabilities||{}))if(value===false){missing.push(name);exact=false;if(base?.requirements?.requirements.some((r:any)=>r.id===name))conflict=true;}
+ for(const [name,value]of Object.entries(observation.capabilities||{}))if(value===false&&(name!=='bounded-operational-reads'||base?.requirements?.requirements.some((r:any)=>r.id===name))){missing.push(name);exact=false;if(base?.requirements?.requirements.some((r:any)=>r.id===name))conflict=true;}
  if(!observation.capabilities){exact=false;limitations.push('restricted database capability probe unavailable');}
  if(base?.requirements&&base.requirements.requirements.some((r:any)=>r.id!=='core-runtime'&&!(r.id in (observation.capabilities||{})))){exact=false;limitations.push('required capability evidence incomplete');}
  const verified=exact&&!conflict?{release_id:migrationRelease.release_id,sha256:migrationRelease.sha256}:null;
  const upgrade=migrationRelease&&approved&&migrationRelease.release_id!==approved.release_id?{available:true,release_id:approved.release_id,policy:migrationRelease.upgrade_policy==='required'?'required':'optional',basis:'verified migration history; full source verification is separate'}:{available:false};
  const runtime=observation.runtime,values=Object.values(runtime||{});
  const runtime_health=observation.unreachable?'unknown':runtime?.database_reachable===false?'unhealthy':values.some(v=>v===false)?'degraded':values.length&&values.every(v=>v===true)&&runtime.database_reachable===true&&runtime.edge_functions===true&&runtime.authentication===true?'healthy':'unknown';
- return {compliance:conflict?'drift':!verified?'unable_to_verify':upgrade.available?(upgrade.policy==='required'?'upgrade_required':'upgrade_available'):'up_to_date',runtime_health,verified_release:verified,observed_migration_release:migrationRelease?{release_id:migrationRelease.release_id,sha256:migrationRelease.sha256}:null,evidence:{origin:observation.origin||'unavailable',strength:verified?'exact-source-and-capabilities':'partial',functions:functions||[],capabilities:observation.capabilities||{}},missing,limitations:[...new Set(limitations.concat(observation.limitations||[]))],upgrade,compatibility:migrationRelease?.compatibility||null};
+ return {compliance:conflict?'drift':!verified?'unable_to_verify':upgrade.available?(upgrade.policy==='required'?'upgrade_required':'upgrade_available'):'up_to_date',runtime_health,verified_release:verified,observed_migration_release:migrationRelease?{release_id:migrationRelease.release_id,sha256:migrationRelease.sha256}:null,evidence:{origin:observation.origin||'unavailable',strength:verified?'exact-source-and-capabilities':'partial',functions:functions||[],capabilities:observation.capabilities||{},...(observation.source_comparison_release?{source_comparison_release:observation.source_comparison_release}:{}),...(observation.database_verification?{database_verification:observation.database_verification}:{})},missing,limitations:[...new Set(limitations.concat(observation.limitations||[]))],upgrade,compatibility:migrationRelease?.compatibility||null};
 }

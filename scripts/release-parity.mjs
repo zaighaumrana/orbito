@@ -6,16 +6,24 @@ import {pathToFileURL,fileURLToPath} from 'node:url';
 import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 const sha=x=>createHash('sha256').update(x).digest('hex'),same=(a,b,message)=>assert.deepEqual(a,b,message);
-const required=['core-runtime','usage-outbox','billing-projection','config-journal','support-identity','support-consent','owner-bootstrap','support-durable-submissions'];
-export function validateSnapshot({release,source,manifest,active,catalog,shopCatalog,plan}){
+const baseRequired=['core-runtime','usage-outbox','billing-projection','config-journal','support-identity','support-consent','owner-bootstrap','support-durable-submissions'];
+export function validateSnapshot({release,source,manifest,active,catalog,shopCatalog,plan,reviewOnly=false}){
  const {sha256,...body}=release;assert.equal(sha(JSON.stringify(body)),sha256,'Invalid release fingerprint');
  assert.equal(source.sha256,sha256,'Committed backend/source differs from packaged release');
  assert.equal(active.sha256,sha256,'Invalid active selector');assert.equal(manifest.sha256,sha256,'Stale BYO manifest');assert.equal(manifest.release_id,active.release_id,'Installer selector divergence');
- assert.equal(manifest.review_status,'approved-shared','Missing approved review evidence');
- const approved=catalog.find(c=>c.release_id===active.release_id&&c.approved_for_new);assert.ok(approved&&approved.sha256===sha256,'Unapproved fresh release');assert.equal(catalog.filter(c=>c.approved_for_new).length,1,'Ambiguous fresh selector');
+ if(reviewOnly){
+  const candidate=catalog.find(c=>c.release_id===active.release_id);
+  assert.equal(manifest.review_status,'candidate-local','Candidate review evidence required');
+  assert.ok(candidate&&candidate.sha256===sha256&&candidate.review_status==='candidate-local'&&candidate.approved_for_new===false&&candidate.supported===false,'Review must not promote a candidate');
+ }else{
+  assert.equal(manifest.review_status,'approved-shared','Missing approved review evidence');
+  const approved=catalog.find(c=>c.release_id===active.release_id&&c.approved_for_new);assert.ok(approved&&approved.sha256===sha256,'Unapproved fresh release');
+ }
+ assert.equal(catalog.filter(c=>c.approved_for_new).length,1,'Ambiguous fresh selector');
  assert.equal(shopCatalog[sha256]?.release_id,active.release_id,'Missing customer catalog');
  const versions=release.migrations.map(m=>m.version);same(versions,[...new Set(versions)].sort(),'Duplicate/out-of-order migrations');
  assert.ok(versions.length>0);for(const m of release.migrations)assert.equal(sha(m.sql),m.sha256,'Migration content drift: '+m.version);
+ const required=versions.includes('20261025233743')?[...baseRequired,'bounded-operational-reads']:baseRequired;
  const r=release.requirements;assert.equal(r?.contract,'retrasell-backend-requirements-v1','Canonical requirements missing');same([...r.requirements.map(x=>x.id)].sort(),[...required].sort(),'Unaccounted backend requirement');
  assert.ok(r.requirements.every(q=>['purpose','managed','byo','verification'].every(k=>typeof q[k]==='string'&&q[k].length>=10)),'Missing requirement traceability');
  same([...new Set(r.requirements.flatMap(x=>x.migrations))].sort(),versions,'Unmapped migration requirement');
@@ -32,12 +40,21 @@ export function validateSnapshot({release,source,manifest,active,catalog,shopCat
  same([...dependencies].sort(),[...r.runtime.external_dependencies].sort(),'Unaccounted external runtime dependency');
  for(const mode of ['managed','byo']){const p=plan(release,mode);same(p.migrations.map(m=>m.version),versions,'Installer migration omission: '+mode);same([...p.coreFunctions,...p.deferredFunctions].map(f=>f.name).sort(),release.functions.map(f=>f.name).sort(),'Installer function omission: '+mode);}
  same(manifest.migrations,versions.length,'Stale migration manifest');same(manifest.functions,release.functions.length,'Stale function manifest');
- return {release_id:active.release_id,sha256,migrations:versions.length,functions:release.functions.length,requirements:r.requirements.length};
+ return {...(reviewOnly?{review_status:'candidate-local-not-promoted'}:{}),release_id:active.release_id,sha256,migrations:versions.length,functions:release.functions.length,requirements:r.requirements.length};
 }
-export async function validateWorkspace(platformRoot=resolve(import.meta.dirname,'..'),shopRoot=resolve(platformRoot,'../Orbitoshopv2-v1')){
+export async function validateWorkspace(platformRoot=resolve(import.meta.dirname,'..'),shopRoot=resolve(platformRoot,'../Orbitoshopv2-v1'),candidateId){
  const read=(root,p)=>readFileSync(resolve(root,p),'utf8').replaceAll('\r\n','\n'),json=(root,p)=>JSON.parse(read(root,p));
- const active=json(platformRoot,'supabase/releases/active-shop-release.json'),release=json(platformRoot,'supabase/releases/shop-release-'+active.release_id+'.json');
- const manifest=json(shopRoot,'scripts/byo-release-manifest.json'),catalog=json(platformRoot,'supabase/releases/approved-shop-releases.json'),shopCatalog=json(shopRoot,'scripts/backend-release-catalog.json');
+ const installedSelector=json(platformRoot,'supabase/releases/active-shop-release.json');
+ const catalog=json(platformRoot,'supabase/releases/approved-shop-releases.json'),shopCatalog=json(shopRoot,'scripts/backend-release-catalog.json');
+ const fresh=catalog.find(c=>c.approved_for_new);assert.ok(fresh&&fresh.release_id===installedSelector.release_id&&fresh.sha256===installedSelector.sha256,'Active selector differs from approved release');
+ if(candidateId)assert.match(candidateId,/^support-v[0-9]+$/,'Explicit candidate ID required');
+ const candidate=candidateId&&catalog.find(c=>c.release_id===candidateId);
+ if(candidateId)assert.ok(candidate&&candidate.review_status==='candidate-local'&&!candidate.approved_for_new&&!candidate.supported,'Unpromoted registered candidate required');
+ const active=candidate?{release_id:candidateId,sha256:candidate.sha256}:installedSelector;
+ const release=json(platformRoot,'supabase/releases/shop-release-'+active.release_id+'.json');
+ // Candidate evidence reuses the existing catalog and the same validator. It is
+ // not an installer selector, approval, or a second provisioning/version tracker.
+ const manifest=candidate?{...candidate}:json(shopRoot,'scripts/byo-release-manifest.json');
  same(readdirSync(resolve(shopRoot,'supabase/migrations')).filter(f=>/^\d+_.+\.sql$/.test(f)).sort(),release.migrations.map(m=>m.version+'_'+m.name+'.sql'),'Migration source omitted from package');
  same(readdirSync(resolve(shopRoot,'supabase/functions'),{withFileTypes:true}).filter(d=>d.isDirectory()&&d.name!=='_shared').map(d=>d.name).sort(),release.functions.map(f=>f.name).sort(),'Function source omitted from package');
  same([...read(shopRoot,'supabase/config.toml').matchAll(/\[functions\.([^\]]+)\]/g)].map(m=>m[1]).sort(),release.functions.map(f=>f.name).sort(),'Unaccounted gateway configuration');
@@ -51,7 +68,7 @@ export async function validateWorkspace(platformRoot=resolve(import.meta.dirname
  for(const name of ['upgrade-contract','upgrade-engine'])same(read(shopRoot,'scripts/'+name+'.mjs'),read(platformRoot,'supabase/functions/_shared/'+name+'.js'),'Managed/BYO upgrade contract divergence: '+name);
  assert.match(read(shopRoot,'scripts/upgrade-backend.mjs'),/customer-claim/,'BYO execution must claim the same durable Platform pending-operation fence');
  for(const [root,p,pattern]of [[platformRoot,'supabase/functions/_shared/managed-setup.ts',/for\(const migration of plan!\.migrations\)/],[platformRoot,'supabase/functions/_shared/managed-setup.ts',/plan!\.coreFunctions/],[platformRoot,'supabase/functions/_shared/support-automation.ts',/installationPlan\(release,'managed'\)\.deferredFunctions/],[shopRoot,'scripts/byo-setup.mjs',/plan\.coreFunctions/],[shopRoot,'scripts/byo-support-release.mjs',/plan\.deferredFunctions/],[shopRoot,'scripts/byo-support-release.mjs',/migrations:plan\.migrations/]])assert.match(read(root,p),pattern,'Installer is not consuming its approved plan: '+p);
- const result=validateSnapshot({release,source:buildRelease(shopRoot,{support:true}),manifest,active,catalog,shopCatalog,plan:installationPlan});
+ const result=validateSnapshot({release,source:buildRelease(shopRoot,{support:true}),manifest,active,catalog,shopCatalog,plan:installationPlan,reviewOnly:Boolean(candidateId)});
  for(const c of catalog){
   const p=c.release_id==='accepted-v1'?'supabase/functions/_shared/shop-release.json':'supabase/releases/shop-release-'+c.release_id+'.json',old=json(platformRoot,p);assert.equal(old.sha256,c.sha256,'Catalog fingerprint mismatch: '+c.release_id);
   const {sha256,...body}=old;assert.equal(sha(JSON.stringify(body)),sha256,'Historical immutable fingerprint corrupted');
@@ -67,6 +84,7 @@ export async function validateWorkspace(platformRoot=resolve(import.meta.dirname
  return result;
 }
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)){
- const args=process.argv.slice(2);if(args.length&&!((args.length===2||args.length===4)&&args[0]==='--shop-root'&&(args.length===2||args[2]==='--platform-root')))throw Error('Use --shop-root PATH [--platform-root PATH]');
- console.log('PASS release parity '+JSON.stringify(await validateWorkspace(args[3]?resolve(args[3]):undefined,args[1]?resolve(args[1]):undefined)));
+ const args=process.argv.slice(2);if(args[0]==='--candidate'){if(args.length!==2)throw Error('Use --candidate RELEASE_ID');console.log('PASS local candidate parity '+JSON.stringify(await validateWorkspace(undefined,undefined,args[1])));}
+ else {if(args.length&&!((args.length===2||args.length===4)&&args[0]==='--shop-root'&&(args.length===2||args[2]==='--platform-root')))throw Error('Use --shop-root PATH [--platform-root PATH]');
+ console.log('PASS release parity '+JSON.stringify(await validateWorkspace(args[3]?resolve(args[3]):undefined,args[1]?resolve(args[1]):undefined)));}
 }

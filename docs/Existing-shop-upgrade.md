@@ -1,4 +1,4 @@
-> Historical checkpoint / procedure. Current approved fresh source is **support-v6**, not a claim about any existing customer pin or live installed bytes. Use [current controlled-upgrade and rollout guidance](CONTROLLED_BACKEND_UPGRADES.md) before any operation. Earlier v4/v25 statements below describe their dated checkpoint.
+> Historical additive-upgrade record below. The approved fresh source is support-v7; current customer instructions are the in-app Controlled Backend Upgrade guide and [Shop controlled upgrades](https://github.com/zaighaumrana/Orbitoshopv2-v1/blob/development/docs/CONTROLLED_BACKEND_UPGRADES.md). Preserve the dated v4/v6 source evidence and original requests; do not replay historical rollout steps.
 
 # Existing Shop additive upgrade
 

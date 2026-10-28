@@ -2327,3 +2327,248 @@ authorized. The owner separately authorized normal production deployment from th
 Shop feature branch to its two existing Pages projects. Settings and PR bases stay
 unchanged; both PRs remain Open/Draft/unmerged. New external clearance-compatibility
 evidence records final parity, push, deployment observations and owner acceptance.
+
+## 2026-10-26 — Local M2 support-v7 review integration (not promoted)
+Branch: feature/shop-modernization-m2-release
+
+The owner explicitly authorized this local branch, source changes, commits and
+focused tests, excluding every Platform remote operation, PR, merge, deployment
+and hosted Supabase change. Added an immutable candidate package for the committed
+Shop bounded-read source 50b94931ecf743166136b2c562cbb6d2fbaebdc7. Its fingerprint
+is c4d210d009de9c57acf0c9af7fc41053632a95439ea24a68aa6e22f724d6bada
+(39 migrations, seven unchanged Edge Functions, nine traceable requirements).
+
+The existing registry/catalog and validator now support explicit local candidate
+review, without making the candidate supported or approved for new installs.
+Managed's active selector and Shop's actual BYO manifest remain support-v6.
+Historical immutable releases and pins are preserved. Requirement validation is
+version-aware: historical v6 retains its original eight requirements; v7 carries
+the additional bounded-operational-reads requirement. Workflow source pairing uses
+exact committed Shop source, runs candidate review, and retains the ordinary
+approved-active release gate; it is intentionally blocked pending a separately
+reviewed promotion. Neither workflow has run remotely.
+
+Fifteen parity, health and pin checks pass, and three targeted controlled-upgrade
+checks pass. They prove candidate denial, unchanged old-shop health, historical
+v4 pin continuity, and hypothetical future-approved upgrade planning without
+changing actual approval state. Four isolated local PostgreSQL fixtures pass for
+fresh Managed/BYO and populated v4-to-v6-to-v7 paths, including rollback, hash
+conflict, replay, RLS/Support denial and bounded history behavior. These are local
+fixtures, not hosted provisioning evidence. The prior CLI-success fixture remains
+blocked by the real unpromoted active manifest; it was not weakened to pass.
+
+An earlier uncommitted, unsupported v7 draft (6f817827...) was superseded only after
+an independent null-date oracle exposed a legacy receipt mismatch. The old draft
+and failed evidence are archived; corrected SQL passed all four lifecycle fixtures
+before this final candidate was generated. No historical release was replaced.
+
+Permanent evidence: Shop-Modernization-2026/Milestone-2-Performance, including
+20261026T154850Z-M2-012-6776983-v7-integration and
+20261026T171054Z-M2-012-941cf69-corrected-date-source. Final exact diffs and source
+identities accompany the owner review report. No database, provider or deployment
+operation occurred. Promotion, remote publication and hosted verification remain
+separate owner decisions.
+
+## 2026-10-27 — PR6 backend release reporting and read-only verification
+Branch: feature/shop-modernization-m2-release
+
+Corrected the status RPC through forward migration
+20261026220335_backend_release_reporting_verification.sql. It projects exact-scope
+completed upgrade receipts and latest separate operations from shop_upgrade_jobs,
+while retaining original installation pins and audit history. Checkpoint hashes,
+terminal state, identity, plan and mode-specific evidence must agree. Saved
+inventory from another mode is excluded; BYO cannot inherit Managed verification.
+
+The existing inventory collector now independently reads declared live SQL routine,
+ACL, private RLS/policy evidence and decoded provider function source, comparing
+actual returned files and JWT gateways with immutable manifests. Bundle hashes
+remain separate. Scoped SQL checks are partial because immutable releases lack a
+canonical complete catalog baseline; provider-omitted packaged files remain missing.
+Full source verification is not asserted. BYO keeps customer/restricted evidence.
+Optional bounded-operational-reads is retained and required only for releases
+declaring it, preserving v6 behavior.
+
+Frontend separates the last recorded upgrade/date/strength, independent current
+release, verification limitations, runtime health and fresh-approved target.
+Five focused JavaScript groups pass. One small isolated PG17 fixture passes seven
+groups, including real status-RPC responses consumed by the actual frontend,
+identity/incomplete/later-operation cases, historical pin and ACL/audit continuity.
+Initial infrastructure/quoting/fixture failures are retained in external evidence.
+No browser automation, broad suite, benchmark or large dataset was run.
+
+Owner authorizes commit/push to existing PR6 only, without another approval or new
+enforcement. Commits retain [CF-Pages-Skip]; exact post-push result is recorded in
+external evidence. No hosted SQL, Edge deployment, Shop change, release/package
+modification, promotion or merge occurs. Full details and precise verification
+limits are in docs/PR6_RELEASE_REPORTING_FIX.md.
+
+## 2026-10-27 — Owner-authorized support-v7 source promotion
+Branch: feature/shop-modernization-m2-release
+
+Promoted the existing immutable c4d210d0... v7 package in source only, using backend
+50b94931ecf743166136b2c562cbb6d2fbaebdc7 (39 SQL/seven unchanged Edge packages/nine
+requirements). Catalog and active Managed selector agree with Shop's BYO selector.
+V6 stays supported with optional v7 successor; v5 stays unsupported. The guarded,
+transactional forward migration 20261027152811_promote_support_v7.sql checks historical
+fingerprints before catalog-only changes; pins/jobs/plans/checkpoints/audit stay intact.
+Shop receives the existing PR6 classifier fixes without provider authority. CI retains
+the ordinary parity gate, replacing candidate-only invocation and stale paired refs.
+
+Normal parity and integrity checks pass; 15 upgrade/clearance, six selected release,
+five PR6 reporting/capability checks pass. One small isolated PG17 catalog fixture
+passes promotion/history preservation, replay and fingerprint-conflict denial; owned
+container removed. Supporting syntax/imports and seven guide PowerShell blocks pass.
+Initial stale fixtures were corrected without weakening source/authorization gates.
+No browser, performance or broad suite ran. Details/manual owner commands are in
+docs/SUPPORT_V7_SOURCE_PROMOTION.md and the timestamped M2 evidence folder.
+
+Owner authorizes both existing branch pushes and automatic Pages rebuilds, explicitly
+superseding the skip convention for these commits. Final empty build-trigger commits
+are planned; exact SHAs/provider results are recorded externally. PRs remain Draft,
+Open and unmerged. No hosted Supabase SQL/Edge function, customer upgrade or provisioning
+operation is performed. Hosted activation/installation, complete source-verification
+limits, independent audit and remaining M2 acceptance are separate obligations.
+
+## 2026-10-27 — Sequential backend upgrade navigation
+Branch: feature/shop-modernization-m2-release
+
+A valid completed plan incorrectly replaced next-upgrade preparation, and review
+preferred its old source SHA. Added explicit previous/next/current presentation
+within the existing frontend. Completed/cancelled receipts remain viewable; next
+preparation selects a supported actual source, clears historical approval/form/ID
+state, and creates its own request at submission. Active/uncertain/unfinished jobs
+retain their original workflow and block competing preparation. Lost replies keep
+the same request and exact projected payload; stale client/session/role responses
+remain denied. Managed server provenance/compatibility and BYO fresh assessment,
+clearance and customer installation remain authoritative. No backend control changed.
+
+Four focused fixture groups PASS for both modes, unfinished fences, original-request
+retry and departed client/role responses. JS syntax/local import resolution and
+assessment module import PASS. No browser, Docker, broad suite or benchmark ran.
+Implementation note: docs/PR6_RELEASE_REPORTING_FIX.md. Owner authorizes one normal
+non-skipped commit/push to existing Draft/Open PR6 and automatic Pages build. Exact
+publication outcome is reported with the task. No SQL, Edge, release artifact,
+Shop repository, hosted Supabase state, customer upgrade or merge is changed.
+
+## 2026-10-28 — Guided in-app BYO upgrades and customer preflight
+Branch: feature/shop-modernization-m2-release
+
+Replaced the old link-only upgrade instructions with ten inline expandable stages,
+using existing presentation/copy controls. Client, Shop/Platform projects, receipt,
+approved target and source candidate come from the selected authorized client's
+loaded identity/binding. Missing or mismatched context blocks commands. Changing a
+source refreshes the generated review command without rerendering assessment typing.
+Apply appears only for the exact approved BYO request; live CLI/server safeguards
+remain authoritative. History never establishes independent installed-source proof.
+Previous/next/current navigation and original-request recovery remain intact.
+
+The guide covers official Scoop/native PATH tooling, reviewed Shop source, separate
+customer versus internal paired preflight, correct account/project access, private
+reports, assessment submission, Master approval/separate clearance, apply and same-
+request/journal recovery. Optional documentation now targets the M2 Shop branch;
+customer instructions are complete without leaving Platform or obtaining private
+Platform source. No browser claims to verify customer-local progress.
+
+Three guide groups, three Shop preflight/native groups, four relevant navigation
+groups and one existing clearance transport group PASS; 15 generated PowerShell
+blocks parse, accepted flags/import/syntax checks and ordinary release parity PASS.
+No broad suite, browser, benchmark or Docker/SQL checks ran. Evidence is one small
+M2 BYO-guide folder with exact files, commits, checks and owner acceptance steps.
+Owner authorizes normal existing-branch commits/pushes and automatic Pages builds;
+PRs remain Draft/Open. No SQL, Edge, immutable artifact, provider setting, customer
+record or actual Shop upgrade changes. Managed v7 completion is owner-reported
+context, not independently revalidated by this implementation.
+
+## 2026-10-28 — Repair BYO guide against the original fresh wizard
+Branch: feature/shop-modernization-m2-release
+
+Used all twelve fresh BYO stages, renderer/controller and coordinated-wizard design
+as the UX reference, retaining current v7 commands. The inline upgrade guide now
+has ten individually navigable stages with objectives, Where/prerequisites, numbered
+tasks, complete copy blocks, success/failure checks, When to continue and recovery.
+Local browsing never advances backend progress; no persistence/RPC was added.
+
+Copied operational blocks restore identity/source/target and folder/journal context
+in new PowerShell sessions, check exit/report/schema/binding before PASS, and throw
+STOP for failure. Clean-M2 script recovery uses guarded fetch/--ff-only; private
+folders have sensible user-profile defaults and explicit original-file recovery.
+Unique report names preserve old evidence; assessment never creates/replaces a
+journal. Customer instructions exclude internal paired parity. Scoped aligned copy
+controls use inline accessible feedback without floating overlaps. New guide
+commands never inherit an old completed receipt’s source. Existing authorization,
+approval, request/clearance/journal and unknown-outcome fences remain unchanged.
+
+Focused command, new-terminal read-only assessment, invalid-input/nonzero-exit and
+copy rendering checks pass; the initial stdin harness issue was fixed locally.
+No browser, broad suite, benchmark or Docker/SQL tests. Exact results/files/commits
+are in the compact M2 correction report. The separate actual trial checkout and
+private files remain untouched. Owner authorizes normal existing-branch pushes and
+Pages builds; no Supabase write, real upgrade, release regeneration or merge occurs.
+
+## 2026-10-28 — Fix BYO guide tool installation and project access
+Branch: feature/shop-modernization-m2-release
+
+Corrected only stages 2 and 5 of the customer command generator and their guide
+text. Stage 2 checks native versions, skips working tools, checks installed Scoop
+packages before installation, reuses the official bucket and never removes one.
+Fresh Scoop empty-list exit statuses are recognized; existing broken PATH/version
+requires repair rather than reinstallation. Final native Supabase version must pass.
+Stage 5 assigns parsed JSON directly before exact-ID filtering, checks current
+access before optional login, and distinguishes command, login, parsing and absent
+project failures. Explicit account-switch recovery preserves the selected binding.
+
+Two focused real Windows PowerShell 5.1 fixture groups and the existing generated
+client-command group pass, plus changed-file syntax checks. Installer/provider calls
+are substitutes with no installation or hosted side effects. No Shop, immutable
+release, customer record or approved upgrade mechanism changes. Owner authorizes
+normal PR #6 branch commit/push and automatic Pages redeployment; Draft/Open remains.
+
+## 2026-10-28 — Locate BYO assessments and prepare private clearance
+Branch: feature/shop-modernization-m2-release
+
+Fixed file handling in guide stages 8–10 without changing installation/approval.
+Assessment discovery searches the configured private folder, validates identity,
+binding, compatible plan/evidence and available timestamps, and requires explicit
+selection for multiple reports. Untimestamped CLI reports require customer freshness
+acknowledgment. Only the chosen report opens; reports remain unchanged.
+
+Approved-request clearance preparation accepts the actual browser download path,
+validates exact context and canonical plan digest through the existing Shop helper,
+and copies without overwriting different contents. Stage 10 checks clearance before
+the original-journal prompt; locating a missing file prepares only and stops before
+installation. Original request/plan/journal and provider fences remain intact.
+
+Focused PowerShell 5.1 file fixtures, generated commands, actual-view fixture and
+syntax checks pass. An isolated-session Get-FileHash availability issue was fixed
+with .NET hashing; only the affected check reran. No Shop changes, hosted Supabase,
+real upgrade or release changes. Token expiry/revocation cannot be proven offline;
+loaded expiry is checked and final authorization stays in the existing executor.
+Owner authorizes normal PR #6 push and automatic Pages rebuild; keep Draft/Open.
+
+## 2026-10-28 — Final M2 local pre-merge cleanup
+
+Owner reports 7/7 live Managed/BYO disposable-Shop functional checks accepted and
+both support-v7 controlled upgrades complete/recorded. This cleanup does not rerun
+or independently certify those operations, performance or deployed source.
+
+Removed operational temporary-branch dependencies from supported guides, source
+recovery/help, setup gating, links and CI triggers. Historical commit/source hashes,
+immutable releases and dated PR/engineering evidence are preserved. Broken audit
+links now use verified immutable merged snapshots. Root AGENTS uses durable
+main/development and pre-merge dependency-hygiene rules. Paired CI retains compatible
+immutable peer pins across either merge order and branch retirement; customer
+preflight still needs no private Platform checkout. The safe customer-reference
+handoff order is Shop PR3 then Platform PR6, using merge commits to preserve the
+approved backend source ancestry. No branch deletion is authorized.
+
+Focused UI/history, generated PowerShell syntax/reference, source-preflight, setup
+validation, paired v7 parity and narrow workflow checks pass. No broad/browser,
+performance, Docker or hosted Supabase work. V7 remains c4d210d0… / 39 migrations /
+7 functions / 9 requirements. Changes stay LOCAL/UNCOMMITTED pending explicit owner
+commit-and-push approval; merging requires another separate approval. Full results,
+exact files and acceptance attribution are in the single M2 final cleanup report.
+Publication authorization update: the owner explicitly approved Gate 1 for normal
+commits/pushes of the reviewed cleanup on both existing M2 branches, with automatic
+Pages builds. Exact commit/CI/deployment outcomes are recorded in the existing final
+cleanup report. STOP before merge; separate owner authorization is still required.
+No local/remote branches may be deleted. No additional feature/backend work authorized.

@@ -10,15 +10,15 @@ import {upgradeBackend} from '../../Orbitoshopv2-v1/scripts/upgrade-backend.mjs'
 import {hasUpgradePlan,upgradeActionAllowed} from '../src/upgrade-assessment.js';
 import {classifyClosure} from '../scripts/support-closure-preflight.mjs';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const source=JSON.parse(read('supabase/releases/shop-release-support-v4.json')),target=JSON.parse(read('supabase/releases/shop-release-support-v6.json')),catalog=JSON.parse(read('supabase/releases/approved-shop-releases.json'));
+const source=JSON.parse(read('supabase/releases/shop-release-support-v4.json')),target=JSON.parse(read('supabase/releases/shop-release-support-v7.json')),catalog=JSON.parse(read('supabase/releases/approved-shop-releases.json'));
 const policy=r=>catalog.find(c=>c.sha256===r.sha256),identity={client_id:100,project_ref:'abcdefghijklmnopqrst',source_id:'99500000-0000-4000-8000-000000000001',client_binding:'fixture-100'};
 const observation=r=>({shop:{...identity,owner_ready:true,owner_busy:false,invalid_config_receipts:0},migrations:r.migrations.map(({version,name,sha256})=>({version,name,sha256})),functions:r.functions.map(({name,verify_jwt})=>({name,verify_jwt,present:true,source_sha256:null})),origin:'fixture-provider',runtime_ready:true});
 const plan=()=>makeUpgradePlan(source,target,policy(source),policy(target),observation(source),identity);
-test('actual v4→v6 plan contains only missing SQL and changed functions, preserving older healthy compatibility and source uncertainty',async()=>{
- const p=plan();assert.equal(p.steps.filter(s=>s.type==='migration').length,1);assert.deepEqual(p.steps.filter(s=>s.type==='function').map(s=>s.name).sort(),['function:platform-bridge','function:support-tickets']);assert.equal(p.source_fully_verified,false);
+test('actual v4→v7 plan contains only missing SQL and changed functions, preserving older healthy compatibility and source uncertainty',async()=>{
+ const p=plan();assert.equal(p.steps.filter(s=>s.type==='migration').length,2);assert.deepEqual(p.steps.filter(s=>s.type==='function').map(s=>s.name).sort(),['function:platform-bridge','function:support-tickets']);assert.equal(p.source_fully_verified,false);
  assert.equal(verifyUpgradeResult(target,observation(target),identity).full_source_verified,false);
  assert.equal(await digest({b:2,a:{z:1,y:2}}),await digest({a:{y:2,z:1},b:2}),'JSONB key order must not change approval identity');
- assert.throws(()=>requireUpgradeProgress(target,p,observation(target).migrations,{}),/checkpoints/);requireUpgradeProgress(target,p,observation(target).migrations,{[p.steps[0].name]:{state:'passed'}});
+ assert.throws(()=>requireUpgradeProgress(target,p,observation(target).migrations,{}),/checkpoints/);requireUpgradeProgress(target,p,observation(target).migrations,Object.fromEntries(p.steps.filter(s=>s.type==='migration').map(s=>[s.name,{state:'passed'}])));
  for(const change of [o=>o.migrations[0].sha256='bad',o=>o.functions[0].verify_jwt=false,o=>o.shop.owner_busy=true,o=>o.shop.source_id='different']){const o=observation(source);change(o);assert.throws(()=>makeUpgradePlan(source,target,policy(source),policy(target),o,identity));}
  assert.throws(()=>makeUpgradePlan(source,target,{...policy(source),compatibility:{bridge:2}},policy(target),observation(source),identity),/Protocol/);
 });
@@ -26,7 +26,7 @@ test('real bounded executor pauses serially and resumes original checkpoints; lo
  const job={request_id:'same-original-request',plan:plan(),steps:{}},events=[];let unknown=null,state='running';
  const command=async(kind,args={})=>{events.push(kind);if(kind==='dispatch'){assert.equal(unknown,null);unknown=args.step;}if(kind==='passed'){assert.equal(unknown,args.step);job.steps[args.step]={state:'passed'};unknown=null;}if(kind==='pause'){assert.equal(unknown,null);state='paused';}if(kind==='finish')state='verification_required';return {...job,state};};
  const adapter={command,inspect:async()=>{},migrate:async()=>events.push('sql'),deploy:async()=>events.push('function'),verify:async()=>verifyUpgradeResult(target,observation(target),identity)};
- assert.equal((await executeUpgrade(job,target,adapter)).state,'paused');assert.equal(Object.keys(job.steps).length,2);assert.equal((await executeUpgrade(job,target,adapter)).state,'verification_required');assert.equal(Object.keys(job.steps).length,3);assert.equal(events.filter(e=>e==='sql').length,1);
+ assert.equal((await executeUpgrade(job,target,adapter)).state,'paused');assert.equal(Object.keys(job.steps).length,2);assert.equal((await executeUpgrade(job,target,adapter)).state,'verification_required');assert.equal(Object.keys(job.steps).length,4);assert.equal(events.filter(e=>e==='sql').length,2);
  const failed={...job,steps:{}};unknown=null;await assert.rejects(executeUpgrade(failed,target,{...adapter,migrate:async()=>{throw Error('lost after commit');}}),/uncertain/);assert.ok(unknown);assert.equal(events.at(-1),'uncertain');
 });
 test('customer apply refuses missing clearance or blocked authoritative operations before any provider write and rejects legacy Managed terminal authority',async()=>{
@@ -50,10 +50,10 @@ test('customer apply refuses missing clearance or blocked authoritative operatio
    if(kind==='passed'){assert.equal(ledger.unknown_step,args.step);ledger.steps[args.step]={state:'passed'};delete ledger.unknown_step;}
    if(kind==='pause')ledger.state='paused';if(kind==='finish')ledger.state='verification_required';return kind==='check'?{}:structuredClone(ledger);
   };
-  const successfulQuery=async q=>{if(q.startsWith('begin;')){writes++;history=observation(target).migrations;return [];}if(q.includes('schema_migrations'))return history;return query(q);};
+  const successfulQuery=async q=>{if(q.startsWith('begin;')){writes++;history=observation(target).migrations.slice(0,history.length+1);return [];}if(q.includes('schema_migrations'))return history;return query(q);};
   const successfulInvoke=a=>{if(a[0]==='functions'&&a[1]==='deploy'&&!a.includes('--help')){writes++;return '{}';}return invoke(a);};
   const result=await upgradeBackend([...args,'--approval-file',join(dir,'approval.json'),'--platform-project-ref',platformRef,'--cli','C:/fixture/supabase.exe'],{query:successfulQuery,invoke:successfulInvoke,fetch,confirm:async()=>`UPGRADE ${identity.project_ref} ${target.sha256}`,platform,report:()=>{}});
-  assert.equal(result.state,'verification_required');assert.equal(writes,3);assert.equal(claims,2);assert.equal(JSON.parse(readFileSync(join(dir,'journal.json'))).request_id,request);
+  assert.equal(result.state,'verification_required');assert.equal(writes,4);assert.equal(claims,2);assert.equal(JSON.parse(readFileSync(join(dir,'journal.json'))).request_id,request);
  }finally{rmSync(dir,{recursive:true,force:true});}
 });
 test('populated Platform intake cannot be treated as empty closure; already-closed target is recognized without mutation',()=>{
@@ -65,4 +65,28 @@ test('upgrade frontend captures approval fields before submitting render and den
  const strip=s=>s.replace(/^import .*$/gm,'').replace(/^export /gm,'');vm.runInContext(strip(read('src/async-context.js')),ctx);vm.runInContext(strip(read('src/backend-upgrade.js')),ctx);
  await ctx.handleUpgrade('upgrade-approve',()=>{fields=[];});assert.equal(args.p_conditions.source_review_reference,'real-source-review');
  state.currentUser.role='billing_person';args=null;await ctx.handleUpgrade('upgrade-approve',()=>{});assert.equal(args,null);
+});
+
+
+test('approved v7 plans preserve supported old sources and reject unapproved targets or drift',()=>{
+ const v7=target,approved=policy(v7),v6=JSON.parse(read('supabase/releases/shop-release-support-v6.json'));
+ assert.equal(approved.approved_for_new,true);assert.equal(approved.supported,true);
+ assert.deepEqual(v7.functions,v6.functions,'No Edge package or JWT change');
+ assert.deepEqual(v7.migrations.slice(0,-1),v6.migrations);
+ assert.equal(v7.migrations.at(-1).version,'20261025233743');
+ assert.equal(v7.migrations.at(-1).sha256,'ab1f175ab24b4590fa7523ec906aa018c625b628c51f4dcc6a579a4dcb8d2c00');
+ for(const [version,missing] of [['support-v2',5],['support-v3',3],['support-v4',2],['support-v6',1]]){
+  const older=JSON.parse(read('supabase/releases/shop-release-'+version+'.json'));
+  assert.throws(()=>makeUpgradePlan(older,v7,policy(older),{...approved,approved_for_new:false,supported:false},observation(older),identity),/approved supported/);
+  const proposed=makeUpgradePlan(older,v7,policy(older),approved,observation(older),identity);
+  assert.equal(proposed.steps.filter(s=>s.type==='migration').length,missing);
+  if(version==='support-v6')assert.equal(proposed.steps.filter(s=>s.type==='function').length,0);
+  assert.equal(proposed.source_fully_verified,false);
+ }
+ const p=makeUpgradePlan(v6,v7,policy(v6),approved,observation(v6),identity);
+ assert.throws(()=>requireUpgradeProgress(v7,p,observation(v7).migrations,{}),/checkpoints/);
+ requireUpgradeProgress(v7,p,observation(v7).migrations,{[p.steps[0].name]:{state:'passed'}});
+ assert.equal(verifyUpgradeResult(v7,observation(v7),identity).full_source_verified,false);
+ const wrong=observation(v6);wrong.functions[0].verify_jwt=false;
+ assert.throws(()=>makeUpgradePlan(v6,v7,policy(v6),approved,wrong,identity),/gateway/);
 });

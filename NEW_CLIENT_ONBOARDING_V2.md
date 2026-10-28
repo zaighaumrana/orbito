@@ -1,6 +1,6 @@
 # New client onboarding V2
 
-Manual-first owner activation is the default on feature/onboarding-v2. Email delivery and custom SMTP are not standard provisioning requirements. Development changes are local: no deployment, hosted migrations/secrets, scheduler changes or Client 1 reprovisioning were performed.
+Manual-first owner activation is the default workflow. The feature/onboarding-v2 implementation context is historical; supported source is reviewed development or an explicitly approved immutable revision. Email delivery and custom SMTP are not standard provisioning requirements. Development changes are local: no deployment, hosted migrations/secrets, scheduler changes or Client 1 reprovisioning were performed.
 
 ## Default lifecycle
 
