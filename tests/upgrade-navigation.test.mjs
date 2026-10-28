@@ -36,6 +36,22 @@ function assessment(){
  return JSON.stringify({contract:'retrasell-byo-upgrade-assessment-v1',...identity,source_sha256:v6.sha256,target_sha256:v7.sha256,plan:p,
   observation:{shop:{...identity,owner_ready:true,owner_busy:false,invalid_config_receipts:0},migrations:[{version:'20261023012311',name:'fixture',sha256:'e'.repeat(64)}],functions:[{name:'support-tickets',present:true,verify_jwt:true}],runtime_ready:true}});
 }
+
+test('completed Managed and BYO v6 to v7 transactions have historical labels and contiguous read-only sections',async()=>{
+ for(const mode of ['managed','byo']){
+  const f=fixture(mode);f.saved=job(mode,uuid(77),v6,v7);const original=JSON.stringify(f.saved);
+  await f.action('upgrade-status');
+  assert.match(f.html,/Completed backend upgrade · historical transaction/);
+  assert.match(f.html,/Completed historical transaction: Support v6 → Support v7/);
+  assert.match(f.html,/No installation is pending for this transaction/);
+  assert.match(f.html,/Release Compliance reports the most recent completed upgrade receipt/);
+  assert.match(f.html,/Transaction source \(before upgrade\)/);assert.match(f.html,/Completed transaction target/);
+  assert.deepEqual([...f.html.matchAll(/<h3>([1-6])\./g)].map(m=>m[1]),['1','2','3','4']);
+  assert.match(f.html,/source limitation; it remains recorded/);assert.match(f.html,/Original source limitation/);
+  assert.doesNotMatch(f.html,/data-p-action="upgrade-(approve|execute|download)"/);
+  assert.equal(JSON.stringify(f.saved),original);assert.equal(f.calls.edge.length,0);
+ }
+});
 const form=mode=>({'upgrade-source':v6.sha256,...(mode==='byo'?{'upgrade-assessment':assessment(),'upgrade-fresh-assessment':true}:{})});
 
 test('Managed and BYO completed v4→v6 records remain viewable beside separate v6→v7 preparation',async()=>{
@@ -44,10 +60,10 @@ test('Managed and BYO completed v4→v6 records remain viewable beside separate 
   await f.action('upgrade-status');assert.match(f.html,/Previous upgrade/);assert.match(f.html,/Support v4/);assert.match(f.html,/Support v6/);assert.match(f.html,/2026-10-24/);assert.match(f.html,/3 steps/);assert.match(f.html,/Original source limitation/);assert.match(f.html,/Prepare next upgrade/);
   await f.action('upgrade-prepare');assert.match(f.html,/View previous upgrade/);assert.match(f.html,/Approved target<\/span><strong>Support v7/);assert.match(f.html,/<select id="upgrade-source" >\s*<option value="">Choose an evidenced source/);assert.equal(f.state.backendUpgrade.requestId,null);assert.deepEqual(Object.keys(f.state.backendUpgrade.draft),[]);
   // Rerender/status refresh and a round trip to history must preserve the new form.
-  f.inputs=form(mode);await f.action('upgrade-status');assert.equal(f.state.backendUpgrade.view,'next');await f.action('upgrade-previous');assert.match(f.html,/Previous upgrade target<\/span><strong>Support v6/);f.inputs={};await f.action('upgrade-prepare');assert.match(f.html,new RegExp(`value="${v6.sha256}" selected`));
+  f.inputs=form(mode);await f.action('upgrade-status');assert.equal(f.state.backendUpgrade.view,'next');await f.action('upgrade-previous');assert.match(f.html,/Completed transaction target<\/span><strong>Support v6/);f.inputs={};await f.action('upgrade-prepare');assert.match(f.html,new RegExp(`value="${v6.sha256}" selected`));
   await f.action('upgrade-review');assert.equal(f.calls.edge.length,1);const sent=f.calls.edge[0];assert.equal(sent.source_sha256,v6.sha256);assert.notEqual(sent.request_id,f.saved.request_id);assert.equal(f.uuids,1);assert.equal(f.state.backendUpgrade.job.target_sha256,v7.sha256);assert.equal(f.state.backendUpgrade.job.plan.steps.length,1);assert.equal(f.state.backendUpgrade.job.plan.steps[0].type,'migration');assert.equal(f.state.backendUpgrade.pendingReview,null);assert.equal(JSON.stringify(f.saved),original);
   if(mode==='byo')assert.equal(sent.observation.shop.client_binding,identity.client_binding);else assert.equal(sent.observation,undefined);
-  assert.equal(JSON.stringify(f.state.backendUpgrade.previousJob),original);await f.action('upgrade-previous');assert.match(f.html,/Previous upgrade target<\/span><strong>Support v6/);assert.match(f.html,/Return to current upgrade/);assert.doesNotMatch(f.html,/data-p-action="upgrade-prepare"/);await f.action('upgrade-current');assert.match(f.html,/Support v7/);assert.equal(f.state.backendUpgrade.job.request_id,sent.request_id);
+  assert.equal(JSON.stringify(f.state.backendUpgrade.previousJob),original);await f.action('upgrade-previous');assert.match(f.html,/Completed transaction target<\/span><strong>Support v6/);assert.match(f.html,/Return to current upgrade/);assert.doesNotMatch(f.html,/data-p-action="upgrade-prepare"/);await f.action('upgrade-current');assert.match(f.html,/Support v7/);assert.equal(f.state.backendUpgrade.job.request_id,sent.request_id);
  }
 });
 

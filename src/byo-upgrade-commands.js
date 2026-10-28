@@ -87,14 +87,14 @@ Write-Output "Compliance: $($Report.compliance). Independent source: $($Report.v
 $Origin = git remote get-url origin
 if ($LASTEXITCODE -ne 0 -or $Origin -notmatch 'github\\.com[:/]zaighaumrana/Orbitoshopv2-v1(?:\\.git)?$') { throw 'STOP: this is not the approved Shop repository.' }
 $Branch = git branch --show-current
-if ($LASTEXITCODE -ne 0 -or $Branch -ne 'feature/shop-modernization-m2') { throw 'STOP: branch differs. Ask the owner to review it; do not force-switch.' }
+if ($LASTEXITCODE -ne 0 -or $Branch -ne 'development') { throw 'STOP: branch differs. Ask the owner to review it; do not force-switch.' }
 $Dirty = git status --porcelain
 if ($LASTEXITCODE -ne 0 -or $Dirty) { throw 'STOP: working tree is not clean. Preserve changes and ask for review; no pull/reset was performed.' }
-${checked('git fetch origin feature/shop-modernization-m2','fetch failed. Check Git authentication/network, preserve this checkout.')}
-${checked('git merge-base --is-ancestor HEAD origin/feature/shop-modernization-m2','local commits diverge from the reviewed branch. Stop for owner review; never reset or force-pull.')}
-${checked('git merge --ff-only origin/feature/shop-modernization-m2','fast-forward failed. Stop for review; preserve local work.')}
+${checked('git fetch origin development','fetch failed. Check Git authentication/network, preserve this checkout.')}
+${checked('git merge-base --is-ancestor HEAD origin/development','local commits diverge from the reviewed branch. Stop for owner review; never reset or force-pull.')}
+${checked('git merge --ff-only origin/development','fast-forward failed. Stop for review; preserve local work.')}
 ${files}
-Write-Output 'PASS: clean M2 Shop branch fast-forwarded; all required scripts exist.'`);
+Write-Output 'PASS: clean development Shop branch fast-forwarded; all required scripts exist.'`);
  const assessment=c.source?block(`${identity}\n${source}\n${repo}\n${files}\n${privateFolder}\n${readJson}\n${reportIdentity}\n${journal}\n${preflight}\n${unique('Assessment','upgrade-assessment')}
 ${checked('node scripts/upgrade-backend.mjs --mode byo --project-ref $ShopRef --client-id $ClientId --from-sha $FromSha --journal $Journal --report $Assessment --review | Out-Null','assessment failed. No successful assessment exists; correct the named input/access/provenance problem before retrying the whole block.')}
 $Report = Read-GuideJson $Assessment 'Assessment'

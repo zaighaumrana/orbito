@@ -21,7 +21,7 @@ export function createByoStages(client, {project,shop,setup,copyValue}) {
  {title:'Prepare PowerShell and customer CLI login',objective:'Use the reviewed Shop source and tools in one customer-authorized terminal.',where:'Windows PowerShell inside the reviewed Shop checkout, not the Platform folder',prerequisite:'Git, Node.js 22.12+ or Node.js 24 with npm, and the approved Shop checkout.',tasks:[
   task('Open the Shop folder in PowerShell','In File Explorer open the reviewed <strong>Orbitoshopv2-v1</strong> folder (it contains package.json and scripts/setup-byo.mjs). Right-click → Open in Terminal; choose PowerShell.','The terminal prompt points to the Shop checkout.',[
    command('Get-Location','Show the current working folder.','The approved Shop directory, not orbito or Downloads.'),
-   command('git branch --show-current','Check the source revision context.','feature/verified-customer-support-shop, or the separately approved release checkout. Stop if unexpected.')]),
+   command('git branch --show-current','Check the source revision context.','development, or an explicitly owner-reviewed immutable source revision. Verify the approved release fingerprint; a branch name alone is not release evidence.')]),
   task('Check Node and npm','Run each check in this same PowerShell window.','Both tools are available before installing dependencies.',[
    command('node --version','Check the Node runtime.','v22.12.0 or later in Node 22, or Node 24. If unrecognized, install the approved Node version and reopen PowerShell.'),
    command('npm --version','Check the package manager bundled with Node.','A version number. If unrecognized, repair Node/npm, reopen the terminal, and return to the Shop folder.'),

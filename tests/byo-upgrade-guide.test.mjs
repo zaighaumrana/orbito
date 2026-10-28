@@ -15,6 +15,21 @@ function approved(c){
  return c;
 }
 export function guideCommands(){return createByoUpgradeGuide(client,approved(context())).stages.flatMap(s=>s.commands);}
+
+test('generated upgrade commands use durable source references and parse in Windows PowerShell 5.1',()=>{
+ const commands=guideCommands(),guide=createByoUpgradeGuide(client,context());
+ assert.doesNotMatch(commands.join('\n')+JSON.stringify(guide.stages),/feature\/|developmentv2/);
+ assert.match(guide.stages[2].commands[1],/git fetch origin development/);
+ assert.match(guide.stages[2].commands[1],/git merge --ff-only origin\/development/);
+ assert.match(renderByoUpgradeGuide(client,context(),helpers),/blob\/development\/docs\/CONTROLLED_BACKEND_UPGRADES.md/);
+ runPowerShell51(`$Commands = ${powershellValue(JSON.stringify(commands))} | ConvertFrom-Json
+foreach ($Command in $Commands) {
+ $Tokens=$null; $Errors=$null
+ [Management.Automation.Language.Parser]::ParseInput($Command,[ref]$Tokens,[ref]$Errors) | Out-Null
+ if ($Errors.Count) { throw 'Generated customer PowerShell has a syntax error.' }
+}
+Write-Output 'PASS: durable generated source references and PowerShell syntax.'`);
+});
 function runPowerShell51(script){
  const dir=mkdtempSync(join(tmpdir(),'retrasell-guide-stages-2-5-')),file=join(dir,'fixture.ps1');
  try{

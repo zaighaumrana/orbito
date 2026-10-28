@@ -1,3 +1,4 @@
+> Maintained development workflow: feature work originates from and targets `development`; `main` is off limits for routine work. Follow [AGENTS.md](AGENTS.md) for branch/dependency hygiene and explicit push/merge authorization. No temporary feature branch is a permanent source requirement. Current backend-upgrade guidance and the paired-merge handoff are in [PR6_RELEASE_REPORTING_FIX.md](docs/PR6_RELEASE_REPORTING_FIX.md). Dated PR/hosted status below remains historical evidence, not current branch or deployment authority.
 # Orbito Platform
 
 ## Later hosted acceptance update —2026-10-17
@@ -13,7 +14,7 @@ owner-authorized subject to gates/checks;production remains NO-GO and before-use
 Shop/finance/Support/provider obligations remain. Prior reports are historical.
 
 
-## Current PR #4 status — 2026-10-17
+## Historical PR #4 status — 2026-10-17
 
 RetraSell Platform source is on `feature/platform-team-lifecycle-v2`, reviewed at
 `27f6abde0274ac6c989664d0b363504b93128d10`, targeting `development` through

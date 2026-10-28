@@ -273,3 +273,40 @@ affected check then passed. The view fixture's broad text assertion was narrowed
 to the actual guide element after adding a download instruction outside that element.
 Generated client commands, actual upgrade-view fixture
 and changed-file syntax checks pass. No Shop/backend/release changes or hosted writes.
+
+## Final M2 pre-merge dependency handoff — 28 October 2026
+
+Owner reports all 7/7 live functional checks accepted on disposable Managed and BYO
+Shops and both controlled support-v7 upgrades complete/recorded. This is owner
+acceptance, not a new independent provider/source or performance certification.
+Completed transaction presentation now labels the historical source → target and
+uses contiguous read-only sections, separate from Release Compliance/current health.
+
+Customer source links and guarded recovery use development or an explicitly reviewed
+immutable revision; no private Platform checkout is required by customer preflight.
+Historical reports/branch labels remain dated evidence; cross-repository audit links
+use verified immutable merged snapshots. Both root AGENTS now require development-
+based work and pre-merge branch-dependency hygiene without a permanent feature branch.
+
+Paired CI remains pinned to compatible immutable peers: Platform checks Shop
+`de98de2788e02601445e632e9337d52e8095d9c5`; Shop checks Platform
+`932c63c0091f175a704954f0817572a07f2156fe`. These are CI snapshots, not package source
+pins. PRs to development cover open feature work; pushes to development cover each
+merge. Pins work while both PRs are open, after either merges, after both merge and
+after feature retirement. CI private read access is not a customer prerequisite.
+
+After separate push and merge approvals, merge Shop PR #3 first, then Platform PR #6,
+using merge commits (not squash/rebase) so Shop backend source commit
+`50b94931ecf743166136b2c562cbb6d2fbaebdc7` remains an ancestor for customer provenance.
+Before Shop merges, development lacks M2 tooling: retain an already reviewed checkout
+or explicitly reviewed immutable tooling revision; do not run recovery to switch or
+reset feature checkouts. After both merges, validate the actual paired development
+heads with the same gate. No peer pin/package/source SHA needs retargeting solely
+because a branch tip changed. Do not delete any local/remote branches.
+
+Owner authorization Gate 1 is approved for normal cleanup commits and pushes.
+Keep both PRs Draft/Open, verify exact heads and normal CI/Pages outcomes, then
+stop for separate merge authorization. Publication results are recorded in the
+existing milestone final cleanup report. No SQL, Edge, package/catalog/selector, hosted record or
+journal changes. Exact file list and focused outcomes are in the milestone's single
+FINAL-CLEANUP-REPORT-2026-10-28.md; old timing evidence is preserved.

@@ -6,15 +6,9 @@ authorization; preserve these safeguards unless an explicit later decision chang
 ## 1. Start of task
 
 - Confirm the repository, current branch and `git status` before meaningful work.
-- Verify live branch/PR on every task. Current PR #4 source (2026-10-17):
-  `feature/platform-team-lifecycle-v2`; integration target: `development`.
-  Older overhaul/developmentv2 references describe their historical checkpoints.
-- Current acceptance and release gates: `docs/PR4_ACCEPTANCE_AND_DEFERRED_TESTS.md`.
-  Documentation approval alone is not merge approval. The later owner-authorized
-  controlled merge must satisfy `docs/PR4_HOSTED_ACCEPTANCE_2026-10-17.md`; keep
-  Draft until its gates are met. After verified merge use `development`.
-- `main` is legacy, not the current integration target.
-- Do not merge the overhaul branch until the hosted smoke gate is complete.
+- Verify live branch, PR head, base and current task's acceptance/release gates.
+  Dated PR reports are historical evidence, not permanent branch instructions.
+  Documentation approval alone is not merge approval; keep Draft until scoped gates pass.
 - Do not create branches, commit, push, merge or deploy unless the user requests it.
 - Read the current-state entry and the last 2–5 relevant engineering-history entries.
 - Read relevant authoritative documents, then inspect only necessary implementation.
@@ -22,6 +16,28 @@ authorization; preserve these safeguards unless an explicit later decision chang
 - Do not reset, stash away, discard or overwrite user changes to simplify your task.
 - Respect named repository/client exclusions, including the legal worktree and Client 1.
 - Avoid rediscovering the whole project for a small task.
+
+### Durable branch and integration rules
+
+- `main` is off limits for routine development: never branch from it, target it
+  with a feature PR, or merge development work into it.
+- All new feature branches originate from `development`; all feature PRs target
+  `development`, and approved feature work ultimately integrates there.
+- No merge without explicit owner authorization. Commit, push, deployment and
+  branch deletion also require their applicable explicit authorization.
+- There is no permanent authoritative feature branch. Inspect the current task's
+  actual refs and preserve immutable release/source commit ancestry when merging.
+
+### Mandatory pre-merge dependency hygiene
+
+Before declaring any PR merge-ready, inspect active references to its feature branch
+and relevant older/deleted feature branches. Correct customer instructions, active
+code, scripts, CI, test configuration and documentation links that would break after
+branch deletion. Preserve intentional immutable SHAs, release fingerprints, source
+provenance and historical evidence. Check cross-repository compatibility with the
+intended merged heads, including intermediate merge order and pinned peer sources.
+Verify branch retirement will not break any supported customer workflow and record
+the classification, corrections, remaining limits and merge order in the PR handoff.
 
 ## 2. Two-repository boundary
 
@@ -211,7 +227,7 @@ Branch:
 - Preserve older evidence and append a correction rather than blending contradictory designs.
 - Finish concisely: changed files, decision, validation, DB/deployment impact, remaining limits,
   history update, branch/status and suggested commit when useful.
-- Never imply the overhaul hosted smoke gate is complete while required stages remain pending.
+- Never imply a scoped hosted acceptance or release gate passed without its required evidence.
 
 
 ## Mandatory Rule: Managed and BYO Backend Provisioning Parity
