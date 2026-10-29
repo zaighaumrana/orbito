@@ -23,7 +23,7 @@ export function validateSnapshot({release,source,manifest,active,catalog,shopCat
  assert.equal(shopCatalog[sha256]?.release_id,active.release_id,'Missing customer catalog');
  const versions=release.migrations.map(m=>m.version);same(versions,[...new Set(versions)].sort(),'Duplicate/out-of-order migrations');
  assert.ok(versions.length>0);for(const m of release.migrations)assert.equal(sha(m.sql),m.sha256,'Migration content drift: '+m.version);
- const required=versions.includes('20261025233743')?[...baseRequired,'bounded-operational-reads']:baseRequired;
+ const required=[...baseRequired,...(versions.includes('20261025233743')?['bounded-operational-reads']:[]),...(versions.includes('20261029173151')?['catalog-icons-and-brands']:[])];
  const r=release.requirements;assert.equal(r?.contract,'retrasell-backend-requirements-v1','Canonical requirements missing');same([...r.requirements.map(x=>x.id)].sort(),[...required].sort(),'Unaccounted backend requirement');
  assert.ok(r.requirements.every(q=>['purpose','managed','byo','verification'].every(k=>typeof q[k]==='string'&&q[k].length>=10)),'Missing requirement traceability');
  same([...new Set(r.requirements.flatMap(x=>x.migrations))].sort(),versions,'Unmapped migration requirement');

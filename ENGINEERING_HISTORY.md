@@ -2572,3 +2572,12 @@ commits/pushes of the reviewed cleanup on both existing M2 branches, with automa
 Pages builds. Exact commit/CI/deployment outcomes are recorded in the existing final
 cleanup report. STOP before merge; separate owner authorization is still required.
 No local/remote branches may be deleted. No additional feature/backend work authorized.
+
+## 2026-10-29 — POS catalog candidate release integration
+Branch: feature/pos-operator-overhaul; baseline 864cdbc1c09184a72e33afe67aa4a4f516e78e68
+
+Coordinate Shop's additive icon/Device Brands requirement through the established immutable release builder, catalogs and candidate-only parity validator. The structural inventory model recognizes optional catalog capability only for packages that require it, preserving healthy historical source classification. This model remains byte-identical in Shop and Platform. The validator accounts for the new requirement without changing approval or customer selectors. No Platform catalog/brand data store or business UI is added.
+
+The new candidate is generated only after the final Shop backend is committed. Existing Managed installation, BYO customer journal, original request/clearance, provider-unknown fence and upgrade executor remain unchanged. Four local SQL paths use their actual migration envelopes; source/fingerprint and exact candidate plans are checked locally. Legacy source-approved transport tests remain distinguishable from candidate checks: current candidate customer preflight blocks before provider access. Detailed evidence and failed observations are maintained in the external pos overhaul folder.
+
+No hosted operation, deployment, customer upgrade, promotion or merge. Active support-v7 and all older immutable packages, source provenance and customer pins remain preserved. Final artifact, candidate denial and paired CI source references are recorded in subsequent review checkpoints. Publication uses [CF-Pages-Skip]; PR remains Draft/Open pending independent review, owner acceptance and separately authorized release gates.

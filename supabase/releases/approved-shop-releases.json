@@ -186,5 +186,41 @@
       "support-durable-submissions",
       "bounded-operational-reads"
     ]
+  },
+  {
+    "release_id": "support-v8",
+    "sha256": "af64c402ff72fb4ef4d72b892786c53a000d45ecb4045c4f9a7e89db51cf5dd4",
+    "migrations": 40,
+    "functions": 7,
+    "approved_for_new": false,
+    "supported": false,
+    "successor": null,
+    "upgrade_policy": "optional",
+    "compatibility": {
+      "bridge": 1,
+      "billing": 1,
+      "support": 1,
+      "config": 1
+    },
+    "required_evidence": [
+      "migration-provenance",
+      "deployed-source",
+      "gateway",
+      "current-database-capabilities"
+    ],
+    "review_status": "candidate-local",
+    "backend_source_commit": "5a9fca79ee24d6902cbdbcbfe5a0759454025e04",
+    "requirements": [
+      "core-runtime",
+      "usage-outbox",
+      "billing-projection",
+      "config-journal",
+      "support-identity",
+      "support-consent",
+      "owner-bootstrap",
+      "support-durable-submissions",
+      "bounded-operational-reads",
+      "catalog-icons-and-brands"
+    ]
   }
 ]
