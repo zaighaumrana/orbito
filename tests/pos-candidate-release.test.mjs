@@ -22,7 +22,7 @@ test('approved plan is additive one-migration/zero-function and customer preflig
  const projected=policy(candidate);
  const plan=makeUpgradePlan(old,candidate,policy(old),projected,observation(old),identity);
  assert.deepEqual(plan.steps.map(s=>s.name),['migration:20261029173151']);assert.equal(plan.maintenance_required,false);
- const preflight=customerReleasePreflight(undefined,candidate.sha256);assert.equal(preflight.manifest.release_id,'support-v8');
+ assert.throws(()=>customerReleasePreflight(undefined,candidate.sha256),/Preflight blocked/,'Current v9 candidate source must not masquerade as an approved v8 customer checkout');
  assert.throws(()=>customerReleasePreflight(undefined,'0'.repeat(64)),/Preflight blocked/);
 });
 test('missing optional catalog capability does not mark healthy v7 as drift; missing required v8 capability does',()=>{
@@ -31,4 +31,24 @@ test('missing optional catalog capability does not mark healthy v7 as drift; mis
  assert.equal(historical.compliance,'upgrade_available');assert.equal(historical.runtime_health,'healthy');assert.equal(historical.upgrade.available,true);
  const v8=observation(candidate);v8.capabilities['catalog-icons-and-brands']=false;
  assert.equal(assessBackend(catalog.filter(c=>packages[c.release_id]),packages,v8).compliance,'drift');
+});
+
+
+const preferences=json('supabase/releases/shop-release-support-v9.json');
+test('icon preferences candidate covers both installers without changing approved v8 selection',()=>{
+ assert.equal(policy(preferences).review_status,'candidate-local');assert.equal(policy(preferences).supported,false);assert.equal(policy(preferences).approved_for_new,false);
+ assert.equal(json('supabase/releases/active-shop-release.json').release_id,'support-v8');assert.equal(catalog.filter(c=>c.approved_for_new).length,1);
+ for(const mode of ['managed','byo']){const plan=installationPlan(preferences,mode);assert.equal(plan.migrations.length,41);assert.equal(plan.migrations.at(-1).version,'20261030233527');assert.ok(preferences.requirements.installers[mode].requirements.includes('icon-label-preferences'));}
+ assert.deepEqual(preferences.migrations.slice(0,40),candidate.migrations);assert.deepEqual(preferences.functions,candidate.functions);
+ assert.throws(()=>customerReleasePreflight(undefined,preferences.sha256),/Preflight blocked/);
+ assert.throws(()=>makeUpgradePlan(candidate,preferences,policy(candidate),policy(preferences),observation(candidate),identity),/approved supported/);
+ // In-memory approval simulation only. The actual source catalog stays unapproved.
+ const plan=makeUpgradePlan(candidate,preferences,policy(candidate),{...policy(preferences),supported:true,approved_for_new:true},observation(candidate),identity);
+ assert.deepEqual(plan.steps.map(step=>step.name),['migration:20261030233527']);assert.equal(plan.maintenance_required,false);
+});
+test('future preferences remain optional for healthy v8 and required only by exact v9 source',()=>{
+ const packages={'support-v8':candidate,'support-v9':preferences},subset=catalog.filter(c=>packages[c.release_id]);
+ const v8=observation(candidate);v8.capabilities['icon-label-preferences']=false;
+ const healthy=assessBackend(subset,packages,v8);assert.equal(healthy.compliance,'up_to_date');assert.equal(healthy.runtime_health,'healthy');assert.equal(healthy.upgrade.available,false);
+ const v9=observation(preferences);v9.capabilities['icon-label-preferences']=false;assert.equal(assessBackend(subset,packages,v9).compliance,'drift');
 });

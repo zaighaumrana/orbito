@@ -23,7 +23,7 @@ jobs:
           repository: zaighaumrana/Orbitoshopv2-v1
           # Immutable compatible Shop snapshot: valid before/during/after merges
           # and feature-branch retirement. This is not backend_source_commit.
-          ref: f2be0cc54e6bc20dfa6d0688cc86f0129b23670f
+          ref: 2c76489f6f0781b4d862d9a2036bfe8cf947fe3a
           path: Orbitoshopv2-v1
           fetch-depth: 0
           persist-credentials: false
@@ -31,6 +31,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Verify approved support-v8 and supported historical releases
+      - name: Verify unpromoted support-v9 candidate and immutable supported releases
         working-directory: orbito
-        run: node scripts/release-parity.mjs
+        run: node scripts/release-parity.mjs --candidate support-v9

@@ -222,5 +222,42 @@
       "bounded-operational-reads",
       "catalog-icons-and-brands"
     ]
+  },
+  {
+    "release_id": "support-v9",
+    "sha256": "60f0abe1ee5c5d1b7e2410a58acffa158a4514edb45c20f6f704745008c7d367",
+    "migrations": 41,
+    "functions": 7,
+    "approved_for_new": false,
+    "supported": false,
+    "successor": null,
+    "upgrade_policy": "optional",
+    "compatibility": {
+      "bridge": 1,
+      "billing": 1,
+      "support": 1,
+      "config": 1
+    },
+    "required_evidence": [
+      "migration-provenance",
+      "deployed-source",
+      "gateway",
+      "current-database-capabilities"
+    ],
+    "review_status": "candidate-local",
+    "backend_source_commit": "46aa53af323ac495e0fc5fcb1fd81de6663cf9d8",
+    "requirements": [
+      "core-runtime",
+      "usage-outbox",
+      "billing-projection",
+      "config-journal",
+      "support-identity",
+      "support-consent",
+      "owner-bootstrap",
+      "support-durable-submissions",
+      "bounded-operational-reads",
+      "catalog-icons-and-brands",
+      "icon-label-preferences"
+    ]
   }
 ]
