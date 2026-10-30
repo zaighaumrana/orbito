@@ -6,7 +6,7 @@
     "functions": 6,
     "approved_for_new": false,
     "supported": true,
-    "successor": "support-v7",
+    "successor": "support-v8",
     "upgrade_policy": "optional",
     "compatibility": {
       "bridge": 1,
@@ -28,7 +28,7 @@
     "functions": 7,
     "approved_for_new": false,
     "supported": true,
-    "successor": "support-v7",
+    "successor": "support-v8",
     "upgrade_policy": "optional",
     "compatibility": {
       "bridge": 1,
@@ -50,7 +50,7 @@
     "functions": 7,
     "approved_for_new": false,
     "supported": true,
-    "successor": "support-v7",
+    "successor": "support-v8",
     "upgrade_policy": "optional",
     "compatibility": {
       "bridge": 1,
@@ -72,7 +72,7 @@
     "functions": 7,
     "approved_for_new": false,
     "supported": true,
-    "successor": "support-v7",
+    "successor": "support-v8",
     "upgrade_policy": "optional",
     "compatibility": {
       "bridge": 1,
@@ -127,7 +127,7 @@
     "functions": 7,
     "supported": true,
     "approved_for_new": false,
-    "successor": "support-v7",
+    "successor": "support-v8",
     "upgrade_policy": "optional",
     "compatibility": {
       "bridge": 1,
@@ -157,9 +157,9 @@
     "sha256": "c4d210d009de9c57acf0c9af7fc41053632a95439ea24a68aa6e22f724d6bada",
     "migrations": 39,
     "functions": 7,
-    "approved_for_new": true,
+    "approved_for_new": false,
     "supported": true,
-    "successor": null,
+    "successor": "support-v8",
     "upgrade_policy": "optional",
     "compatibility": {
       "bridge": 1,
@@ -192,8 +192,8 @@
     "sha256": "af64c402ff72fb4ef4d72b892786c53a000d45ecb4045c4f9a7e89db51cf5dd4",
     "migrations": 40,
     "functions": 7,
-    "approved_for_new": false,
-    "supported": false,
+    "approved_for_new": true,
+    "supported": true,
     "successor": null,
     "upgrade_policy": "optional",
     "compatibility": {
@@ -208,7 +208,7 @@
       "gateway",
       "current-database-capabilities"
     ],
-    "review_status": "candidate-local",
+    "review_status": "approved-shared",
     "backend_source_commit": "5a9fca79ee24d6902cbdbcbfe5a0759454025e04",
     "requirements": [
       "core-runtime",

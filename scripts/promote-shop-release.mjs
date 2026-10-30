@@ -11,7 +11,7 @@ const release=JSON.parse(readFileSync(resolve(root,'supabase/releases/shop-relea
 const {sha256,...body}=release;
 if(sha256!==args[1]||createHash('sha256').update(JSON.stringify(body)).digest('hex')!==sha256)throw Error('Exact reviewed package fingerprint required');
 if(release.migrations.length!==approved.migrations||release.functions.length!==7)throw Error('Unexpected release shape');
-await validateWorkspace();
+await validateWorkspace(root,undefined,undefined,args[0]);
 const pointer={release_id:args[0],sha256};
 if(args[2]==='--apply')writeFileSync(resolve(root,'supabase/releases/active-shop-release.json'),JSON.stringify(pointer)+'\n');
 console.log(JSON.stringify({local_only:true,applied:args[2]==='--apply',...pointer}));
