@@ -6,7 +6,7 @@
     "functions": 6,
     "approved_for_new": false,
     "supported": true,
-    "successor": "support-v7",
+    "successor": "support-v10",
     "upgrade_policy": "optional",
     "compatibility": {
       "bridge": 1,
@@ -28,7 +28,7 @@
     "functions": 7,
     "approved_for_new": false,
     "supported": true,
-    "successor": "support-v7",
+    "successor": "support-v10",
     "upgrade_policy": "optional",
     "compatibility": {
       "bridge": 1,
@@ -50,7 +50,7 @@
     "functions": 7,
     "approved_for_new": false,
     "supported": true,
-    "successor": "support-v7",
+    "successor": "support-v10",
     "upgrade_policy": "optional",
     "compatibility": {
       "bridge": 1,
@@ -72,7 +72,7 @@
     "functions": 7,
     "approved_for_new": false,
     "supported": true,
-    "successor": "support-v7",
+    "successor": "support-v10",
     "upgrade_policy": "optional",
     "compatibility": {
       "bridge": 1,
@@ -127,7 +127,7 @@
     "functions": 7,
     "supported": true,
     "approved_for_new": false,
-    "successor": "support-v7",
+    "successor": "support-v10",
     "upgrade_policy": "optional",
     "compatibility": {
       "bridge": 1,
@@ -157,9 +157,9 @@
     "sha256": "c4d210d009de9c57acf0c9af7fc41053632a95439ea24a68aa6e22f724d6bada",
     "migrations": 39,
     "functions": 7,
-    "approved_for_new": true,
+    "approved_for_new": false,
     "supported": true,
-    "successor": null,
+    "successor": "support-v10",
     "upgrade_policy": "optional",
     "compatibility": {
       "bridge": 1,
@@ -185,6 +185,117 @@
       "owner-bootstrap",
       "support-durable-submissions",
       "bounded-operational-reads"
+    ]
+  },
+  {
+    "release_id": "support-v8",
+    "sha256": "af64c402ff72fb4ef4d72b892786c53a000d45ecb4045c4f9a7e89db51cf5dd4",
+    "migrations": 40,
+    "functions": 7,
+    "approved_for_new": false,
+    "supported": true,
+    "successor": "support-v10",
+    "upgrade_policy": "optional",
+    "compatibility": {
+      "bridge": 1,
+      "billing": 1,
+      "support": 1,
+      "config": 1
+    },
+    "required_evidence": [
+      "migration-provenance",
+      "deployed-source",
+      "gateway",
+      "current-database-capabilities"
+    ],
+    "review_status": "approved-shared",
+    "backend_source_commit": "5a9fca79ee24d6902cbdbcbfe5a0759454025e04",
+    "requirements": [
+      "core-runtime",
+      "usage-outbox",
+      "billing-projection",
+      "config-journal",
+      "support-identity",
+      "support-consent",
+      "owner-bootstrap",
+      "support-durable-submissions",
+      "bounded-operational-reads",
+      "catalog-icons-and-brands"
+    ]
+  },
+  {
+    "release_id": "support-v9",
+    "sha256": "60f0abe1ee5c5d1b7e2410a58acffa158a4514edb45c20f6f704745008c7d367",
+    "migrations": 41,
+    "functions": 7,
+    "approved_for_new": false,
+    "supported": true,
+    "successor": "support-v10",
+    "upgrade_policy": "optional",
+    "compatibility": {
+      "bridge": 1,
+      "billing": 1,
+      "support": 1,
+      "config": 1
+    },
+    "required_evidence": [
+      "migration-provenance",
+      "deployed-source",
+      "gateway",
+      "current-database-capabilities"
+    ],
+    "review_status": "approved-shared",
+    "backend_source_commit": "46aa53af323ac495e0fc5fcb1fd81de6663cf9d8",
+    "requirements": [
+      "core-runtime",
+      "usage-outbox",
+      "billing-projection",
+      "config-journal",
+      "support-identity",
+      "support-consent",
+      "owner-bootstrap",
+      "support-durable-submissions",
+      "bounded-operational-reads",
+      "catalog-icons-and-brands",
+      "icon-label-preferences"
+    ]
+  },
+  {
+    "release_id": "support-v10",
+    "sha256": "26885074b7035280985f5f33c42b395541fccbffe3fde94ed589969fd913b305",
+    "migrations": 42,
+    "functions": 7,
+    "approved_for_new": true,
+    "supported": true,
+    "successor": null,
+    "upgrade_policy": "optional",
+    "compatibility": {
+      "bridge": 1,
+      "billing": 1,
+      "support": 1,
+      "config": 1
+    },
+    "required_evidence": [
+      "migration-provenance",
+      "deployed-source",
+      "gateway",
+      "current-database-capabilities"
+    ],
+    "review_status": "approved-shared",
+    "backend_source_commit": "f78c5342fbc568a45feccdf5947fb49c774e474f",
+    "requirements": [
+      "core-runtime",
+      "usage-outbox",
+      "billing-projection",
+      "config-journal",
+      "support-identity",
+      "support-consent",
+      "owner-bootstrap",
+      "support-durable-submissions",
+      "bounded-operational-reads",
+      "catalog-icons-and-brands",
+      "icon-label-preferences",
+      "inventory-retirement"
     ]
   }
 ]

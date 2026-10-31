@@ -23,7 +23,7 @@ export function validateSnapshot({release,source,manifest,active,catalog,shopCat
  assert.equal(shopCatalog[sha256]?.release_id,active.release_id,'Missing customer catalog');
  const versions=release.migrations.map(m=>m.version);same(versions,[...new Set(versions)].sort(),'Duplicate/out-of-order migrations');
  assert.ok(versions.length>0);for(const m of release.migrations)assert.equal(sha(m.sql),m.sha256,'Migration content drift: '+m.version);
- const required=versions.includes('20261025233743')?[...baseRequired,'bounded-operational-reads']:baseRequired;
+ const required=[...baseRequired,...(versions.includes('20261025233743')?['bounded-operational-reads']:[]),...(versions.includes('20261029173151')?['catalog-icons-and-brands']:[]),...(versions.includes('20261030233527')?['icon-label-preferences']:[]),...(versions.includes('20261031003158')?['inventory-retirement']:[])];
  const r=release.requirements;assert.equal(r?.contract,'retrasell-backend-requirements-v1','Canonical requirements missing');same([...r.requirements.map(x=>x.id)].sort(),[...required].sort(),'Unaccounted backend requirement');
  assert.ok(r.requirements.every(q=>['purpose','managed','byo','verification'].every(k=>typeof q[k]==='string'&&q[k].length>=10)),'Missing requirement traceability');
  same([...new Set(r.requirements.flatMap(x=>x.migrations))].sort(),versions,'Unmapped migration requirement');
@@ -42,15 +42,22 @@ export function validateSnapshot({release,source,manifest,active,catalog,shopCat
  same(manifest.migrations,versions.length,'Stale migration manifest');same(manifest.functions,release.functions.length,'Stale function manifest');
  return {...(reviewOnly?{review_status:'candidate-local-not-promoted'}:{}),release_id:active.release_id,sha256,migrations:versions.length,functions:release.functions.length,requirements:r.requirements.length};
 }
-export async function validateWorkspace(platformRoot=resolve(import.meta.dirname,'..'),shopRoot=resolve(platformRoot,'../Orbitoshopv2-v1'),candidateId){
+export async function validateWorkspace(platformRoot=resolve(import.meta.dirname,'..'),shopRoot=resolve(platformRoot,'../Orbitoshopv2-v1'),candidateId,promotionId){
  const read=(root,p)=>readFileSync(resolve(root,p),'utf8').replaceAll('\r\n','\n'),json=(root,p)=>JSON.parse(read(root,p));
  const installedSelector=json(platformRoot,'supabase/releases/active-shop-release.json');
  const catalog=json(platformRoot,'supabase/releases/approved-shop-releases.json'),shopCatalog=json(shopRoot,'scripts/backend-release-catalog.json');
- const fresh=catalog.find(c=>c.approved_for_new);assert.ok(fresh&&fresh.release_id===installedSelector.release_id&&fresh.sha256===installedSelector.sha256,'Active selector differs from approved release');
+ const fresh=catalog.find(c=>c.approved_for_new);
+ let proposedSelector=installedSelector;
+ if(promotionId){
+  assert.ok(!candidateId&&fresh?.release_id===promotionId&&fresh.supported===true&&fresh.review_status==='approved-shared','Explicit approved supported promotion target required');
+  assert.ok(catalog.some(c=>c.release_id===installedSelector.release_id&&c.sha256===installedSelector.sha256&&c.supported),'Existing active selector must remain a known supported release');
+  proposedSelector={release_id:fresh.release_id,sha256:fresh.sha256};
+ }
+ assert.ok(fresh&&fresh.release_id===proposedSelector.release_id&&fresh.sha256===proposedSelector.sha256,'Active selector differs from approved release');
  if(candidateId)assert.match(candidateId,/^support-v[0-9]+$/,'Explicit candidate ID required');
  const candidate=candidateId&&catalog.find(c=>c.release_id===candidateId);
  if(candidateId)assert.ok(candidate&&candidate.review_status==='candidate-local'&&!candidate.approved_for_new&&!candidate.supported,'Unpromoted registered candidate required');
- const active=candidate?{release_id:candidateId,sha256:candidate.sha256}:installedSelector;
+ const active=candidate?{release_id:candidateId,sha256:candidate.sha256}:proposedSelector;
  const release=json(platformRoot,'supabase/releases/shop-release-'+active.release_id+'.json');
  // Candidate evidence reuses the existing catalog and the same validator. It is
  // not an installer selector, approval, or a second provisioning/version tracker.
