@@ -7,8 +7,9 @@ import v6 from '../../releases/shop-release-support-v6.json' with {type:'json'};
 import v7 from '../../releases/shop-release-support-v7.json' with {type:'json'};
 import v8 from '../../releases/shop-release-support-v8.json' with {type:'json'};
 import v9 from '../../releases/shop-release-support-v9.json' with {type:'json'};
+import v10 from '../../releases/shop-release-support-v10.json' with {type:'json'};
 import active from '../../releases/active-shop-release.json' with {type:'json'};
-export const releases:Record<string,any>={'accepted-v1':accepted,'support-v2':support,'support-v3':v3,'support-v4':v4,'support-v5':v5,'support-v6':v6,'support-v7':v7,'support-v8':v8,'support-v9':v9};
+export const releases:Record<string,any>={'accepted-v1':accepted,'support-v2':support,'support-v3':v3,'support-v4':v4,'support-v5':v5,'support-v6':v6,'support-v7':v7,'support-v8':v8,'support-v9':v9,'support-v10':v10};
 export const activeRelease=active;
 export async function validateRelease(release:any){
  const {sha256,...body}=release;
