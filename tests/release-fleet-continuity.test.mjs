@@ -12,7 +12,7 @@ const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8'),strip=s=>s.r
 const packageNow=buildRelease(undefined,{support:true});
 function snapshot(){const release=structuredClone(packageNow);return {release,source:{sha256:release.sha256},manifest:{release_id:'fixture-final',review_status:'approved-shared',sha256:release.sha256,migrations:release.migrations.length,functions:release.functions.length},active:{release_id:'fixture-final',sha256:release.sha256},catalog:[{release_id:'fixture-final',sha256:release.sha256,approved_for_new:true}],shopCatalog:{[release.sha256]:{release_id:'fixture-final'}},plan:installationPlan};}
 function reseal(s){const {sha256,...body}=s.release;s.release.sha256=hash(JSON.stringify(body));s.source.sha256=s.release.sha256;s.manifest.sha256=s.release.sha256;s.active.sha256=s.release.sha256;s.catalog[0].sha256=s.release.sha256;s.shopCatalog={[s.release.sha256]:{release_id:'fixture-final'}};}
-test('canonical release gate accepts complete executable Managed/BYO plans',()=>{const result=validateSnapshot(snapshot());assert.equal(result.requirements,10);assert.equal(result.functions,7);});
+test('canonical release gate accepts complete executable Managed/BYO plans',()=>{const result=validateSnapshot(snapshot());assert.equal(result.requirements,11);assert.equal(result.functions,7);});
 test('gate rejects content/source, gateway/dependency, installer omission and stale manifests without modifying immutable packages',()=>{
  for(const [label,change,expected] of [
  ['SQL drift',s=>{s.release.migrations[0].sql+='\n-- drift';reseal(s)},/Migration content/],
@@ -83,18 +83,18 @@ test('legacy Shop pages receive retryable errors while modern clients opt into t
 });
 
 
-test('M2 approved v8 selectors retain candidate denial and historical v6 contract',()=>{
- const release=JSON.parse(read('supabase/releases/shop-release-support-v8.json'));
+test('M2 approved v9 selectors retain candidate denial and historical v6 contract',()=>{
+ const release=JSON.parse(read('supabase/releases/shop-release-support-v9.json'));
  const catalog=JSON.parse(read('supabase/releases/approved-shop-releases.json'));
  const manifest=JSON.parse(readFileSync(new URL('../../Orbitoshopv2-v1/scripts/byo-release-manifest.json',import.meta.url),'utf8'));
  const active=JSON.parse(read('supabase/releases/active-shop-release.json'));
  const shopCatalog=JSON.parse(readFileSync(new URL('../../Orbitoshopv2-v1/scripts/backend-release-catalog.json',import.meta.url),'utf8'));
  const staged={release,source:packageNow,manifest,active,catalog,shopCatalog,plan:installationPlan};
- assert.equal(validateSnapshot(staged).requirements,10);
+ assert.equal(validateSnapshot(staged).requirements,11);
  assert.equal(catalog.filter(c=>c.approved_for_new).length,1);
- assert.equal(active.release_id,'support-v8');assert.equal(manifest.release_id,'support-v8');
+ assert.equal(active.release_id,'support-v9');assert.equal(manifest.release_id,'support-v9');
  const candidate={...manifest,review_status:'candidate-local',supported:false,approved_for_new:false};
- const before=catalog.map(c=>c.release_id==='support-v8'?candidate:{...c,approved_for_new:c.release_id==='support-v7'});
+ const before=catalog.map(c=>c.release_id==='support-v9'?candidate:{...c,approved_for_new:c.release_id==='support-v7'});
  assert.equal(validateSnapshot({...staged,manifest:candidate,catalog:before,reviewOnly:true}).review_status,'candidate-local-not-promoted');
  assert.throws(()=>validateSnapshot({...staged,manifest:candidate,catalog:before}),/approved review/);
  assert.throws(()=>validateSnapshot({...staged,catalog,reviewOnly:true}),/Candidate review/);
@@ -109,14 +109,14 @@ test('approved-selector simulation preserves original Managed release pins and v
  const {activeRelease,releases,pinManagedRelease}=await import('../supabase/functions/_shared/shop-release-registry.ts');
  const saved=structuredClone(activeRelease),seen=[];
  try{
-  Object.assign(activeRelease,{release_id:'support-v8',sha256:releases['support-v8'].sha256});
+  Object.assign(activeRelease,{release_id:'support-v9',sha256:releases['support-v9'].sha256});
   const old={release_id:'support-v4',sha256:releases['support-v4'].sha256};
   const original=await pinManagedRelease({rpc:async(name,args)=>{seen.push({name,args});return {data:old}}},id(880));
   assert.equal(original,releases['support-v4']);assert.equal(seen[0].args.p_request,id(880));
-  assert.equal(seen[0].args.p_release,'support-v8','Future approval may pin a fresh request, never silently retarget an old one');
+  assert.equal(seen[0].args.p_release,'support-v9','Future approval may pin a fresh request, never silently retarget an old one');
   await assert.rejects(pinManagedRelease({rpc:async()=>({data:{...old,sha256:'0'.repeat(64)}})},id(881)),/Pinned release unavailable/);
   const fresh=await pinManagedRelease({rpc:async(_name,args)=>({data:{release_id:args.p_release,sha256:args.p_sha256}})},id(882));
-  assert.equal(fresh,releases['support-v8']);
+  assert.equal(fresh,releases['support-v9']);
  }finally{Object.assign(activeRelease,saved)}
- assert.equal(activeRelease.release_id,'support-v8');assert.equal(JSON.parse(read('supabase/releases/active-shop-release.json')).release_id,'support-v8');
+ assert.equal(activeRelease.release_id,'support-v9');assert.equal(JSON.parse(read('supabase/releases/active-shop-release.json')).release_id,'support-v9');
 });

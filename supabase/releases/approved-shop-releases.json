@@ -6,7 +6,7 @@
     "functions": 6,
     "approved_for_new": false,
     "supported": true,
-    "successor": "support-v8",
+    "successor": "support-v9",
     "upgrade_policy": "optional",
     "compatibility": {
       "bridge": 1,
@@ -28,7 +28,7 @@
     "functions": 7,
     "approved_for_new": false,
     "supported": true,
-    "successor": "support-v8",
+    "successor": "support-v9",
     "upgrade_policy": "optional",
     "compatibility": {
       "bridge": 1,
@@ -50,7 +50,7 @@
     "functions": 7,
     "approved_for_new": false,
     "supported": true,
-    "successor": "support-v8",
+    "successor": "support-v9",
     "upgrade_policy": "optional",
     "compatibility": {
       "bridge": 1,
@@ -72,7 +72,7 @@
     "functions": 7,
     "approved_for_new": false,
     "supported": true,
-    "successor": "support-v8",
+    "successor": "support-v9",
     "upgrade_policy": "optional",
     "compatibility": {
       "bridge": 1,
@@ -127,7 +127,7 @@
     "functions": 7,
     "supported": true,
     "approved_for_new": false,
-    "successor": "support-v8",
+    "successor": "support-v9",
     "upgrade_policy": "optional",
     "compatibility": {
       "bridge": 1,
@@ -159,7 +159,7 @@
     "functions": 7,
     "approved_for_new": false,
     "supported": true,
-    "successor": "support-v8",
+    "successor": "support-v9",
     "upgrade_policy": "optional",
     "compatibility": {
       "bridge": 1,
@@ -192,9 +192,9 @@
     "sha256": "af64c402ff72fb4ef4d72b892786c53a000d45ecb4045c4f9a7e89db51cf5dd4",
     "migrations": 40,
     "functions": 7,
-    "approved_for_new": true,
+    "approved_for_new": false,
     "supported": true,
-    "successor": null,
+    "successor": "support-v9",
     "upgrade_policy": "optional",
     "compatibility": {
       "bridge": 1,
@@ -228,8 +228,8 @@
     "sha256": "60f0abe1ee5c5d1b7e2410a58acffa158a4514edb45c20f6f704745008c7d367",
     "migrations": 41,
     "functions": 7,
-    "approved_for_new": false,
-    "supported": false,
+    "approved_for_new": true,
+    "supported": true,
     "successor": null,
     "upgrade_policy": "optional",
     "compatibility": {
@@ -244,7 +244,7 @@
       "gateway",
       "current-database-capabilities"
     ],
-    "review_status": "candidate-local",
+    "review_status": "approved-shared",
     "backend_source_commit": "46aa53af323ac495e0fc5fcb1fd81de6663cf9d8",
     "requirements": [
       "core-runtime",

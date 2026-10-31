@@ -1,5 +1,7 @@
 # Icon preferences candidate — 31 October 2026
 
+> Later source approval — 31 October 2026: see [SUPPORT_V9_ACTIVATION_PREP.md](SUPPORT_V9_ACTIVATION_PREP.md). V9 source is now approved; hosted activation and Managed upgrade remain pending. The earlier candidate record below is historical.
+
 Dedicated Settings > Icons shows all 36 approved V1.0.1 SVG previews. The owner may rename picker labels and select their availability in Catalog items, repair components, Inventory and device-brand forms. Actual item/component/brand names remain edited in their existing forms. Existing icon IDs, aliases, artwork and historical assignments remain stable; hidden assignments are retained during editing, and Generic fallback is always available. Quick Item creation uses a full-width searchable icon grid inside a responsive 640px dialog; item rows align icons/names/actions.
 
 ## Canonical Shop source and package
