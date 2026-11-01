@@ -59,7 +59,7 @@ test('financial retry reconciles its authoritative receipt before sending anothe
 test('inventory loads only on request for one client and rejects departed responses',async()=>{
  const state={authenticated:true,page:'client-detail',authorityGeneration:1,currentUser:{auth_user_id:id(1),session_id:id(2),role:'master_admin'},selectedClient:{id:1},clientSelectionGeneration:1};let resolve;const calls=[];const ctx={pState:state,pb:{rpc:(name,args)=>{calls.push({name,args});return new Promise(r=>resolve=r);}},esc:String};vm.createContext(ctx);vm.runInContext(strip(read('src/async-context.js')),ctx);vm.runInContext(strip(read('src/ui-primitives.js')),ctx);vm.runInContext(strip(read('src/backend-inventory.js')),ctx);
  assert.equal(calls.length,0);const pending=ctx.loadBackendInventory();assert.equal(calls.length,1);assert.equal(calls[0].args.p_client,1);ctx.selectClient({id:2});resolve({data:{client_id:1,report:{}}});assert.equal(await pending,false);assert.equal(state.backendInventory,null);
- state.backendInventory={clientId:2,report:{evidence:{capabilities:{'support-identity':true}}}};const panel=ctx.backendInventoryPanel({id:2},true);assert.match(panel,/Support identity: Found/);assert.match(panel,/Last full verification/);
+ state.backendInventory={clientId:2,report:{evidence:{capabilities:{'support-identity':true}}}};const panel=ctx.backendInventoryPanel({id:2},true);assert.match(panel,/Support identity.*Observed/);assert.match(panel,/Last full verification/);
 });
 
 test('customer CLI inspection is exact-project authorized and invokes only fixed read operations',async()=>{

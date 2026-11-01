@@ -2689,3 +2689,16 @@ Focused backend reporting tests pass 7/7; Platform build and release parity pass
 Local code only; no hosted operation or deployment.
 ### Git
 Owner authorized commit and normal push to the existing feature branch; no history rewrite.
+
+## 2026-11-02 — Admin capability evidence status presentation
+Branch: feature/pos-operator-overhaul; base f25a9407e53bcbf2d0cf8fce8cd405cb45e44c89
+### Purpose
+Make capability evidence states immediately clear in the Platform Admin backend inventory panel.
+### Changed
+Added a visible Catalog and inventory capabilities summary with the established light/dark RetraSell status tokens. Observed, confirmed absent, not required by this release, and unavailable/not verified are distinct. Missing/malformed entries fail closed to unavailable; prior reports without the new evidence object retain explicit boolean observations.
+### Validation
+Backend reporting and release-fleet continuity tests pass 18/18, including all four states and missing/malformed evidence. Vite build and release parity pass. No backend, migration or Shop changes.
+### Deployment / DB impact
+Frontend only; no hosted operation. Normal Platform frontend publication is required for the visible UI update, separately from the already-deployed backend.
+### Git
+Owner authorizes focused commit and normal push on the existing feature branch; PR status unchanged.
