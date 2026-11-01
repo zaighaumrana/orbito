@@ -7,8 +7,9 @@ const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'au
 const reply=(status:number,body:any)=>Response.json(body,{status,headers:cors});
 const evolvingCapabilities=['catalog-icons-and-brands','icon-label-preferences','inventory-retirement'];
 export function capabilityEvidence(release:any,observed:any){
- const requirements=new Set(release?.requirements?.requirements?.map((r:any)=>r.id)||[]);
- return Object.fromEntries(evolvingCapabilities.map(id=>[id,typeof observed?.[id]==='boolean'?{status:observed[id]?'observed':'absent',value:observed[id]}:{status:requirements.has(id)?'unavailable':'unsupported',value:null}]));
+ const hasVerifiedManifest=Boolean(release&&Array.isArray(release.requirements?.requirements));
+ const requirements=new Set(hasVerifiedManifest?release.requirements.requirements.map((r:any)=>r.id):[]);
+ return Object.fromEntries(evolvingCapabilities.map(id=>[id,typeof observed?.[id]==='boolean'?{status:observed[id]?'observed':'absent',value:observed[id]}:{status:!hasVerifiedManifest||requirements.has(id)?'unavailable':'unsupported',value:null}]));
 }
 export function assessPlatformBackend(catalog:any[],packages:Record<string,any>,observation:any){
  const report=assessBackend(catalog,packages,observation),release=packages[report.observed_migration_release?.release_id];

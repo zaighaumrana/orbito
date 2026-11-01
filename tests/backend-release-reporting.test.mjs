@@ -125,8 +125,10 @@ test('v8-v10 PostgreSQL 17 baselines verify complete catalog security and restri
 });
 test('Platform collects authoritative capability booleans and distinguishes absent, unsupported and unavailable by release',async()=>{
  const versions=['support-v8','support-v9','support-v10'].map(id=>JSON.parse(read('supabase/releases/shop-release-'+id+'.json'))),ids=['catalog-icons-and-brands','icon-label-preferences','inventory-retirement'];
+ assert.ok(Object.values(capabilityEvidence(undefined,{})).every(x=>x.status==='unavailable'),'unknown release with missing evidence must remain unavailable');
  assert.deepEqual(capabilityEvidence(versions[0],{}),{'catalog-icons-and-brands':{status:'unavailable',value:null},'icon-label-preferences':{status:'unsupported',value:null},'inventory-retirement':{status:'unsupported',value:null}});
  assert.equal(capabilityEvidence(versions[1],{})['inventory-retirement'].status,'unsupported');
+ assert.equal(capabilityEvidence(versions[1],{})['icon-label-preferences'].status,'unavailable','known release requiring a capability must remain unavailable when evidence is omitted');
  for(const release of versions){const all=Object.fromEntries(ids.map(id=>[id,true]));assert.deepEqual(Object.values(capabilityEvidence(release,all)).map(x=>x.status),['observed','observed','observed']);const absent=Object.fromEntries(ids.map(id=>[id,false]));assert.ok(Object.values(capabilityEvidence(release,absent)).every(x=>x.status==='absent'));}
  const v10=versions[2],catalogEntry={release_id:'support-v10',approved_for_new:true,sha256:v10.sha256},packagesById={'support-v10':v10};
  const observation={migrations:v10.migrations,functions:v10.functions.map(f=>({name:f.name,present:true,verify_jwt:f.verify_jwt,source_sha256:f.sha256})),database_source_match:false,capabilities:{...caps,'catalog-icons-and-brands':true,'icon-label-preferences':true,'inventory-retirement':true},runtime:Object.fromEntries(['database_reachable','edge_functions','authentication'].map(k=>[k,true]))};

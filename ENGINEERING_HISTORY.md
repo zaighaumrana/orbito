@@ -2676,3 +2676,16 @@ Reviewed the combined local diff for fail-open paths, baseline identity/context,
 `node --test tests/backend-release-reporting.test.mjs`: 7/7 pass. `node tests/backend-policy-native.mjs`: PASS on isolated PostgreSQL 17.11, including real disposable catalog mutations. `npm run build`, `npm run release:check`, and `git diff --check` pass. Release parity confirms support-v10 fingerprint 26885074b7035280985f5f33c42b395541fccbffe3fde94ed589969fd913b305, 42 migrations, 7 functions and 12 requirements. Shop mirror classifier SHA-256 remains identical to Platform (`30c5d614ba31db2a88dc211c95c764788412d9c4a82a35010cb5c85dec79a322`); Shop worktree remains clean. Deno unavailable. No hosted diagnostic or mutation.
 ### Final gate
 Local implementation is ready for owner review before publication/deployment; this does not establish current hosted behavior. Phase 4 deployment recommendation is `platform-backend-inventory` only, provider-assigned new revision, with `verify_jwt=true`; publish the Platform frontend separately for UI updates. Keep the prior function package available for rollback. No publication/activation authorized.
+
+## 2026-11-02 — Preserve unavailable capability status without a release manifest
+Branch: feature/pos-operator-overhaul; base 285c3c9b63c277fb189f63bb50a25f803e4345ee
+### Purpose
+Correct the Platform Admin capability report when no independently matched immutable release manifest is available.
+### Changed
+`capabilityEvidence()` now reports absent fields as `unavailable` unless a known release manifest explicitly excludes that capability; explicit boolean evidence remains observed/absent. Added focused coverage for unknown release, known unsupported capability and known required-but-unavailable capability.
+### Validation
+Focused backend reporting tests pass 7/7; Platform build and release parity pass. No Shop/shared classifier changes.
+### Deployment / DB impact
+Local code only; no hosted operation or deployment.
+### Git
+Owner authorized commit and normal push to the existing feature branch; no history rewrite.
