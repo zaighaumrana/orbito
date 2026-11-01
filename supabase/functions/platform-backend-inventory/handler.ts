@@ -5,6 +5,16 @@ import {bridgeCallCredential} from '../_shared/shop-credentials.ts';
 import {jsonBody} from '../platform-support-tickets/protocol.ts';
 const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization,apikey,content-type,x-client-info','Access-Control-Allow-Methods':'POST,OPTIONS','Cache-Control':'no-store'};
 const reply=(status:number,body:any)=>Response.json(body,{status,headers:cors});
+const evolvingCapabilities=['catalog-icons-and-brands','icon-label-preferences','inventory-retirement'];
+export function capabilityEvidence(release:any,observed:any){
+ const requirements=new Set(release?.requirements?.requirements?.map((r:any)=>r.id)||[]);
+ return Object.fromEntries(evolvingCapabilities.map(id=>[id,typeof observed?.[id]==='boolean'?{status:observed[id]?'observed':'absent',value:observed[id]}:{status:requirements.has(id)?'unavailable':'unsupported',value:null}]));
+}
+export function assessPlatformBackend(catalog:any[],packages:Record<string,any>,observation:any){
+ const report=assessBackend(catalog,packages,observation),release=packages[report.observed_migration_release?.release_id];
+ report.evidence.capability_evidence=capabilityEvidence(release,observation.capabilities);
+ return report;
+}
 export const migrationInventoryQuery="select version,name,encode(extensions.digest(replace(array_to_string(statements,E'\\n'),E'\\r\\n',E'\\n'),'sha256'),'hex') as sha256 from supabase_migrations.schema_migrations order by version";
 export function inventoryHandler(env:(key:string)=>string|undefined,makeClients:any,transport:typeof fetch=fetch){return async(req:Request)=>{
  if(req.method==='OPTIONS')return new Response(null,{status:204,headers:cors});if(req.method!=='POST')return reply(405,{error:'POST required'});
@@ -66,9 +76,9 @@ export function inventoryHandler(env:(key:string)=>string|undefined,makeClients:
   const caps=['usage-outbox','billing-projection','config-journal','support-identity','support-consent','support-durable-submissions','owner-bootstrap','private-rls'];
   const runtime=['migrations','database_privileges','rpc_privileges','sequence_privileges','private_config','storage','owner_reservation','bridge_mode','config_projection','database_reachable','bridge_configuration','edge_functions','runtime_configuration','authentication'];
   if(caps.some(k=>typeof probe.capabilities?.[k]!=='boolean'))throw Error();
-  observation.capabilities=Object.fromEntries([...caps.map(k=>[k,probe.capabilities[k]]),...(['bounded-operational-reads'].filter(k=>typeof probe.capabilities?.[k]==='boolean').map(k=>[k,probe.capabilities[k]]))]);observation.runtime=Object.fromEntries(runtime.map(k=>[k,typeof probe.runtime?.[k]==='boolean'?probe.runtime[k]:null]));
+  observation.capabilities=Object.fromEntries([...caps.map(k=>[k,probe.capabilities[k]]),...(['bounded-operational-reads',...evolvingCapabilities].filter(k=>typeof probe.capabilities?.[k]==='boolean').map(k=>[k,probe.capabilities[k]]))]);observation.runtime=Object.fromEntries(runtime.map(k=>[k,typeof probe.runtime?.[k]==='boolean'?probe.runtime[k]:null]));
  }catch{observation.limitations.push('Restricted capability/runtime probe unavailable; older supported installations may lack it');}
- const report=assessBackend(c.catalog,releases,observation);
+ const report=assessPlatformBackend(c.catalog,releases,observation);
  const saved=await admin.rpc('platform_backend_inventory_finish',{p_client:body.client_id,p_invocation:c.invocation,p_report:report});
  if(saved.error)return reply(503,{error:'Diagnostic result could not be saved or ownership changed. Refresh the original client view.'});
  return reply(200,{report,checked_at:new Date().toISOString()});

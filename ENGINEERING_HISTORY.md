@@ -2634,3 +2634,45 @@ Owner requested publication/preparation for permanent Inventory retirement throu
 Fresh Managed/BYO and existing controlled/customer-owned upgrade plans include the same requirement and PIN package. Optional older-capability classification preserves healthy historical releases. Four native SQL paths and 24 focused Platform promotion/planner/fleet checks pass, including replay, rollback, protected records, wrong-source denial and continuity. Final browser check adds navigation/authority departure while an approved request is pending; deferred callback failures are caught without stale UI feedback. Six new browser groups and 21 existing compatibility groups pass; local evidence does not certify hosted Auth or independent acceptance.
 
 Read-only preparation shows the previously published v9 metadata approval and new v10 approval both pending over hosted v8. Separate owner activation must apply only this ordered chain, redeploy three Platform release consumers with unchanged JWT settings, and coordinate the new Shop frontend BEFORE a real v10 upgrade: old stock UI cannot request the new inventory PIN and would fail closed. Source publication uses skip markers; no frontend is deployed here. The existing Client 2 app route must retain the original exact job/plan; BYO Client 1 stays excluded. Docs and external evidence include exact hashes, final source/CI/provider verification and staged owner instructions. No hosted migration, Edge/frontend deployment, customer upgrade, provider change or merge; independent/hosted gates remain pending.
+
+## 2026-11-02 — Platform PR #7 Phase 2 PostgreSQL security comparison
+Branch: feature/pos-operator-overhaul; base 7b4a5f745abaeaa9405dc523e514dcc6877b614b
+### Purpose
+Replace the public-table false drift and missing-policy-baseline result with release-bound PostgreSQL catalog comparison, while retaining real private-table default deny and confirmed-drift behavior. Owner explicitly approved Phase 2 only.
+### Changed
+Added a PostgreSQL catalog query and strict comparison for RLS/FORCE RLS, table/column ACLs and effective grant options, schema usage, application role attributes/memberships, and complete policy name/role/command/permissiveness/USING/WITH CHECK data. Added an offline derivation tool and generated baseline for immutable support-v8/v9/v10, plus focused positive/negative tests. `assessBackend()` and Phase 3 capability collection remain unchanged.
+### Decisions
+Derived with official PostgreSQL 17.11 image digest `31ba9c94a03ada9988f2bb493a22a75eef3a185884533e5cdbcd498ea835b08f`, isolated local Docker, network disabled, tmpfs only. Exact release fingerprints and migration manifests bind baselines; catalog expression text is not normalized. Only the two evidenced schema contexts are accepted; unsupported version/context or incomplete catalog evidence remains partial. The restrictive `support_consent_guard` on device brands and icon preferences is explicitly required. App-private tables retain RLS, no policies, and no anon/authenticated effective privileges.
+### Validation
+PostgreSQL 17 derivation and independent `--check` replay pass for v8/v9/v10; baseline SHA-256 `96ae09d61010c721a21b6c71df02801ce74290d817b6e642b7aaf7208d8f4d75`. Six focused tests pass, covering all three release matches, incomplete/unsupported evidence, grant/column privilege, FORCE RLS, policy roles/name/command/expressions/permissiveness, role bypass, Support consent, and prior routine/source drift. `git diff --check` passes. Shop mirror classifier SHA-256 equals Platform classifier; Shop worktree is clean.
+### Deployment / DB impact
+Local code and generated reference data only. No migration, hosted query/write, deployment, build trigger, commit, push or PR action.
+### Deferred / deliberately unchanged
+Phase 3 must collect `catalog-icons-and-brands`, `icon-label-preferences`, and `inventory-retirement`, then correct overall incomplete-versus-drift classification while preserving confirmed drift and independent runtime health. Provider-omitted function source files remain incomplete. Phase 4 focused security matrix, independent delta review and release/parity gate remain outstanding.
+### Git
+Four implementation/test files plus this history entry are local and uncommitted. Branch and HEAD unchanged; no publication authorized.
+
+## 2026-11-02 — Platform PR #7 Phase 3 capability evidence and assessment
+Branch: feature/pos-operator-overhaul; HEAD remains 7b4a5f745abaeaa9405dc523e514dcc6877b614b
+### Purpose
+Complete the owner-authorized Phase 3 while preserving Phase 2 and the byte-identical Shop classifier boundary.
+### Changed
+Platform inventory now retains catalog-icons-and-brands, icon-label-preferences and inventory-retirement booleans from the authenticated, challenge/identity-bound backend-capabilities operation. A Platform-only adapter records each as observed, absent, unsupported by the release or unavailable; the shared assessor remains unmodified. The existing compliance path continues to classify actual false required capabilities and source/security/JWT mismatches as drift, while missing capability/source evidence stays unable to verify. The Admin report displays the evidence states. Gateway JWT mismatch is now classified as drift by the source comparator.
+### Evidence and decisions
+Shop capability source is the release-installed `shop_backend_capabilities()` SECURITY DEFINER SQL, invoked through the existing restricted Platform Bridge operation. Its checks cover the associated columns, RLS/policies, constraints, triggers, grants/RPC execute boundaries. Required capability IDs come from each exact immutable release manifest; older releases show later capabilities as unsupported. No shared classifier or Shop source was changed.
+### Validation
+All seven focused backend reporting/security tests pass. They cover v8/v9/v10 requirements, capability transport and state mapping, missing source, actual source/JWT drift, wrong identity, and independent runtime health. PostgreSQL 17.11 baseline `--check` passes with unchanged SHA-256 `96ae09d61010c721a21b6c71df02801ce74290d817b6e642b7aaf7208d8f4d75`. Disposable local PostgreSQL 17 tests applied real anonymous SELECT, RLS-disable and Support-consent-policy-removal mutations; all three were detected as drift and the container was removed. Platform build and `release:check` pass. Deno is not installed; no Deno check was run.
+### Deployment / DB impact
+No migrations, hosted reads/writes, deployment, publication or provider operations. `platform-backend-inventory` is the sole affected Edge Function and existing `verify_jwt=true` is preserved. On later approval, only that function needs redeployment for server changes; the Platform frontend build must also be published separately to show the new labels. Provider revision number is not known without a deployment.
+### Deferred / limits
+Provider-omitted packaged function files remain partial; runtime health remains a separate observation. Hosted deployment/diagnostics are not performed or claimed. Rollback requires restoring the prior `platform-backend-inventory` source revision while retaining `verify_jwt=true`; no database rollback is applicable.
+### Git
+Local uncommitted work only; no commit, push, merge, branch or Shop change.
+
+## 2026-11-02 — Platform PR #7 Phase 4 focused security verification and review
+### Review
+Reviewed the combined local diff for fail-open paths, baseline identity/context, policy/ACL completeness, Support consent, absent-versus-unavailable capability evidence, runtime/compliance separation, release-specific requirements and shared-source parity. App-private tables remain RLS-enabled with no policies and no anon/authenticated effective grants. Both restrictive Support-consent policies are checked against exact PG17 metadata. Unknown PG major/search-path, incomplete catalog and unsupported release baselines stay partial. No release JSON, migration, approval selector, Managed/BYO planner or shared assessor changed.
+### Validation
+`node --test tests/backend-release-reporting.test.mjs`: 7/7 pass. `node tests/backend-policy-native.mjs`: PASS on isolated PostgreSQL 17.11, including real disposable catalog mutations. `npm run build`, `npm run release:check`, and `git diff --check` pass. Release parity confirms support-v10 fingerprint 26885074b7035280985f5f33c42b395541fccbffe3fde94ed589969fd913b305, 42 migrations, 7 functions and 12 requirements. Shop mirror classifier SHA-256 remains identical to Platform (`30c5d614ba31db2a88dc211c95c764788412d9c4a82a35010cb5c85dec79a322`); Shop worktree remains clean. Deno unavailable. No hosted diagnostic or mutation.
+### Final gate
+Local implementation is ready for owner review before publication/deployment; this does not establish current hosted behavior. Phase 4 deployment recommendation is `platform-backend-inventory` only, provider-assigned new revision, with `verify_jwt=true`; publish the Platform frontend separately for UI updates. Keep the prior function package available for rollback. No publication/activation authorized.
