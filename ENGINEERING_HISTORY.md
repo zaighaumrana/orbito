@@ -2572,3 +2572,133 @@ commits/pushes of the reviewed cleanup on both existing M2 branches, with automa
 Pages builds. Exact commit/CI/deployment outcomes are recorded in the existing final
 cleanup report. STOP before merge; separate owner authorization is still required.
 No local/remote branches may be deleted. No additional feature/backend work authorized.
+
+## 2026-10-29 — POS catalog candidate release integration
+Branch: feature/pos-operator-overhaul; baseline 864cdbc1c09184a72e33afe67aa4a4f516e78e68
+
+Coordinate Shop's additive icon/Device Brands requirement through the established immutable release builder, catalogs and candidate-only parity validator. The structural inventory model recognizes optional catalog capability only for packages that require it, preserving healthy historical source classification. This model remains byte-identical in Shop and Platform. The validator accounts for the new requirement without changing approval or customer selectors. No Platform catalog/brand data store or business UI is added.
+
+The new candidate is generated only after the final Shop backend is committed. Existing Managed installation, BYO customer journal, original request/clearance, provider-unknown fence and upgrade executor remain unchanged. Four local SQL paths use their actual migration envelopes; source/fingerprint and exact candidate plans are checked locally. Legacy source-approved transport tests remain distinguishable from candidate checks: current candidate customer preflight blocks before provider access. Detailed evidence and failed observations are maintained in the external pos overhaul folder.
+
+No hosted operation, deployment, customer upgrade, promotion or merge. Active support-v7 and all older immutable packages, source provenance and customer pins remain preserved. Final artifact, candidate denial and paired CI source references are recorded in subsequent review checkpoints. Publication uses [CF-Pages-Skip]; PR remains Draft/Open pending independent review, owner acceptance and separately authorized release gates.
+
+30 October candidate checkpoint: support-v8 finalized from committed Shop backend 5a9fca79ee24d6902cbdbcbfe5a0759454025e04; fingerprint af64c402ff72fb4ef4d72b892786c53a000d45ecb4045c4f9a7e89db51cf5dd4 (40/7/10). Candidate parity and three candidate-policy/upgrade/capability checks pass. The isolated approved starting snapshots pass five Shop clearance and seventeen Platform upgrade/fleet regressions. Both active v7 selectors remain unchanged. CI uses immutable paired candidate-compatible commits; no temporary branch dependency or promotion. Hosted/owner/independent/artwork gates remain open.
+
+
+## 2026-10-30 — support-v8 promotion attempt blocked before publication
+
+Owner authorized source promotion for hosted acceptance, not independent final release certification. Local draft selectors/catalogs now agree on exact support-v8 af64c402ff72fb4ef4d72b892786c53a000d45ecb4045c4f9a7e89db51cf5dd4 (40 migrations / 7 functions / 10 requirements; backend source 5a9fca79ee24d6902cbdbcbfe5a0759454025e04). v7 remains supported with optional successor v8; immutable packages and customer pins are unchanged. The existing promotion utility validates a prospective selector through the strict parity gate before writing. Current-state fixtures account for the v8 migration delta without weakening customer preflight.
+
+Ordinary paired source parity and approved customer preflight pass. Final successful focused results across reruns: 20 Platform / 8 Shop; verified v7-to-v8 plan is one migration and zero functions. Original failed attempts and corrected stale fixture/launch-sequencing observations remain in external evidence. These are local/mocked checks, not hosted upgrades.
+
+Read-only hosted inspection found Platform platform_private.approved_shop_releases has no v8 entry and still freshly approves v7. Live upgrade preparation requires a supported fresh-approved target; Managed pinning delegates to a function requiring exact hosted catalog membership. Source currently has the v7 approval migration but no v8 activation migration. Bundle redeployment alone cannot promote that table. Per the owner stop-on-approval-failure instruction, no commit/push was performed and no forward migration was added/applied. Local draft changes are intentionally preserved uncommitted. Resolve and authorize the missing catalog-promotion step before continuing.
+
+Platform local/remote/PR7 stays 8eabe3700290cf56220b2c56474dae45e2285f70; Shop local/remote/PR5 stays f7b217a131adf7e01e1c851dda4bb416317433ff. Both PRs remain Draft/Open/unmerged targeting development. Exactly inventory5 (JWT true), upgrade4 and provision29 (JWT false) need later metadata bundle redeployment to Platform ukbhyerxshteyetwomqy. Provider GET confirms the intended two Shop and one Platform production branches, environment-key presence and rollback IDs; third Shop project is excluded. No hosted write, deployment, build trigger, merge or customer upgrade. NOT READY audit history and independent delta review remain. Detailed evidence: external pos overhaul/SUPPORT-V8-PROMOTION-BLOCKED-2026-10-30.md and support-v8-promotion-2026-10-30/.
+
+
+## 2026-10-30 — architecture-safe support-v8 source approval correction
+Branch: feature/pos-operator-overhaul
+
+Before editing, recorded the source-to-package and four-workflow architecture checkpoint in external pos overhaul/support-v8-approval-correction-2026-10-30. Shop remains authoritative; the immutable v8 artifact is byte-identical, reconstructed in memory as af64c402ff72fb4ef4d72b892786c53a000d45ecb4045c4f9a7e89db51cf5dd4 (40 migrations / 7 functions / 10 requirements; source 5a9fca79ee24d6902cbdbcbfe5a0759454025e04).
+
+Added only Platform control-plane migration 20261030141736_promote_support_v8.sql through native CLI migration new. It checks historical hashes/support/protocol policy and sole expected fresh release, rejects conflicting v8 or unknown catalog entries, transactionally registers exact v8 and verifies the complete resulting catalog. Supported v7 retains optional successor v8; unsupported v5 and all historical fingerprints remain. No Shop SQL is copied into Platform migrations; the packaged Shop migration 20261029173151 remains the sole v7-to-v8 component delta, with zero function changes. Prior prepared metadata, validator/utility and test changes are preserved. Current operator guidance now distinguishes source approval from pending hosted activation. CI uses ordinary approved parity and compatible immutable peer snapshots.
+
+Focused results: 20 release/upgrade/fleet checks, three actual Managed engine continuity checks, 15 customer preflight/clearance/guided BYO checks and four SQL promotion assertions pass. SQL uses the actual complete Platform forward schema in the existing isolated PostgreSQL harness, with documented crypto/Vault substitutes; verifies catalog/JSON equality, idempotency, unchanged actual pins/jobs/journals/audits/authority definitions/RLS, conflict rejection and final-failure atomic rollback. Both ordinary paired gates and exact customer preflight pass. The initial test-file generation syntax error and previous interrupted-attempt logs remain separate. No broad suite or frontend build.
+
+Linked project ukbhyerxshteyetwomqy verified; read-only inventory matches 29 historical migrations, with only 20261030141736 pending. Explicit --dry-run --skip-vault lists only that approval migration, no seeds or roles, and applies no SQL. Three Platform bundles still require coordinated later redeployment: inventory JWT true, upgrade/provision JWT false. The existing twelve-stage fresh BYO and ten-stage controlled upgrade workflows, private journals, canonical Master approval, dispatch/unknown-outcome fences, source checksums, customer authority, pairing and bootstrap boundaries remain unchanged. No hosted activation, customer upgrade, provider change, build trigger, merge or branch deletion.
+
+This is owner-authorized hosted acceptance preparation, not independently certified final release acceptance. Preserve the blocked report and original NOT READY audit; frontend independent delta review and hosted acceptance remain pending. Source publication uses [CF-Pages-Skip] on the existing branches; exact final SHAs, clean-tree/PR parity and provider skips are recorded externally.
+
+
+## 2026-10-31 — source-only icon preferences candidate support-v9
+Owner requested dedicated Shop Settings > Icons, editable labels/per-form offerings, and explicitly required the established Managed/BYO fresh and controlled upgrade routes. Shop migration 20261030233527 is the sole new SQL source; immutable support-v9 is generated from Shop backend commit 46aa53af323ac495e0fc5fcb1fd81de6663cf9d8. Fingerprint 60f0abe1ee5c5d1b7e2410a58acffa158a4514edb45c20f6f704745008c7d367; 41 migrations / 7 functions / 11 requirements. Every v8 migration is a byte-identical prefix, with zero function changes. No Shop SQL enters Platform migrations.
+
+Register v9 as candidate-local, unsupported and not approved for fresh installs in source catalogs/registry only. Active v8, approved v8 metadata, supported historical packages, installed pins and BYO approved manifest remain unchanged. Shared inventory classification treats missing preferences as optional for verified v8; bridge/billing/Support/runtime health do not change. Existing planners/engines and twelve-stage fresh BYO/ten-stage upgrade journals remain authoritative. No approval migration, automatic upgrade or alternate deployment/installer path.
+
+Five candidate/planner/policy checks pass: complete two-mode plans, actual candidate execution denial, in-memory reviewed delta of one SQL/zero functions, healthy-v8 classification and required-v9 drift detection. Exact candidate parity checks source ancestry, every migration/function hash/JWT dependency, shared model/planners, both installer requirements and immutable historical artifacts. Four local native PostgreSQL fresh/upgrade paths pass real Managed/BYO envelopes with role/lifecycle/Support consent, constraint, rollback, replay and historical preservation; source generation, frontend author evidence and early failures are retained in external pos overhaul/owner-corrections-2026-10-31. This is author verification, not hosted/independent acceptance. Source-only Platform publication uses the skip marker to avoid unauthorized Platform production rollout; the separately authorized Shop frontend publication does not. Approval, appropriate reader deployments and hosted upgrades remain separate coordinated gates. PR7 stays Draft/Open/unmerged.
+
+
+## 2026-10-31 — support-v9 source promotion preparation, no hosted mutation
+Owner explicitly authorized source-only promotion of exact v9 for hosted acceptance, with both publication messages carrying CF-Pages-Skip. Starting Shop 607d1f8912d16fefad6e95d52d3bdbc85ff3b4ff / Platform 90192296fe94b08746e219c09b37c09948a786a8; existing feature branches and Draft PRs preserved. Fresh focused source/SQL re-review confirms exact registry IDs/contexts, owner/consented Support writes, denied staff/anon/lifecycle access, atomic preferences, escaped labels/local SVGs, retained assignments and old-backend defaults. This is not independent final release certification.
+
+The immutable package remains 60f0abe1ee5c5d1b7e2410a58acffa158a4514edb45c20f6f704745008c7d367 (41/7/11), raw e6b534245effbc47918758f4d686413a53610d87b05090a31ec8792a8c5eaac8, source 46aa53af323ac495e0fc5fcb1fd81de6663cf9d8. No package regeneration or Shop SQL edit. Both source catalogs/manifest and active pointer select approved v9; supported v8/history/pins remain. Platform CLI created only 20261031001127_promote_support_v9.sql (853ac3c9fbf0db1b3b55aa59c6e15ee22c107d2e956476562588a27592bef088): metadata-only table lock, exact pre/post-catalog admission, conflict denial, supported optional successors and transactional final equality. New Shop SQL is not copied into Platform migrations.
+
+Four native Managed/BYO fresh/upgrade security paths and atomic preference rejection pass; four approval SQL checks prove idempotency, conflicts, final-failure rollback and unchanged actual pins/jobs/journals/audits/authority definitions. Twenty focused policy/fleet/executor checks pass after updating historical fixed-v8 test expectations; no runtime guard was relaxed. Both ordinary exact-source parity gates and v9 customer preflight pass. Linked Platform ukbhyerxshteyetwomqy has 30 synchronized historical migrations; dry-run lists only the new approval migration with no seeds/roles. Initial incomplete local metadata editing was rejected by source validation before selector/hosted action; evidence distinguishes that from final success.
+
+All four provisioning/upgrade paths retain existing authority, stage journals, customer clearance and unknown-outcome fences. Verified v8-to-v9 is one migration/zero functions. Future activation requires the one Platform metadata migration plus inventory JWT true / upgrade and provision JWT false deployments, then owner-controlled Client #2 application upgrade. Existing BYO Client #1 is excluded. Owner also requested a wider variant picker: a scoped 600px frame changes width only; 21 actual-entry groups confirm unchanged height and current behavior. No custom-entry relocation was implemented; shared-bar recommendation awaits owner preference. No hosted SQL, Edge/frontend rollout, upgrade, provider change or merge. Final publication/dry-run and staged exact PowerShell are recorded externally; independent/hosted acceptance stays pending.
+
+
+## 2026-10-31 — support-v10 immutable source promotion and activation preparation
+Owner requested publication/preparation for permanent Inventory retirement through established fresh and existing routes. Kept frozen v9 unchanged and selected additive v10 in both source catalogs, active pointer and customer manifest. Fingerprint 26885074b7035280985f5f33c42b395541fccbffe3fde94ed589969fd913b305; backend source f78c5342fbc568a45feccdf5947fb49c774e474f; 42 migrations / 7 functions / 12 requirements. V9 upgrade delta is one SQL and verify-pin; v8 adds the v9 icon migration too. Existing historical packages/pins/jobs/journals stay protected. The new Platform metadata migration accepts only exact complete v9 or already-promoted v10 state, transactionally rejecting conflicts and rolling back failed final invariants. No Shop SQL is duplicated Platform-side.
+
+Fresh Managed/BYO and existing controlled/customer-owned upgrade plans include the same requirement and PIN package. Optional older-capability classification preserves healthy historical releases. Four native SQL paths and 24 focused Platform promotion/planner/fleet checks pass, including replay, rollback, protected records, wrong-source denial and continuity. Final browser check adds navigation/authority departure while an approved request is pending; deferred callback failures are caught without stale UI feedback. Six new browser groups and 21 existing compatibility groups pass; local evidence does not certify hosted Auth or independent acceptance.
+
+Read-only preparation shows the previously published v9 metadata approval and new v10 approval both pending over hosted v8. Separate owner activation must apply only this ordered chain, redeploy three Platform release consumers with unchanged JWT settings, and coordinate the new Shop frontend BEFORE a real v10 upgrade: old stock UI cannot request the new inventory PIN and would fail closed. Source publication uses skip markers; no frontend is deployed here. The existing Client 2 app route must retain the original exact job/plan; BYO Client 1 stays excluded. Docs and external evidence include exact hashes, final source/CI/provider verification and staged owner instructions. No hosted migration, Edge/frontend deployment, customer upgrade, provider change or merge; independent/hosted gates remain pending.
+
+## 2026-11-02 — Platform PR #7 Phase 2 PostgreSQL security comparison
+Branch: feature/pos-operator-overhaul; base 7b4a5f745abaeaa9405dc523e514dcc6877b614b
+### Purpose
+Replace the public-table false drift and missing-policy-baseline result with release-bound PostgreSQL catalog comparison, while retaining real private-table default deny and confirmed-drift behavior. Owner explicitly approved Phase 2 only.
+### Changed
+Added a PostgreSQL catalog query and strict comparison for RLS/FORCE RLS, table/column ACLs and effective grant options, schema usage, application role attributes/memberships, and complete policy name/role/command/permissiveness/USING/WITH CHECK data. Added an offline derivation tool and generated baseline for immutable support-v8/v9/v10, plus focused positive/negative tests. `assessBackend()` and Phase 3 capability collection remain unchanged.
+### Decisions
+Derived with official PostgreSQL 17.11 image digest `31ba9c94a03ada9988f2bb493a22a75eef3a185884533e5cdbcd498ea835b08f`, isolated local Docker, network disabled, tmpfs only. Exact release fingerprints and migration manifests bind baselines; catalog expression text is not normalized. Only the two evidenced schema contexts are accepted; unsupported version/context or incomplete catalog evidence remains partial. The restrictive `support_consent_guard` on device brands and icon preferences is explicitly required. App-private tables retain RLS, no policies, and no anon/authenticated effective privileges.
+### Validation
+PostgreSQL 17 derivation and independent `--check` replay pass for v8/v9/v10; baseline SHA-256 `96ae09d61010c721a21b6c71df02801ce74290d817b6e642b7aaf7208d8f4d75`. Six focused tests pass, covering all three release matches, incomplete/unsupported evidence, grant/column privilege, FORCE RLS, policy roles/name/command/expressions/permissiveness, role bypass, Support consent, and prior routine/source drift. `git diff --check` passes. Shop mirror classifier SHA-256 equals Platform classifier; Shop worktree is clean.
+### Deployment / DB impact
+Local code and generated reference data only. No migration, hosted query/write, deployment, build trigger, commit, push or PR action.
+### Deferred / deliberately unchanged
+Phase 3 must collect `catalog-icons-and-brands`, `icon-label-preferences`, and `inventory-retirement`, then correct overall incomplete-versus-drift classification while preserving confirmed drift and independent runtime health. Provider-omitted function source files remain incomplete. Phase 4 focused security matrix, independent delta review and release/parity gate remain outstanding.
+### Git
+Four implementation/test files plus this history entry are local and uncommitted. Branch and HEAD unchanged; no publication authorized.
+
+## 2026-11-02 — Platform PR #7 Phase 3 capability evidence and assessment
+Branch: feature/pos-operator-overhaul; HEAD remains 7b4a5f745abaeaa9405dc523e514dcc6877b614b
+### Purpose
+Complete the owner-authorized Phase 3 while preserving Phase 2 and the byte-identical Shop classifier boundary.
+### Changed
+Platform inventory now retains catalog-icons-and-brands, icon-label-preferences and inventory-retirement booleans from the authenticated, challenge/identity-bound backend-capabilities operation. A Platform-only adapter records each as observed, absent, unsupported by the release or unavailable; the shared assessor remains unmodified. The existing compliance path continues to classify actual false required capabilities and source/security/JWT mismatches as drift, while missing capability/source evidence stays unable to verify. The Admin report displays the evidence states. Gateway JWT mismatch is now classified as drift by the source comparator.
+### Evidence and decisions
+Shop capability source is the release-installed `shop_backend_capabilities()` SECURITY DEFINER SQL, invoked through the existing restricted Platform Bridge operation. Its checks cover the associated columns, RLS/policies, constraints, triggers, grants/RPC execute boundaries. Required capability IDs come from each exact immutable release manifest; older releases show later capabilities as unsupported. No shared classifier or Shop source was changed.
+### Validation
+All seven focused backend reporting/security tests pass. They cover v8/v9/v10 requirements, capability transport and state mapping, missing source, actual source/JWT drift, wrong identity, and independent runtime health. PostgreSQL 17.11 baseline `--check` passes with unchanged SHA-256 `96ae09d61010c721a21b6c71df02801ce74290d817b6e642b7aaf7208d8f4d75`. Disposable local PostgreSQL 17 tests applied real anonymous SELECT, RLS-disable and Support-consent-policy-removal mutations; all three were detected as drift and the container was removed. Platform build and `release:check` pass. Deno is not installed; no Deno check was run.
+### Deployment / DB impact
+No migrations, hosted reads/writes, deployment, publication or provider operations. `platform-backend-inventory` is the sole affected Edge Function and existing `verify_jwt=true` is preserved. On later approval, only that function needs redeployment for server changes; the Platform frontend build must also be published separately to show the new labels. Provider revision number is not known without a deployment.
+### Deferred / limits
+Provider-omitted packaged function files remain partial; runtime health remains a separate observation. Hosted deployment/diagnostics are not performed or claimed. Rollback requires restoring the prior `platform-backend-inventory` source revision while retaining `verify_jwt=true`; no database rollback is applicable.
+### Git
+Local uncommitted work only; no commit, push, merge, branch or Shop change.
+
+## 2026-11-02 — Platform PR #7 Phase 4 focused security verification and review
+### Review
+Reviewed the combined local diff for fail-open paths, baseline identity/context, policy/ACL completeness, Support consent, absent-versus-unavailable capability evidence, runtime/compliance separation, release-specific requirements and shared-source parity. App-private tables remain RLS-enabled with no policies and no anon/authenticated effective grants. Both restrictive Support-consent policies are checked against exact PG17 metadata. Unknown PG major/search-path, incomplete catalog and unsupported release baselines stay partial. No release JSON, migration, approval selector, Managed/BYO planner or shared assessor changed.
+### Validation
+`node --test tests/backend-release-reporting.test.mjs`: 7/7 pass. `node tests/backend-policy-native.mjs`: PASS on isolated PostgreSQL 17.11, including real disposable catalog mutations. `npm run build`, `npm run release:check`, and `git diff --check` pass. Release parity confirms support-v10 fingerprint 26885074b7035280985f5f33c42b395541fccbffe3fde94ed589969fd913b305, 42 migrations, 7 functions and 12 requirements. Shop mirror classifier SHA-256 remains identical to Platform (`30c5d614ba31db2a88dc211c95c764788412d9c4a82a35010cb5c85dec79a322`); Shop worktree remains clean. Deno unavailable. No hosted diagnostic or mutation.
+### Final gate
+Local implementation is ready for owner review before publication/deployment; this does not establish current hosted behavior. Phase 4 deployment recommendation is `platform-backend-inventory` only, provider-assigned new revision, with `verify_jwt=true`; publish the Platform frontend separately for UI updates. Keep the prior function package available for rollback. No publication/activation authorized.
+
+## 2026-11-02 — Preserve unavailable capability status without a release manifest
+Branch: feature/pos-operator-overhaul; base 285c3c9b63c277fb189f63bb50a25f803e4345ee
+### Purpose
+Correct the Platform Admin capability report when no independently matched immutable release manifest is available.
+### Changed
+`capabilityEvidence()` now reports absent fields as `unavailable` unless a known release manifest explicitly excludes that capability; explicit boolean evidence remains observed/absent. Added focused coverage for unknown release, known unsupported capability and known required-but-unavailable capability.
+### Validation
+Focused backend reporting tests pass 7/7; Platform build and release parity pass. No Shop/shared classifier changes.
+### Deployment / DB impact
+Local code only; no hosted operation or deployment.
+### Git
+Owner authorized commit and normal push to the existing feature branch; no history rewrite.
+
+## 2026-11-02 — Admin capability evidence status presentation
+Branch: feature/pos-operator-overhaul; base f25a9407e53bcbf2d0cf8fce8cd405cb45e44c89
+### Purpose
+Make capability evidence states immediately clear in the Platform Admin backend inventory panel.
+### Changed
+Added a visible Catalog and inventory capabilities summary with the established light/dark RetraSell status tokens. Observed, confirmed absent, not required by this release, and unavailable/not verified are distinct. Missing/malformed entries fail closed to unavailable; prior reports without the new evidence object retain explicit boolean observations.
+### Validation
+Backend reporting and release-fleet continuity tests pass 18/18, including all four states and missing/malformed evidence. Vite build and release parity pass. No backend, migration or Shop changes.
+### Deployment / DB impact
+Frontend only; no hosted operation. Normal Platform frontend publication is required for the visible UI update, separately from the already-deployed backend.
+### Git
+Owner authorizes focused commit and normal push on the existing feature branch; PR status unchanged.

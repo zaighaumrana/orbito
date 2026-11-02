@@ -23,7 +23,7 @@ export function assessBackend(catalog:any[],packages:Record<string,any>,observat
   if(observed.source_sha256!==f.sha256){exact=false;limitations.push('deployed source not independently verified: '+f.name);}
  }
  if(!base)exact=false;
- for(const [name,value]of Object.entries(observation.capabilities||{}))if(value===false&&(name!=='bounded-operational-reads'||base?.requirements?.requirements.some((r:any)=>r.id===name))){missing.push(name);exact=false;if(base?.requirements?.requirements.some((r:any)=>r.id===name))conflict=true;}
+ for(const [name,value]of Object.entries(observation.capabilities||{}))if(value===false&&(!['bounded-operational-reads','catalog-icons-and-brands','icon-label-preferences','inventory-retirement'].includes(name)||base?.requirements?.requirements.some((r:any)=>r.id===name))){missing.push(name);exact=false;if(base?.requirements?.requirements.some((r:any)=>r.id===name))conflict=true;}
  if(!observation.capabilities){exact=false;limitations.push('restricted database capability probe unavailable');}
  if(base?.requirements&&base.requirements.requirements.some((r:any)=>r.id!=='core-runtime'&&!(r.id in (observation.capabilities||{})))){exact=false;limitations.push('required capability evidence incomplete');}
  const verified=exact&&!conflict?{release_id:migrationRelease.release_id,sha256:migrationRelease.sha256}:null;
