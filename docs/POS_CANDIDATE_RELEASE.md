@@ -1,3 +1,9 @@
+## Current integration status — 2026-11-02
+
+Platform PR #7 is merged into `development` at `3b85d51ceaa287d306dbc9d5f14ba83734b70ff1`; its post-merge backend parity run succeeded. The Platform feature branch was retired after verification. Hosted acceptance remains **PENDING / UNTESTED**; this source merge does not certify hosted scenarios. See [the support-v10 activation handoff](SUPPORT_V10_ACTIVATION_PREP.md) for current details. The candidate preparation notes below preserve their original date and scope.
+
+---
+
 # Support-v8 source approval and activation handoff — 30 October 2026
 
 Owner-authorized hosted acceptance rollout; independent final release acceptance is pending. The original NOT READY audit and pending frontend delta review remain historical evidence. Both PRs stay Draft/Open to development.

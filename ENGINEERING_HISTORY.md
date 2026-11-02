@@ -2702,3 +2702,20 @@ Backend reporting and release-fleet continuity tests pass 18/18, including all f
 Frontend only; no hosted operation. Normal Platform frontend publication is required for the visible UI update, separately from the already-deployed backend.
 ### Git
 Owner authorizes focused commit and normal push on the existing feature branch; PR status unchanged.
+
+## 2026-11-02 — Platform PR #7 development integration
+Branch: development
+### Purpose
+Finalize the authorized Platform release-compliance and Admin capability-evidence change while retaining hosted acceptance as an explicit pending gate.
+### Changed
+Merged PR #7 using a normal merge commit (`3b85d51ceaa287d306dbc9d5f14ba83734b70ff1`). Post-merge Backend release parity run #37 succeeded. Verified the full PR head is in development, preserved the Shop PR #5 merge and both immutable paired CI pins, then retired the Platform feature branch locally and remotely. Updated the candidate and support-v10 handoffs; the Shop runbook was updated for the current development branch.
+### Decisions
+The owner waived pending hosted acceptance only as a blocker for this development merge. Hosted acceptance remains PENDING / UNTESTED. Cloudflare skip marker on the merge commit was confirmed; no Cloudflare deployment was triggered. A pre-existing mismatch between the Pages project setting and the latest deployment's recorded production branch remains documented.
+### Validation
+Parity run #37 passed on the merge commit; paired pin ancestry and Shop PR #5 merge ancestry were verified. Documentation `git diff --check` passed before the documentation-only commits.
+### Deployment / DB impact
+No hosted database mutation, migration, Edge Function deployment, Cloudflare setting change or production deployment occurred in this task. Supabase inventory and migration metadata were read-only; dry-run no-pending status remains owner-reported.
+### Deferred / deliberately unchanged
+Independent and hosted acceptance scenarios remain pending. No Shop application code or immutable release/pin changed.
+### Git
+PR #7 merge commit `3b85d51ceaa287d306dbc9d5f14ba83734b70ff1`; Platform `development` is the final branch. Documentation-only follow-up commits carry `[CF-Pages-Skip]`.

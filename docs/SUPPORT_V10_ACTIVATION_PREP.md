@@ -1,3 +1,11 @@
+## Current integration status — 2026-11-02
+
+Platform PR #7 merged into `development` with merge commit `3b85d51ceaa287d306dbc9d5f14ba83734b70ff1`. Backend release parity workflow run #37 succeeded on that commit. The Platform feature branch was retired locally and remotely after that result. The merge commit carried `[CF-Pages-Skip]`; Cloudflare records it as skipped, so this merge did not create a deployment.
+
+Hosted acceptance remains **PENDING / UNTESTED**. The owner waived that gate only for this development merge. Read-only Supabase evidence confirms `platform-backend-inventory` ACTIVE v8 with `verify_jwt=true` and the v9/v10 approval migrations listed as applied; the owner-reported no-pending-migrations dry run was not rerun here. These checks do not establish hosted acceptance. The latest pre-merge deployment record identifies the feature branch as production while the current Pages project setting says `development`; preserve that discrepancy as unresolved. No hosted database or Cloudflare configuration was changed by this merge.
+
+---
+
 # Support-v10: inventory retirement and shared custom entry
 
 31 October 2026. Source publication and upgrade preparation only. Existing feature PRs remain Draft/Open and unmerged. No hosted SQL, customer upgrade, frontend/Edge deployment or provider change is performed by this work.
