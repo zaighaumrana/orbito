@@ -297,5 +297,44 @@
       "icon-label-preferences",
       "inventory-retirement"
     ]
+  },
+  {
+    "release_id": "support-v11",
+    "sha256": "caa5a5d5af74fd97fee263330582fe5eefc5a5a35f4b66252cf736eb018b1e5c",
+    "migrations": 43,
+    "functions": 7,
+    "approved_for_new": false,
+    "supported": false,
+    "successor": null,
+    "upgrade_policy": "optional",
+    "compatibility": {
+      "bridge": 1,
+      "billing": 1,
+      "support": 1,
+      "config": 1
+    },
+    "required_evidence": [
+      "migration-provenance",
+      "deployed-source",
+      "gateway",
+      "current-database-capabilities"
+    ],
+    "review_status": "candidate-local",
+    "backend_source_commit": "cd3e01ee5c1f05ce8c3f085933d1065f028302c0",
+    "requirements": [
+      "core-runtime",
+      "usage-outbox",
+      "billing-projection",
+      "config-journal",
+      "support-identity",
+      "support-consent",
+      "owner-bootstrap",
+      "support-durable-submissions",
+      "bounded-operational-reads",
+      "catalog-icons-and-brands",
+      "icon-label-preferences",
+      "inventory-retirement",
+      "register-shifts"
+    ]
   }
 ]
