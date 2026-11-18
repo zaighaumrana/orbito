@@ -6,7 +6,7 @@
     "functions": 6,
     "approved_for_new": false,
     "supported": true,
-    "successor": "support-v10",
+    "successor": "support-v11",
     "upgrade_policy": "optional",
     "compatibility": {
       "bridge": 1,
@@ -28,7 +28,7 @@
     "functions": 7,
     "approved_for_new": false,
     "supported": true,
-    "successor": "support-v10",
+    "successor": "support-v11",
     "upgrade_policy": "optional",
     "compatibility": {
       "bridge": 1,
@@ -50,7 +50,7 @@
     "functions": 7,
     "approved_for_new": false,
     "supported": true,
-    "successor": "support-v10",
+    "successor": "support-v11",
     "upgrade_policy": "optional",
     "compatibility": {
       "bridge": 1,
@@ -72,7 +72,7 @@
     "functions": 7,
     "approved_for_new": false,
     "supported": true,
-    "successor": "support-v10",
+    "successor": "support-v11",
     "upgrade_policy": "optional",
     "compatibility": {
       "bridge": 1,
@@ -127,7 +127,7 @@
     "functions": 7,
     "supported": true,
     "approved_for_new": false,
-    "successor": "support-v10",
+    "successor": "support-v11",
     "upgrade_policy": "optional",
     "compatibility": {
       "bridge": 1,
@@ -159,7 +159,7 @@
     "functions": 7,
     "approved_for_new": false,
     "supported": true,
-    "successor": "support-v10",
+    "successor": "support-v11",
     "upgrade_policy": "optional",
     "compatibility": {
       "bridge": 1,
@@ -194,7 +194,7 @@
     "functions": 7,
     "approved_for_new": false,
     "supported": true,
-    "successor": "support-v10",
+    "successor": "support-v11",
     "upgrade_policy": "optional",
     "compatibility": {
       "bridge": 1,
@@ -230,7 +230,7 @@
     "functions": 7,
     "approved_for_new": false,
     "supported": true,
-    "successor": "support-v10",
+    "successor": "support-v11",
     "upgrade_policy": "optional",
     "compatibility": {
       "bridge": 1,
@@ -265,9 +265,9 @@
     "sha256": "26885074b7035280985f5f33c42b395541fccbffe3fde94ed589969fd913b305",
     "migrations": 42,
     "functions": 7,
-    "approved_for_new": true,
+    "approved_for_new": false,
     "supported": true,
-    "successor": null,
+    "successor": "support-v11",
     "upgrade_policy": "optional",
     "compatibility": {
       "bridge": 1,
@@ -303,8 +303,8 @@
     "sha256": "caa5a5d5af74fd97fee263330582fe5eefc5a5a35f4b66252cf736eb018b1e5c",
     "migrations": 43,
     "functions": 7,
-    "approved_for_new": false,
-    "supported": false,
+    "approved_for_new": true,
+    "supported": true,
     "successor": null,
     "upgrade_policy": "optional",
     "compatibility": {
@@ -319,7 +319,7 @@
       "gateway",
       "current-database-capabilities"
     ],
-    "review_status": "candidate-local",
+    "review_status": "approved-shared",
     "backend_source_commit": "cd3e01ee5c1f05ce8c3f085933d1065f028302c0",
     "requirements": [
       "core-runtime",
