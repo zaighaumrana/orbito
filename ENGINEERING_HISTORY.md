@@ -2719,3 +2719,22 @@ No hosted database mutation, migration, Edge Function deployment, Cloudflare set
 Independent and hosted acceptance scenarios remain pending. No Shop application code or immutable release/pin changed.
 ### Git
 PR #7 merge commit `3b85d51ceaa287d306dbc9d5f14ba83734b70ff1`; Platform `development` is the final branch. Documentation-only follow-up commits carry `[CF-Pages-Skip]`.
+
+
+
+## 2026-11-17 — Register support-v11 local candidate
+Branch: development
+### Purpose
+Register Shop's additive register-shifts backend (commit `cd3e01e`) as a validatable Platform candidate, so it can later be promoted without weakening the release-parity gate for any existing release.
+### Changed
+Synced `supabase/functions/_shared/backend-inventory.ts` to match Shop's already-committed mirror copy (Stage 3 correctly updated only the Shop side). Added `supabase/releases/shop-release-support-v11.json` (built via Shop's `build-platform-release.mjs --support`) and a `candidate-local` entry in `approved-shop-releases.json` (`approved_for_new: false`, `supported: false`). Added one line to `scripts/release-parity.mjs`'s per-migration requirement ledger recognizing the new `register-shifts` capability for migration `20261108120000`, following the identical pattern used for every prior optional capability.
+### Decisions
+The ledger line is the one genuinely release-parity-logic change in this work; it was flagged to the owner explicitly, with the precedent shown, before being applied, since v11 cannot validate under any configuration without it. Everything else is data registration or a mirror-file sync, not a logic change.
+### Validation
+`node scripts/release-parity.mjs --candidate support-v11` passes, both as run by the owner and independently reproduced from a fresh clone of both repositories directly from GitHub at the pushed commits: `PASS local candidate parity {"review_status":"candidate-local-not-promoted","release_id":"support-v11","sha256":"caa5a5...","migrations":43,"functions":7,"requirements":13}`. The default (non-candidate) check still correctly fails on Shop `development` with "Migration source omitted from package" — expected under the owner's Option A.
+### Deployment / DB impact
+No hosted database mutation and no Edge Function deployment. `approved_for_new` and `supported` remain `false` for v11 everywhere; `active-shop-release.json` still points at `support-v10`. Promotion is a separate, not-yet-executed step; see `docs/SUPPORT_V11_ACTIVATION_PREP.md`.
+### Deferred / deliberately unchanged
+Promotion (database migration flipping `approved_for_new`, and redeploying `platform-provision`/`platform-upgrade`/`platform-backend-inventory` with an updated release registry) is prepared and verified against a disposable replica of production, but not applied. Fresh-vs-upgrade path separation remains unstarted.
+### Git
+`development` at `15952fb7f443fb58a65e61cc3386763902e22a24`, confirmed matching `origin/development` and reproduced from a fresh GitHub clone.
