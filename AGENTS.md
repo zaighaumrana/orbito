@@ -338,3 +338,18 @@ Before approving or merging any change that affects the Shop backend, the implem
 This rule applies to all future migrations, Edge Functions, security improvements, provisioning changes and backend releases.
 
 **No AI agent or developer may silently implement a shared Shop backend requirement in one provisioning approach while omitting it from the other.**
+
+### 7. Candidate Registration and Promotion — Mandatory File-Level Runbook
+
+**Priority: CRITICAL | NON-NEGOTIABLE**
+
+Registering a new backend release candidate, and promoting an already-registered one, each touch a specific, fixed set of files across **both** repositories. Discovering this set by trial and error — running the validator, fixing one failure, running it again, finding another — is exactly the failure mode this rule exists to prevent. It previously cost several rounds of a release appearing complete while GitHub Actions and the live Platform remained out of sync with each other.
+
+**Before registering or promoting any backend release, read `docs/BACKEND_RELEASE_RUNBOOK.md` in full and follow it as a literal checklist, in order.** That document is kept identical in both `Orbitoshopv2-v1` and `orbito`, specifically so an agent working in only one repo still has the complete picture.
+
+The rule in one sentence, which the runbook exists to operationalize: **there are two independent places that record which release is approved (a live database table in Platform, and a git-committed JSON file in Platform), there is a separate reference file in Shop that must point at the same release, there is a CI workflow in Shop that pins Platform to one fixed commit that must itself be advanced on every promotion, and a deployed Edge Function reflects whatever was saved to disk at deploy time — not git, and not your memory of an edit.** Updating any one of these without the others produces a state that looks correct from inside one repository and is provably wrong from the other.
+
+**A `PASS` from `node scripts/release-parity.mjs` run against Platform's current `development` branch does not mean GitHub Actions will pass.** The Shop workflow pins Platform to a named commit, not to `development`. Before reporting a promotion as complete, reproduce the exact CI invocation — fresh clones of both repositories, checked out at the exact commits GitHub Actions will actually use, including the exact pinned `ref:` value in `.github/workflows/backend-parity.yml` — per the runbook's Part C. Confirming "the default check passes" against anything less than that exact reproduction is not sufficient evidence to tell the owner a release is live and CI-green.
+
+This rule applies to every future backend migration, requirement, capability, PIN purpose, or Edge Function change that results in a new or updated release package — registration and promotion alike.
+
